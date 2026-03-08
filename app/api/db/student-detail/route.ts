@@ -1,0 +1,64 @@
+import { NextResponse } from 'next/server';
+import { getPool } from '@/lib/db';
+
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const rollNo = (searchParams.get('roll_no') || '').trim();
+
+  if (!rollNo) {
+    return NextResponse.json({ error: 'roll_no is required' }, { status: 400 });
+  }
+
+  try {
+    const pool = getPool();
+
+    // Get all records for this roll number (all papers, marks, etc.)
+    const [rows] = await pool.query(
+      `SELECT * FROM \`jecr_2ndyear\` WHERE \`roll_no\` = ? ORDER BY \`paper_name\` ASC`,
+      [rollNo]
+    );
+
+    const records = rows as Record<string, unknown>[];
+
+    if (records.length === 0) {
+      return NextResponse.json({ error: 'Student not found', student: null, papers: [] }, { status: 404 });
+    }
+
+    // Build student info from first record
+    const first = records[0];
+    const student = {
+      roll_no:      first.roll_no,
+      student_name: first.student_name,
+      father_name:  first.father_name,
+      mother_name:  first.mother_name,
+      branch:       first.branch,
+      year:         first.year,
+    };
+
+    // Build papers list
+    const papers = records.map(r => ({
+      paper_name:   r.paper_name,
+      paper_type:   r.paper_type,
+      exam_type:    r.exam_type,
+      marks_status: r.marks_status,
+    }));
+
+    // Summary
+    const summary = {
+      totalPapers: papers.length,
+      filled: papers.filter(p => {
+        const s = String(p.marks_status || '').toLowerCase();
+        return s.includes('filled') || s.includes('complete') || s.includes('submit');
+      }).length,
+      pending: papers.filter(p => {
+        const s = String(p.marks_status || '').toLowerCase();
+        return s.includes('not') || s.includes('pending');
+      }).length,
+    };
+
+    return NextResponse.json({ student, papers, summary });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Database error';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

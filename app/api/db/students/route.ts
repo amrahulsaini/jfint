@@ -27,16 +27,23 @@ export async function GET(req: Request) {
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    // Total count
+    // We show one row per unique student (by roll_no), sorted alphabetically
+    // Total unique students count
     const [countResult] = await pool.query(
-      `SELECT COUNT(*) AS total FROM \`jecr_2ndyear\` ${where}`,
+      `SELECT COUNT(DISTINCT \`roll_no\`) AS total FROM \`jecr_2ndyear\` ${where}`,
       params
     );
     const total = (countResult as { total: number }[])[0].total;
 
-    // Fetch rows
+    // Fetch unique students sorted alphabetically by name
     const [rows] = await pool.query(
-      `SELECT * FROM \`jecr_2ndyear\` ${where} ORDER BY \`sno\` ASC LIMIT ? OFFSET ?`,
+      `SELECT \`roll_no\`, \`student_name\`, \`father_name\`, \`mother_name\`, \`branch\`, \`year\`,
+              COUNT(*) AS paper_count,
+              GROUP_CONCAT(DISTINCT \`paper_name\` SEPARATOR ', ') AS papers
+       FROM \`jecr_2ndyear\` ${where}
+       GROUP BY \`roll_no\`, \`student_name\`, \`father_name\`, \`mother_name\`, \`branch\`, \`year\`
+       ORDER BY \`student_name\` ASC
+       LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );
 

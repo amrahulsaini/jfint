@@ -3,19 +3,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 
-interface Student {
-  id: number;
-  sno: number;
-  year: string;
-  branch: string;
-  paper_name: string;
-  paper_type: string;
+interface StudentRow {
   roll_no: string;
-  exam_type: string;
   student_name: string;
   father_name: string;
   mother_name: string;
-  marks_status: string;
+  branch: string;
+  year: string;
+  paper_count: number;
+  papers: string;
 }
 
 interface Stats {
@@ -26,7 +22,7 @@ interface Stats {
 }
 
 interface ApiResponse {
-  rows: Student[];
+  rows: StudentRow[];
   total: number;
   page: number;
   limit: number;
@@ -34,6 +30,30 @@ interface ApiResponse {
   branches: string[];
   stats: Stats;
   error?: string;
+}
+
+interface PaperDetail {
+  paper_name: string;
+  paper_type: string;
+  exam_type: string;
+  marks_status: string;
+}
+
+interface StudentDetail {
+  student: {
+    roll_no: string;
+    student_name: string;
+    father_name: string;
+    mother_name: string;
+    branch: string;
+    year: string;
+  };
+  papers: PaperDetail[];
+  summary: {
+    totalPapers: number;
+    filled: number;
+    pending: number;
+  };
 }
 
 export default function StudentRecords() {
@@ -44,6 +64,9 @@ export default function StudentRecords() {
   const [search, setSearch] = useState('');
   const [branch, setBranch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [detail, setDetail] = useState<StudentDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -84,6 +107,24 @@ export default function StudentRecords() {
     if (lower.includes('not') || lower.includes('pending'))
       return 'text-amber-400 bg-amber-400/10';
     return 'text-slate-300 bg-white/5';
+  };
+
+  const openDetail = async (rollNo: string) => {
+    setShowModal(true);
+    setDetailLoading(true);
+    setDetail(null);
+    try {
+      const res = await fetch(`/api/db/student-detail?roll_no=${encodeURIComponent(rollNo)}`);
+      const json = await res.json();
+      if (json.error) {
+        setDetail(null);
+      } else {
+        setDetail(json);
+      }
+    } catch {
+      setDetail(null);
+    }
+    setDetailLoading(false);
   };
 
   // Show placeholder if DB not connected yet
@@ -174,14 +215,13 @@ export default function StudentRecords() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.03]">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">S.No</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">#</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Photo</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Roll No</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Student Name</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider hidden md:table-cell">Father Name</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider hidden lg:table-cell">Branch</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider hidden lg:table-cell">Paper</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Papers</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -190,25 +230,31 @@ export default function StudentRecords() {
                   <tr key={i} className="animate-pulse">
                     <td className="px-4 py-3"><div className="h-4 bg-white/5 rounded w-8" /></td>
                     <td className="px-4 py-3"><div className="w-10 h-10 bg-white/5 rounded-full" /></td>
-                    {Array.from({ length: 6 }).map((_, j) => (
-                      <td key={j} className={`px-4 py-3 ${j === 2 ? 'hidden md:table-cell' : ''} ${j >= 3 && j <= 4 ? 'hidden lg:table-cell' : ''}`}>
-                        <div className="h-4 bg-white/5 rounded w-20" />
-                      </td>
-                    ))}
+                    <td className="px-4 py-3"><div className="h-4 bg-white/5 rounded w-24" /></td>
+                    <td className="px-4 py-3"><div className="h-4 bg-white/5 rounded w-32" /></td>
+                    <td className="px-4 py-3 hidden md:table-cell"><div className="h-4 bg-white/5 rounded w-28" /></td>
+                    <td className="px-4 py-3 hidden lg:table-cell"><div className="h-4 bg-white/5 rounded w-20" /></td>
+                    <td className="px-4 py-3"><div className="h-4 bg-white/5 rounded w-8 mx-auto" /></td>
                   </tr>
                 ))
               ) : data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-slate-500">
+                  <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
                     No records found
                   </td>
                 </tr>
               ) : (
-                data?.rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-4 py-3 text-slate-400 font-mono text-xs">{row.sno}</td>
+                data?.rows.map((row, idx) => (
+                  <tr
+                    key={row.roll_no}
+                    onClick={() => openDetail(row.roll_no)}
+                    className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
+                  >
+                    <td className="px-4 py-3 text-slate-500 font-mono text-xs">
+                      {(page - 1) * (data?.limit || 15) + idx + 1}
+                    </td>
                     <td className="px-4 py-2">
-                      <div className="w-10 h-10 rounded-full overflow-hidden bg-white/5 border border-white/10 flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-white/5 border border-white/10 flex-shrink-0 group-hover:border-blue-500/40 transition-colors">
                         <Image
                           src={`/student_photos/photo_${row.roll_no}.jpg`}
                           alt={row.student_name}
@@ -229,20 +275,17 @@ export default function StudentRecords() {
                         />
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-blue-400 font-mono text-xs font-medium">{row.roll_no}</td>
-                    <td className="px-4 py-3 text-slate-200 font-medium">{row.student_name}</td>
+                    <td className="px-4 py-3 text-blue-400 font-mono text-xs font-medium group-hover:text-blue-300">{row.roll_no}</td>
+                    <td className="px-4 py-3 text-slate-200 font-medium group-hover:text-white">{row.student_name}</td>
                     <td className="px-4 py-3 text-slate-400 hidden md:table-cell">{row.father_name}</td>
                     <td className="px-4 py-3 text-slate-400 hidden lg:table-cell">
                       <span className="inline-block bg-white/5 border border-white/10 rounded px-2 py-0.5 text-xs">
                         {row.branch}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-400 hidden lg:table-cell text-xs max-w-[200px] truncate" title={row.paper_name}>
-                      {row.paper_name}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor(row.marks_status)}`}>
-                        {row.marks_status || '—'}
+                    <td className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold">
+                        {row.paper_count}
                       </span>
                     </td>
                   </tr>
@@ -280,6 +323,144 @@ export default function StudentRecords() {
           </div>
         )}
       </div>
+
+      {/* Student Detail Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowModal(false)}
+          />
+
+          {/* Modal */}
+          <div className="relative bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/[0.02]">
+              <h3 className="text-lg font-semibold text-white">Student Details</h3>
+              <button
+                onClick={() => setShowModal(false)}
+                className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="overflow-y-auto max-h-[calc(85vh-60px)] p-6">
+              {detailLoading ? (
+                <div className="flex flex-col items-center py-12">
+                  <div className="w-10 h-10 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-4" />
+                  <span className="text-sm text-slate-400">Loading student data…</span>
+                </div>
+              ) : !detail ? (
+                <div className="text-center py-12 text-slate-500">
+                  Failed to load student details.
+                </div>
+              ) : (
+                <>
+                  {/* Student Profile */}
+                  <div className="flex items-start gap-5 mb-8">
+                    <div className="w-20 h-20 rounded-2xl overflow-hidden bg-white/5 border border-white/10 flex-shrink-0">
+                      <Image
+                        src={`/student_photos/photo_${detail.student.roll_no}.jpg`}
+                        alt={detail.student.student_name}
+                        width={80}
+                        height={80}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent && !parent.querySelector('.avatar-fallback')) {
+                            const fallback = document.createElement('div');
+                            fallback.className = 'avatar-fallback w-full h-full flex items-center justify-center text-2xl font-bold text-slate-400';
+                            fallback.textContent = (detail.student.student_name || '?').charAt(0).toUpperCase();
+                            parent.appendChild(fallback);
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xl font-bold text-white">{detail.student.student_name}</h4>
+                      <p className="text-blue-400 font-mono text-sm mt-0.5">{detail.student.roll_no}</p>
+                      <div className="flex flex-wrap gap-x-6 gap-y-1 mt-3 text-sm">
+                        <div>
+                          <span className="text-slate-500">Father:</span>{' '}
+                          <span className="text-slate-300">{detail.student.father_name}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">Mother:</span>{' '}
+                          <span className="text-slate-300">{detail.student.mother_name}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-x-6 gap-y-1 mt-1 text-sm">
+                        <div>
+                          <span className="text-slate-500">Branch:</span>{' '}
+                          <span className="text-slate-300">{detail.student.branch}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">Year:</span>{' '}
+                          <span className="text-slate-300">{detail.student.year}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Summary Pills */}
+                  <div className="flex gap-3 mb-6">
+                    <div className="flex-1 bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-center">
+                      <div className="text-xl font-bold text-white">{detail.summary.totalPapers}</div>
+                      <div className="text-xs text-slate-500">Total Papers</div>
+                    </div>
+                    <div className="flex-1 bg-green-500/5 border border-green-500/20 rounded-xl px-4 py-3 text-center">
+                      <div className="text-xl font-bold text-green-400">{detail.summary.filled}</div>
+                      <div className="text-xs text-green-500/70">Marks Filled</div>
+                    </div>
+                    <div className="flex-1 bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3 text-center">
+                      <div className="text-xl font-bold text-amber-400">{detail.summary.pending}</div>
+                      <div className="text-xs text-amber-500/70">Pending</div>
+                    </div>
+                  </div>
+
+                  {/* Papers Table */}
+                  <div className="bg-white/[0.02] border border-white/10 rounded-xl overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-white/10 bg-white/[0.03]">
+                          <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">#</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Paper Name</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider hidden sm:table-cell">Type</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider hidden sm:table-cell">Exam</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {detail.papers.map((p, i) => (
+                          <tr key={i} className="hover:bg-white/[0.02]">
+                            <td className="px-4 py-2.5 text-slate-500 font-mono text-xs">{i + 1}</td>
+                            <td className="px-4 py-2.5 text-slate-200 text-xs">{p.paper_name}</td>
+                            <td className="px-4 py-2.5 text-slate-400 text-xs hidden sm:table-cell">
+                              <span className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5">
+                                {p.paper_type}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-slate-400 text-xs hidden sm:table-cell">{p.exam_type}</td>
+                            <td className="px-4 py-2.5">
+                              <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor(p.marks_status)}`}>
+                                {p.marks_status || '—'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
