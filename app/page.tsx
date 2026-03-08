@@ -283,29 +283,32 @@ export default function Home() {
           </div>
 
           {/* Affiliation Disclaimer */}
-          <div className="bg-white border border-neutral-200 rounded-2xl p-5 sm:p-6 shadow-sm">
-            <div className="flex items-start gap-3 mb-3">
-              <div className="w-8 h-8 rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <svg className="w-4 h-4 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+          <div className="bg-red-50 border-2 border-red-400 rounded-2xl p-5 sm:p-7 shadow-md shadow-red-500/10">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-100 border border-red-300 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                 </svg>
               </div>
               <div>
-                <div className="text-[10px] font-black uppercase tracking-[0.15em] text-neutral-400 mb-0.5">Disclaimer</div>
-                <h3 className="text-sm font-extrabold text-neutral-800">No Affiliation Notice</h3>
+                <div className="text-[11px] font-black uppercase tracking-[0.15em] text-red-500 mb-0.5">Important Disclaimer</div>
+                <h3 className="text-lg font-black text-red-700">No Affiliation Notice</h3>
               </div>
             </div>
-            <p className="text-sm text-neutral-600 leading-relaxed font-medium">
-              This website is <span className="font-black text-neutral-900">not affiliated with JECRC Foundation</span> or any associated institution in any manner.
-              It is an independent project developed solely for skill practice and enhancement in web technologies.
+            <p className="text-base text-red-800 leading-relaxed font-semibold mb-3">
+              This website is{" "}
+              <span className="font-black text-red-900 underline underline-offset-2">not affiliated with JECRC Foundation</span>{" "}
+              or any associated institution in any manner. It is an independent project developed solely for skill practice and enhancement in web technologies.
+            </p>
+            <p className="text-base text-red-800 leading-relaxed font-semibold mb-4">
               The portal is built to give students{" "}
-              <span className="font-black text-neutral-900">early and convenient access to information</span>{" "}
+              <span className="font-black text-red-900">early and convenient access to information</span>{" "}
               beyond what universities typically provide.
             </p>
-            <p className="text-sm text-neutral-600 leading-relaxed font-medium mt-2">
-              If you face any issues, kindly drop a mail to{" "}
-              <a href="mailto:jecrc@jecrcfoundation.live" className="text-orange-500 font-extrabold hover:text-orange-600 transition-colors">jecrc@jecrcfoundation.live</a>
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-4 border-t border-red-200">
+              <span className="text-sm font-bold text-red-700">If you face any issues, kindly contact:</span>
+              <a href="mailto:jecrc@jecrcfoundation.live" className="inline-flex items-center gap-1.5 text-sm font-extrabold text-red-600 hover:text-red-700 transition-colors underline underline-offset-2">jecrc@jecrcfoundation.live</a>
+            </div>
           </div>
         </div>
       </section>
