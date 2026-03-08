@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
@@ -14,6 +14,12 @@ export const metadata: Metadata = {
   description: "Browse student marks entry status for JECRC Foundation, Jaipur — search, filter by branch, and view paper-wise details.",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -22,7 +28,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${jakarta.variable} antialiased font-sans`}
+        className={`${jakarta.variable} antialiased font-sans overflow-x-hidden`}
       >
         {children}
       </body>

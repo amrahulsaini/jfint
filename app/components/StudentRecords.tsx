@@ -57,9 +57,9 @@ interface StudentDetail {
 const statusPill = (s: string) => {
   const l = s?.toLowerCase() || '';
   if (l.includes('filled') || l.includes('complete') || l.includes('submit'))
-    return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
+    return 'text-emerald-700 bg-emerald-50 border-emerald-200';
   if (l.includes('not') || l.includes('pending'))
-    return 'text-orange-400 bg-orange-500/10 border-orange-500/30';
+    return 'text-orange-700 bg-orange-50 border-orange-200';
   return 'text-neutral-500 bg-neutral-100 border-neutral-200';
 };
 
@@ -223,14 +223,14 @@ export default function StudentRecords({
 
       // ── Disclaimer ──────────────────────────────────────────
       doc.setFillColor(255, 251, 235);
-      doc.roundedRect(margin, y, W - margin * 2, 18, 2, 2, 'F');
+      doc.roundedRect(margin, y, W - margin * 2, 26, 2, 2, 'F');
       doc.setDrawColor(253, 230, 138);
       doc.setLineWidth(0.3);
-      doc.roundedRect(margin, y, W - margin * 2, 18, 2, 2, 'S');
+      doc.roundedRect(margin, y, W - margin * 2, 26, 2, 2, 'S');
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7);
       doc.setTextColor(180, 83, 9);
-      doc.text('⚠  MARKS SCHEME', margin + 4, y + 4.5);
+      doc.text('⚠  MARKS SCHEME', margin + 4, y + 5);
       const disc = [
         '● Mid Term marks are out of 30',
         '● Practical marks are out of 40',
@@ -240,9 +240,13 @@ export default function StudentRecords({
       doc.setFontSize(7.5);
       doc.setTextColor(146, 64, 14);
       disc.forEach((line, i) => {
-        doc.text(line, margin + 4 + i * 62, y + 10);
+        doc.text(line, margin + 4 + i * 62, y + 12);
       });
-      y += 24;
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7);
+      doc.setTextColor(180, 83, 9);
+      doc.text('* Practical marks greater than 60 are out of 100', margin + 4, y + 21);
+      y += 32;
 
       // ── Papers table ─────────────────────────────────────────
       autoTable(doc, {
@@ -268,11 +272,20 @@ export default function StudentRecords({
         },
       });
 
-      // ── Footer ───────────────────────────────────────────────
-      const pCount = (doc.internal as { getNumberOfPages: () => number }).getNumberOfPages();
+      // ── Footer + Watermark ────────────────────────────────────
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pCount: number = (doc as any).getNumberOfPages?.() || 1;
       for (let pg = 1; pg <= pCount; pg++) {
         doc.setPage(pg);
         const pageH = doc.internal.pageSize.getHeight();
+
+        // Diagonal watermark centered on the page
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(22);
+        doc.setTextColor(220, 220, 220);
+        doc.text('www.jecrcfoundation.live', W / 2, pageH / 2, { align: 'center', angle: 45 });
+
+        // Footer line & text
         doc.setDrawColor(229, 231, 235);
         doc.setLineWidth(0.3);
         doc.line(margin, pageH - 10, W - margin, pageH - 10);
@@ -390,7 +403,7 @@ export default function StudentRecords({
             <select
               value={branch}
               onChange={e => { setBranch(e.target.value); setPage(1); }}
-              className="appearance-none bg-white border border-neutral-200 rounded-xl pl-4 pr-9 py-2.5 text-sm font-bold text-neutral-700 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10 transition-all duration-200 cursor-pointer min-w-[160px]"
+              className="appearance-none bg-white border border-neutral-200 rounded-xl pl-4 pr-9 py-2.5 text-sm font-bold text-neutral-700 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10 transition-all duration-200 cursor-pointer w-full sm:min-w-[160px]"
             >
               <option value="" className="bg-white text-neutral-900">All Branches</option>
               {data?.branches.map(b => <option key={b} value={b} className="bg-white text-neutral-900">{b}</option>)}
@@ -522,11 +535,11 @@ export default function StudentRecords({
 
       {/* ─── Pagination ──────────────────────────────────── */}
       {data && data.totalPages > 1 && (
-        <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="mt-8 flex flex-col items-center gap-3">
           <span className="text-sm text-neutral-400 font-bold">
             Showing <span className="font-black text-neutral-700">{((page - 1) * data.limit) + 1}–{Math.min(page * data.limit, data.total)}</span> of <span className="font-black text-neutral-700">{data.total.toLocaleString()}</span>
           </span>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
             {/* First */}
             <button
               onClick={() => setPage(1)}
@@ -586,13 +599,13 @@ export default function StudentRecords({
 
       {/* ─── Detail Modal ─────────────────────────────── */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)} />
 
-          <div className="relative bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl shadow-black/20 border border-neutral-200">
+          <div className="relative bg-white rounded-2xl sm:rounded-3xl w-full max-w-2xl max-h-[92vh] sm:max-h-[90vh] overflow-hidden shadow-2xl shadow-black/20 border border-neutral-200">
 
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-orange-50 to-white">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100 bg-gradient-to-r from-orange-50 to-white">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center font-black text-sm text-white shadow-md shadow-orange-500/30">
                   J
@@ -607,22 +620,22 @@ export default function StudentRecords({
                   <button
                     onClick={exportStudentPDF}
                     disabled={exportGenerating}
-                    className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-400 active:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-extrabold px-3.5 py-2 rounded-xl shadow-md shadow-orange-500/30 hover:shadow-orange-500/50 transition-all duration-200 hover:-translate-y-0.5 min-w-[110px] justify-center"
+                    className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-400 active:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-extrabold px-2.5 sm:px-3.5 py-2 rounded-xl shadow-md shadow-orange-500/30 hover:shadow-orange-500/50 transition-all duration-200 hover:-translate-y-0.5 min-w-[36px] sm:min-w-[110px] justify-center"
                   >
                     {exportGenerating ? (
                       <>
-                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
                         </svg>
-                        Generating…
+                        <span className="hidden sm:inline">Generating…</span>
                       </>
                     ) : (
                       <>
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                         </svg>
-                        Export PDF
+                        <span className="hidden sm:inline">Export PDF</span>
                       </>
                     )}
                   </button>
@@ -637,7 +650,7 @@ export default function StudentRecords({
               </div>
             </div>
 
-            <div className="overflow-y-auto max-h-[calc(90vh-65px)]">
+            <div className="overflow-y-auto max-h-[calc(92vh-60px)] sm:max-h-[calc(90vh-65px)]">
               {detailLoading ? (
                 <div className="flex flex-col items-center py-16">
                   <div className="w-10 h-10 border-[3px] border-orange-200 border-t-orange-500 rounded-full animate-spin mb-4" />
@@ -649,8 +662,8 @@ export default function StudentRecords({
                 <div className="p-5 space-y-4">
 
                   {/* Profile card */}
-                  <div className="bg-gradient-to-br from-orange-50 to-amber-50/50 border border-orange-100 rounded-2xl p-5">
-                    <div className="flex items-start gap-4">
+                  <div className="bg-gradient-to-br from-orange-50 to-amber-50/50 border border-orange-100 rounded-2xl p-4 sm:p-5">
+                    <div className="flex items-start gap-3 sm:gap-4">
                       <div className="w-20 h-20 rounded-2xl overflow-hidden bg-orange-100 border-2 border-orange-200 flex-shrink-0 shadow-md">
                         <Image
                           src={`/${photoDir}/photo_${detail.student.roll_no}.jpg`}
@@ -671,9 +684,9 @@ export default function StudentRecords({
                         />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-xl font-extrabold text-neutral-900 leading-tight">{detail.student.student_name}</h4>
-                        <p className="text-orange-500 font-mono text-sm font-bold mt-0.5 tracking-wide">{detail.student.roll_no}</p>
-                        <div className="grid grid-cols-2 gap-x-5 gap-y-3 mt-4">
+                        <h4 className="text-base sm:text-xl font-extrabold text-neutral-900 leading-tight">{detail.student.student_name}</h4>
+                        <p className="text-orange-500 font-mono text-xs sm:text-sm font-bold mt-0.5 tracking-wide">{detail.student.roll_no}</p>
+                        <div className="grid grid-cols-2 gap-x-3 sm:gap-x-5 gap-y-2 sm:gap-y-3 mt-3 sm:mt-4">
                           {[
                             { l: 'Father', v: detail.student.father_name },
                             { l: 'Mother', v: detail.student.mother_name },
@@ -691,18 +704,18 @@ export default function StudentRecords({
                   </div>
 
                   {/* Summary */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3.5 text-center">
-                      <div className="text-3xl font-extrabold text-neutral-900">{detail.summary.totalPapers}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mt-1">Total Papers</div>
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <div className="bg-neutral-50 border border-neutral-200 rounded-xl sm:rounded-2xl px-2 sm:px-4 py-3 sm:py-3.5 text-center">
+                      <div className="text-2xl sm:text-3xl font-extrabold text-neutral-900">{detail.summary.totalPapers}</div>
+                      <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-neutral-400 mt-1">Total Papers</div>
                     </div>
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3.5 text-center">
-                      <div className="text-3xl font-extrabold text-emerald-600">{detail.summary.filled}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-500 mt-1">Marks Filled</div>
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl sm:rounded-2xl px-2 sm:px-4 py-3 sm:py-3.5 text-center">
+                      <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600">{detail.summary.filled}</div>
+                      <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-emerald-500 mt-1">Marks Filled</div>
                     </div>
-                    <div className="bg-orange-50 border border-orange-200 rounded-2xl px-4 py-3.5 text-center">
-                      <div className="text-3xl font-extrabold text-orange-600">{detail.summary.pending}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-orange-400 mt-1">Pending</div>
+                    <div className="bg-orange-50 border border-orange-200 rounded-xl sm:rounded-2xl px-2 sm:px-4 py-3 sm:py-3.5 text-center">
+                      <div className="text-2xl sm:text-3xl font-extrabold text-orange-600">{detail.summary.pending}</div>
+                      <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-orange-400 mt-1">Pending</div>
                     </div>
                   </div>
 
@@ -722,22 +735,26 @@ export default function StudentRecords({
                       ].map(item => (
                         <li key={item.label} className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                            <span className="text-sm font-semibold text-amber-800">{item.label} are out of</span>
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+                            <span className="text-xs sm:text-sm font-semibold text-amber-800">{item.label} are out of</span>
                           </div>
-                          <span className={`${item.color} ${item.bg} text-sm font-extrabold px-2.5 py-0.5 rounded-lg`}>{item.max}</span>
+                          <span className={`${item.color} ${item.bg} text-xs sm:text-sm font-extrabold px-2.5 py-0.5 rounded-lg flex-shrink-0`}>{item.max}</span>
                         </li>
                       ))}
                     </ul>
+                    <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 font-semibold">
+                      <span className="flex-shrink-0 mt-0.5">*</span>
+                      <span>Practical marks greater than 60 are out of 100</span>
+                    </p>
                   </div>
 
                   {/* Papers table */}
-                  <div className="border border-neutral-200 rounded-2xl overflow-hidden">
+                  <div className="border border-neutral-200 rounded-2xl overflow-x-auto">
                     <div className="px-5 py-3 border-b border-neutral-100 bg-gradient-to-r from-neutral-50 to-white flex items-center justify-between">
                       <h5 className="text-xs font-extrabold text-neutral-500 uppercase tracking-widest">Paper-wise Marks Status</h5>
                       <span className="text-xs font-bold text-neutral-400">{detail.papers.length} papers</span>
                     </div>
-                    <table className="w-full text-sm">
+                    <table className="w-full text-sm min-w-[420px]">
                       <thead>
                         <tr className="bg-neutral-50 border-b border-neutral-200">
                           <th className="px-4 py-2.5 text-left text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest w-8">#</th>
