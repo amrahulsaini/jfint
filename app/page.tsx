@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import StudentRecords from "./components/StudentRecords";
 
 type View = '1styear' | '2ndyear' | null;
@@ -10,11 +10,78 @@ const VIEWS = {
   '2ndyear': { table: 'jecr_2ndyear', photoDir: 'student_photos', sem: '3rd Sem', year: '2nd Year' },
 };
 
+const BANNERS = [
+  {
+    icon: '⚠️',
+    text: 'All marks displayed are based on facts and are accurate. Do not dig up finding whether they are correct or not — please mind it!',
+    bg: 'bg-amber-500',
+    border: 'border-amber-600',
+  },
+  {
+    icon: '🔒',
+    text: 'This website will soon be made secured. Access will be available only through authorised purchase authentication.',
+    bg: 'bg-neutral-900',
+    border: 'border-neutral-700',
+  },
+];
+
 export default function Home() {
   const [view, setView] = useState<View>(null);
+  const [bannerIdx, setBannerIdx] = useState(0);
+  const [bannerVisible, setBannerVisible] = useState(true);
+  const [fade, setFade] = useState(true);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setBannerIdx(i => (i + 1) % BANNERS.length);
+        setFade(true);
+      }, 400);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const banner = BANNERS[bannerIdx];
 
   return (
     <div className="min-h-screen bg-white text-neutral-900">
+
+      {/* ── Announcement Banner ── */}
+      {bannerVisible && (
+        <div className={`relative ${banner.bg} border-b ${banner.border} transition-all duration-300`}>
+          <div
+            className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4"
+            style={{ opacity: fade ? 1 : 0, transition: 'opacity 0.4s ease' }}
+          >
+            <div className="flex items-center gap-2.5 flex-1 min-w-0">
+              <span className="text-base flex-shrink-0">{banner.icon}</span>
+              <p className="text-white text-xs font-semibold leading-snug truncate sm:whitespace-normal sm:overflow-visible">
+                {banner.text}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 flex-shrink-0">
+              {/* Dot indicators */}
+              <div className="hidden sm:flex items-center gap-1">
+                {BANNERS.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { setFade(false); setTimeout(() => { setBannerIdx(i); setFade(true); }, 200); }}
+                    className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${i === bannerIdx ? 'bg-white scale-125' : 'bg-white/40 hover:bg-white/70'}`}
+                  />
+                ))}
+              </div>
+              <button
+                onClick={() => setBannerVisible(false)}
+                className="w-6 h-6 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/25 text-white/70 hover:text-white transition-all duration-200 text-sm font-bold flex-shrink-0"
+                aria-label="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Navbar ── */}
       <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur-2xl border-b border-neutral-200">
