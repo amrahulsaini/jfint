@@ -71,15 +71,24 @@ function field(text: string, re: RegExp): string {
   return m ? m[1].replace(/\s+/g, ' ').trim() : '';
 }
 
+/** Strip Hindi / non-ASCII text: keep only up to first '(' or non-Latin char */
+function englishOnly(s: string): string {
+  // remove anything from '(' onward  e.g. "AJAY YADAV (अजय yadav)" → "AJAY YADAV"
+  let cleaned = s.replace(/\s*\(.*$/, '').trim();
+  // also strip any remaining non-ASCII characters (Devanagari etc.)
+  cleaned = cleaned.replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, ' ').trim();
+  return cleaned;
+}
+
 /** Parse admission card text → structured fields */
 function parseAdmissionCard(text: string) {
   const t = text.replace(/\s+/g, ' ');
   return {
     rollNo: field(t, /Roll\s*Number\s*:?\s*(\S+)/i),
     enrollmentNo: field(t, /Enrollment\s*Number\s*:?\s*(\S+)/i),
-    name: field(t, /Name\s*Of\s*Candidate\s*:?\s*(.+?)(?=Father)/i),
-    fatherName: field(t, /Father'?s?\s*Name\s*:?\s*(.+?)(?=Mother)/i),
-    motherName: field(t, /Mother'?s?\s*Name\s*:?\s*(.+?)(?=Course)/i),
+    name: englishOnly(field(t, /Name\s*Of\s*Candidate\s*:?\s*(.+?)(?=Father)/i)),
+    fatherName: englishOnly(field(t, /Father'?s?\s*Name\s*:?\s*(.+?)(?=Mother)/i)),
+    motherName: englishOnly(field(t, /Mother'?s?\s*Name\s*:?\s*(.+?)(?=Course)/i)),
     branch: field(t, /Branch\/?Specialization\s*:?\s*(.+?)(?=Centre|College|Center|$)/i),
     exam: field(t, /Name\s*Of\s*Examination\s*:?\s*(.+?)(?=Enrollment|$)/i),
   };
@@ -119,84 +128,46 @@ export async function POST(req: NextRequest) {
         const totalPages: number = textResult.total;
         send('init', { totalPages });
 
-        /* ─── 3. get all images (with base64 dataUrls) ─── */
-        const imgResult = await parser.getImage({ imageDataUrl: true, imageBuffer: false, imageThreshold: 20 });
-
-        /* ─── 4. extract raw JPEGs for fallback ─── */
+        /* ─── 3. extract student photos from raw JPEG streams ─── */
+        // Scan the PDF binary for embedded JPEG images
         const rawJpegs = extractJPEGs(buffer);
         const meaningful = rawJpegs.filter((j) => {
           const dims = jpegDimensions(j);
-          return j.length > 2000 && dims && dims.w > 40 && dims.h > 40;
+          return j.length > 800 && dims && dims.w > 20 && dims.h > 20;
         });
-        // remove the logo (most repeated identical image)
+        // remove logos: any image that appears more than once is a logo
         const afterLogo = removeLogo(meaningful);
-        // among remaining, keep only the ones that look like photos:
-        // photos have high file-size-per-pixel (complex color data)
-        // signatures have low file-size-per-pixel (simple B&W strokes)
-        const studentPhotos = afterLogo.filter((j) => {
-          const dims = jpegDimensions(j);
-          if (!dims) return false;
-          const bytesPerPixel = j.length / (dims.w * dims.h);
-          // photos typically > 0.15 bytes/pixel, signatures < 0.08
-          return bytesPerPixel > 0.10 && dims.h >= dims.w * 0.8;
-        });
 
-        /* ─── 5. build photo lookup: prefer pdf-parse images, fallback to raw jpegs ─── */
-        // Step A: detect logo by finding image dims that appear on many pages
-        const dimPageCount = new Map<string, number>();
-        for (const pg of imgResult.pages) {
-          const seenDims = new Set<string>();
-          for (const img of pg.images) {
-            const dk = `${img.width}x${img.height}`;
-            if (!seenDims.has(dk)) { seenDims.add(dk); dimPageCount.set(dk, (dimPageCount.get(dk) || 0) + 1); }
-          }
-        }
-        // logo dims: appears on > 50% of pages
-        const logoDims = new Set<string>();
-        for (const [dk, cnt] of dimPageCount) {
-          if (cnt > totalPages * 0.5 && cnt > 1) logoDims.add(dk);
+        // Each admission card page has ~2 images after logo removal: photo + signature
+        // Photo is ALWAYS bigger in byte size than signature (color photo vs B&W strokes)
+        // Group images by page: we know totalPages, so split into groups
+        const imgsPerPage = Math.max(1, Math.round(afterLogo.length / totalPages));
+        const pagePhotoMap: Map<number, string> = new Map();
+
+        for (let i = 0; i < totalPages; i++) {
+          const start = i * imgsPerPage;
+          const end = Math.min(start + imgsPerPage, afterLogo.length);
+          const pageImgs = afterLogo.slice(start, end);
+          if (pageImgs.length === 0) continue;
+          // pick the one with most bytes = the actual photo (not signature)
+          const photo = pageImgs.reduce((best, cur) => cur.length > best.length ? cur : best);
+          pagePhotoMap.set(i + 1, `data:image/jpeg;base64,${photo.toString('base64')}`);
         }
 
-        const pagePhotos: Map<number, string> = new Map();
-        for (const pg of imgResult.pages) {
-          if (pg.images.length === 0) continue;
-          // filter out tiny images & logo images
-          const candidates = pg.images.filter(
-            (img: { width: number; height: number; dataUrl: string }) =>
-              img.width > 30 && img.height > 30 && img.dataUrl &&
-              !logoDims.has(`${img.width}x${img.height}`)
-          );
-          if (candidates.length === 0) continue;
-
-          // pick the image with the MOST data (largest dataUrl) = most complex = photo
-          // signatures are simple B&W and compress to small data; photos are color-rich
-          const best = candidates.sort(
-            (a: { dataUrl: string }, b: { dataUrl: string }) =>
-              b.dataUrl.length - a.dataUrl.length
-          )[0];
-          if (best) pagePhotos.set(pg.pageNumber, best.dataUrl);
-        }
-
-        /* ─── 6. process page by page & stream ─── */
+        /* ─── 4. process page by page & stream ─── */
         for (let i = 0; i < totalPages; i++) {
           const pageNum = i + 1;
           const pageText = textResult.pages.find((p: { num: number }) => p.num === pageNum)?.text || '';
           const parsed = parseAdmissionCard(pageText);
 
-          // photo: first try pdf-parse per-page image, then fallback to raw jpeg by index
-          let photoBase64 = pagePhotos.get(pageNum) || null;
-          if (!photoBase64 && studentPhotos[i]) {
-            photoBase64 = `data:image/jpeg;base64,${studentPhotos[i].toString('base64')}`;
-          }
-
-          const dims = studentPhotos[i] ? jpegDimensions(studentPhotos[i]) : null;
+          const photoBase64 = pagePhotoMap.get(pageNum) || null;
 
           send('page', {
             pageNum,
             ...parsed,
             photoBase64,
-            photoWidth: dims?.w || 0,
-            photoHeight: dims?.h || 0,
+            photoWidth: 0,
+            photoHeight: 0,
           });
         }
 
@@ -205,7 +176,7 @@ export async function POST(req: NextRequest) {
         send('done', {
           totalPages,
           totalPhotosFound: rawJpegs.length,
-          totalStudentPhotos: studentPhotos.length,
+          totalStudentPhotos: pagePhotoMap.size,
         });
       } catch (err: unknown) {
         send('error', { error: err instanceof Error ? err.message : 'Failed to process PDF' });
