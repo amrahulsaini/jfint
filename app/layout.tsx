@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RTU — Track Marks Entry",
-  description: "Rajasthan Technical University — Track Theory, Practical & Sessional Marks Entry",
+  title: "JECRC Foundation — Admin Tools",
+  description: "Internal administration tools for JECRC Foundation — RTU marks entry tracking, exports & analytics.",
 };
 
 export default function RootLayout({
