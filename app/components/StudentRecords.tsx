@@ -81,6 +81,7 @@ export default function StudentRecords({
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [exportGenerating, setExportGenerating] = useState(false);
   const LIMIT = 20;
 
   const fetchData = useCallback(async () => {
@@ -107,76 +108,188 @@ export default function StudentRecords({
 
   const handleSearch = (e: React.FormEvent) => { e.preventDefault(); setPage(1); setSearch(searchInput); };
 
-  const exportStudentPDF = () => {
-    if (!detail) return;
-    const photoUrl = `${window.location.origin}/${photoDir}/photo_${detail.student.roll_no}.jpg`;
-    const htmlContent = `<!DOCTYPE html><html><head>
-<title>${detail.student.student_name} — JECRC Marks Report</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Plus Jakarta Sans',sans-serif;color:#111;background:#fff;padding:40px;max-width:800px;margin:0 auto}
-.header{display:flex;align-items:center;gap:16px;margin-bottom:28px;padding-bottom:20px;border-bottom:3px solid #f97316}
-.logo{width:48px;height:48px;background:linear-gradient(135deg,#fb923c,#ea580c);border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:800;flex-shrink:0}
-.hdr-text .sub{font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:2px;font-weight:700}
-.hdr-text .main{font-size:18px;font-weight:800;color:#111}
-.profile{display:flex;gap:20px;margin-bottom:24px;background:#fff7ed;border:2px solid #fed7aa;border-radius:16px;padding:20px}
-.photo{width:88px;height:88px;border-radius:12px;overflow:hidden;border:3px solid #f97316;flex-shrink:0;object-fit:cover}
-.photo-init{width:88px;height:88px;border-radius:12px;background:#fed7aa;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;color:#f97316;flex-shrink:0}
-.pname{font-size:20px;font-weight:800;color:#111;margin-bottom:4px}
-.proll{font-family:monospace;font-size:14px;font-weight:800;color:#f97316;margin-bottom:14px}
-.igrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.il label{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#9ca3af;font-weight:700;display:block;margin-bottom:2px}
-.il .v{font-size:13px;font-weight:700;color:#111}
-.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
-.sc{border-radius:12px;padding:14px;text-align:center}
-.sc .n{font-size:26px;font-weight:800}
-.sc .l{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-top:3px}
-.s0{background:#f9fafb;border:1px solid #e5e7eb}.s0 .n{color:#111}.s0 .l{color:#6b7280}
-.s1{background:#f0fdf4;border:1px solid #bbf7d0}.s1 .n{color:#16a34a}.s1 .l{color:#16a34a}
-.s2{background:#fff7ed;border:1px solid #fed7aa}.s2 .n{color:#f97316}.s2 .l{color:#f97316}
-.disc{background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px;padding:14px 18px;margin-bottom:20px}
-.disc h4{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#b45309;margin-bottom:8px}
-.disc li{font-size:12px;color:#92400e;font-weight:600;padding:3px 0;list-style:none;display:flex;align-items:center;gap:8px}
-.disc li:before{content:'●';color:#f59e0b;font-size:7px}
-table{width:100%;border-collapse:collapse;font-size:12px}
-thead th{background:#f97316;color:#fff;font-weight:800;font-size:9px;text-transform:uppercase;letter-spacing:1.5px;padding:10px 12px;text-align:left}
-tbody tr:nth-child(even){background:#fafafa}
-tbody td{padding:9px 12px;color:#374151;border-bottom:1px solid #f3f4f6;font-weight:600}
-.sf{color:#16a34a;background:#f0fdf4;border:1px solid #bbf7d0;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;display:inline-block}
-.sp{color:#f97316;background:#fff7ed;border:1px solid #fed7aa;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;display:inline-block}
-.sd{color:#6b7280;background:#f3f4f6;border:1px solid #e5e7eb;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;display:inline-block}
-.footer{margin-top:28px;text-align:center;font-size:10px;color:#d1d5db;padding-top:14px;border-top:1px solid #f3f4f6}
-@media print{body{padding:20px}button{display:none}}
-</style></head><body>
-<div class="header"><div class="logo">J</div><div class="hdr-text"><div class="sub">JECRC Foundation</div><div class="main">Internal Marks Report</div></div></div>
-<div class="profile">
-<img class="photo" src="${photoUrl}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
-<div class="photo-init" style="display:none">${(detail.student.student_name||'?').charAt(0).toUpperCase()}</div>
-<div style="flex:1"><div class="pname">${detail.student.student_name}</div><div class="proll">${detail.student.roll_no}</div>
-<div class="igrid">
-<div class="il"><label>Father</label><div class="v">${detail.student.father_name}</div></div>
-<div class="il"><label>Mother</label><div class="v">${detail.student.mother_name}</div></div>
-<div class="il"><label>Branch</label><div class="v">${detail.student.branch}</div></div>
-<div class="il"><label>Year</label><div class="v">${detail.student.year}</div></div>
-</div></div></div>
-<div class="summary">
-<div class="sc s0"><div class="n">${detail.summary.totalPapers}</div><div class="l">Total Papers</div></div>
-<div class="sc s1"><div class="n">${detail.summary.filled}</div><div class="l">Marks Filled</div></div>
-<div class="sc s2"><div class="n">${detail.summary.pending}</div><div class="l">Pending</div></div>
-</div>
-<div class="disc"><h4>⚠ Marks Scheme</h4><ul>
-<li>Mid Term marks are out of <strong>30</strong></li>
-<li>Practical marks are out of <strong>40</strong></li>
-<li>Sessional marks are out of <strong>60</strong></li>
-</ul></div>
-<table><thead><tr><th>#</th><th>Paper Name</th><th>Type</th><th>Exam</th><th>Marks Status</th></tr></thead><tbody>
-${detail.papers.map((p,i)=>{const l=(p.marks_status||'').toLowerCase();const cls=l.includes('filled')||l.includes('complete')||l.includes('submit')?'sf':l.includes('not')||l.includes('pending')?'sp':'sd';return `<tr><td>${i+1}</td><td>${p.paper_name}</td><td>${p.paper_type}</td><td>${p.exam_type}</td><td><span class="${cls}">${p.marks_status||'—'}</span></td></tr>`;}).join('')}
-</tbody></table>
-<div class="footer">Generated on ${new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'})} &nbsp;|&nbsp; JECRC Foundation, Jaipur &nbsp;|&nbsp; Computer-generated report</div>
-</body></html>`;
-    const w = window.open('', '_blank', 'width=860,height=960');
-    if (w) { w.document.write(htmlContent); w.document.close(); w.focus(); setTimeout(() => w.print(), 600); }
+  const exportStudentPDF = async () => {
+    if (!detail || exportGenerating) return;
+    setExportGenerating(true);
+    try {
+      // Dynamically import jsPDF + autotable (client-only)
+      const { jsPDF } = await import('jspdf');
+      const autoTable = (await import('jspdf-autotable')).default;
+
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      const W = doc.internal.pageSize.getWidth();
+      const margin = 14;
+      let y = 14;
+
+      // ── Header bar ──────────────────────────────────────────
+      doc.setFillColor(249, 115, 22); // orange-500
+      doc.roundedRect(margin, y, W - margin * 2, 16, 3, 3, 'F');
+      doc.setFontSize(7);
+      doc.setTextColor(255, 237, 213);
+      doc.setFont('helvetica', 'bold');
+      doc.text('JECRC FOUNDATION', margin + 4, y + 5.5);
+      doc.setFontSize(11);
+      doc.setTextColor(255, 255, 255);
+      doc.text('Internal Marks Report', margin + 4, y + 12);
+      const dateStr = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+      doc.setFontSize(7);
+      doc.setTextColor(255, 237, 213);
+      doc.text(dateStr, W - margin - 4, y + 12, { align: 'right' });
+      y += 22;
+
+      // ── Photo ───────────────────────────────────────────────
+      const photoUrl = `/${photoDir}/photo_${detail.student.roll_no}.jpg`;
+      let photoLoaded = false;
+      try {
+        const resp = await fetch(photoUrl);
+        if (resp.ok) {
+          const blob = await resp.blob();
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+          doc.addImage(dataUrl, 'JPEG', margin, y, 28, 33, undefined, 'FAST');
+          // Orange border around photo
+          doc.setDrawColor(249, 115, 22);
+          doc.setLineWidth(0.5);
+          doc.roundedRect(margin, y, 28, 33, 2, 2, 'S');
+          photoLoaded = true;
+        }
+      } catch { /* no photo */ }
+
+      if (!photoLoaded) {
+        doc.setFillColor(255, 237, 213);
+        doc.roundedRect(margin, y, 28, 33, 2, 2, 'F');
+        doc.setFontSize(18);
+        doc.setTextColor(249, 115, 22);
+        doc.setFont('helvetica', 'bold');
+        doc.text((detail.student.student_name || '?').charAt(0).toUpperCase(), margin + 14, y + 19, { align: 'center' });
+      }
+
+      // ── Student info ────────────────────────────────────────
+      const infoX = margin + 32;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(17, 24, 39);
+      doc.text(detail.student.student_name, infoX, y + 7);
+
+      doc.setFontSize(9);
+      doc.setTextColor(249, 115, 22);
+      doc.text(detail.student.roll_no, infoX, y + 13);
+
+      const fields = [
+        ['Father', detail.student.father_name],
+        ['Mother', detail.student.mother_name],
+        ['Branch', detail.student.branch],
+        ['Year', detail.student.year],
+      ];
+      let fy = y + 20;
+      fields.forEach(([label, value], idx) => {
+        const fx = idx % 2 === 0 ? infoX : infoX + 70;
+        if (idx % 2 === 0 && idx > 0) fy += 8;
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(156, 163, 175);
+        doc.text(label.toUpperCase(), fx, fy);
+        doc.setFontSize(9);
+        doc.setTextColor(17, 24, 39);
+        doc.text(String(value || '—'), fx, fy + 4.5);
+      });
+
+      y += 38;
+
+      // ── Summary boxes ────────────────────────────────────────
+      const boxW = (W - margin * 2 - 8) / 3;
+      const summaryItems = [
+        { label: 'Total Papers', val: detail.summary.totalPapers, bg: [249,250,251] as [number,number,number], num: [17,24,39] as [number,number,number], lbl: [107,114,128] as [number,number,number] },
+        { label: 'Marks Filled', val: detail.summary.filled, bg: [240,253,244] as [number,number,number], num: [22,163,74] as [number,number,number], lbl: [22,163,74] as [number,number,number] },
+        { label: 'Pending', val: detail.summary.pending, bg: [255,247,237] as [number,number,number], num: [249,115,22] as [number,number,number], lbl: [249,115,22] as [number,number,number] },
+      ];
+      summaryItems.forEach((item, i) => {
+        const bx = margin + i * (boxW + 4);
+        doc.setFillColor(...item.bg);
+        doc.roundedRect(bx, y, boxW, 16, 2, 2, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(...item.num);
+        doc.text(String(item.val), bx + boxW / 2, y + 8.5, { align: 'center' });
+        doc.setFontSize(6.5);
+        doc.setTextColor(...item.lbl);
+        doc.text(item.label.toUpperCase(), bx + boxW / 2, y + 13.5, { align: 'center' });
+      });
+      y += 22;
+
+      // ── Disclaimer ──────────────────────────────────────────
+      doc.setFillColor(255, 251, 235);
+      doc.roundedRect(margin, y, W - margin * 2, 18, 2, 2, 'F');
+      doc.setDrawColor(253, 230, 138);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(margin, y, W - margin * 2, 18, 2, 2, 'S');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(180, 83, 9);
+      doc.text('⚠  MARKS SCHEME', margin + 4, y + 4.5);
+      const disc = [
+        '● Mid Term marks are out of 30',
+        '● Practical marks are out of 40',
+        '● Sessional marks are out of 60',
+      ];
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(146, 64, 14);
+      disc.forEach((line, i) => {
+        doc.text(line, margin + 4 + i * 62, y + 10);
+      });
+      y += 24;
+
+      // ── Papers table ─────────────────────────────────────────
+      autoTable(doc, {
+        startY: y,
+        head: [['#', 'Paper Name', 'Type', 'Exam Type', 'Marks Status']],
+        body: detail.papers.map((p, i) => [i + 1, p.paper_name, p.paper_type, p.exam_type, p.marks_status || '—']),
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 3, font: 'helvetica', textColor: [55, 65, 81] },
+        headStyles: { fillColor: [249, 115, 22], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5, halign: 'left' },
+        alternateRowStyles: { fillColor: [250, 250, 250] },
+        columnStyles: { 0: { cellWidth: 8, halign: 'center' }, 1: { cellWidth: 72 }, 2: { cellWidth: 22 }, 3: { cellWidth: 28 }, 4: { cellWidth: 36 } },
+        didParseCell: (data) => {
+          if (data.column.index === 4 && data.section === 'body') {
+            const val = String(data.cell.raw || '').toLowerCase();
+            if (val.includes('filled') || val.includes('complete') || val.includes('submit')) {
+              data.cell.styles.textColor = [22, 163, 74];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (val.includes('not') || val.includes('pending')) {
+              data.cell.styles.textColor = [234, 88, 12];
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+        },
+      });
+
+      // ── Footer ───────────────────────────────────────────────
+      const pCount = (doc.internal as { getNumberOfPages: () => number }).getNumberOfPages();
+      for (let pg = 1; pg <= pCount; pg++) {
+        doc.setPage(pg);
+        const pageH = doc.internal.pageSize.getHeight();
+        doc.setDrawColor(229, 231, 235);
+        doc.setLineWidth(0.3);
+        doc.line(margin, pageH - 10, W - margin, pageH - 10);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(209, 213, 219);
+        doc.text('JECRC Foundation, Jaipur  |  Computer-generated report  |  For official use only', W / 2, pageH - 5.5, { align: 'center' });
+        doc.text(`Page ${pg} of ${pCount}`, W - margin, pageH - 5.5, { align: 'right' });
+      }
+
+      doc.save(`${detail.student.roll_no}_${detail.student.student_name.replace(/\s+/g, '_')}_Marks.pdf`);
+    } catch (err) {
+      console.error('PDF generation failed', err);
+      alert('PDF generation failed. Please try again.');
+    } finally {
+      setExportGenerating(false);
+    }
   };
 
   const openDetail = async (rollNo: string) => {
@@ -493,12 +606,25 @@ ${detail.papers.map((p,i)=>{const l=(p.marks_status||'').toLowerCase();const cls
                 {detail && (
                   <button
                     onClick={exportStudentPDF}
-                    className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-400 active:bg-orange-600 text-white text-xs font-extrabold px-3.5 py-2 rounded-xl shadow-md shadow-orange-500/30 hover:shadow-orange-500/50 transition-all duration-200 hover:-translate-y-0.5"
+                    disabled={exportGenerating}
+                    className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-400 active:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-extrabold px-3.5 py-2 rounded-xl shadow-md shadow-orange-500/30 hover:shadow-orange-500/50 transition-all duration-200 hover:-translate-y-0.5 min-w-[110px] justify-center"
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                    </svg>
-                    Export PDF
+                    {exportGenerating ? (
+                      <>
+                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                        </svg>
+                        Generating…
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        Export PDF
+                      </>
+                    )}
                   </button>
                 )}
                 <button
