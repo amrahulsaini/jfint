@@ -77,7 +77,43 @@ export default function DataInsertionPage() {
     setProgress('');
   };
 
-  const handleSave = async () => {
+  const handleExportSQL = () => {
+    if (!result) return;
+    const TABLE = '`1styearmaster`';
+    const lines: string[] = [
+      `-- Generated on ${new Date().toISOString()}`,
+      `-- ${result.students.filter(s => s.rollNo && s.name).length} records\n`,
+      `CREATE TABLE IF NOT EXISTS ${TABLE} (`,
+      `  id INT AUTO_INCREMENT PRIMARY KEY,`,
+      `  roll_no VARCHAR(50) NOT NULL,`,
+      `  enrollment_no VARCHAR(50) DEFAULT '',`,
+      `  student_name VARCHAR(200) NOT NULL,`,
+      `  father_name VARCHAR(200) DEFAULT '',`,
+      `  mother_name VARCHAR(200) DEFAULT '',`,
+      `  branch VARCHAR(100) DEFAULT '',`,
+      `  exam VARCHAR(200) DEFAULT '',`,
+      `  photo_saved TINYINT(1) DEFAULT 0,`,
+      `  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,`,
+      `  UNIQUE KEY uk_roll (roll_no)`,
+      `) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n`,
+    ];
+    for (const s of result.students) {
+      if (!s.rollNo || !s.name) continue;
+      const esc = (v: string) => v.replace(/'/g, "''");
+      lines.push(
+        `REPLACE INTO ${TABLE} (roll_no, enrollment_no, student_name, father_name, mother_name, branch, exam, photo_saved) VALUES ('${esc(s.rollNo)}', '${esc(s.enrollmentNo)}', '${esc(s.name)}', '${esc(s.fatherName)}', '${esc(s.motherName)}', '${esc(s.branch)}', '${esc(s.exam)}', ${s.photoBase64 ? 1 : 0});`
+      );
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/sql' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `1styearmaster_${Date.now()}.sql`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    setSaveMsg(`SQL file downloaded — ${result.students.filter(s => s.rollNo && s.name).length} records`);
+  };
+
+  const handleSavePhotos = async () => {
     if (!result) return;
     setSaving(true);
     setSaveMsg('');
@@ -89,9 +125,9 @@ export default function DataInsertionPage() {
       });
       const json = await res.json();
       if (json.error) setSaveMsg(`Error: ${json.error}`);
-      else setSaveMsg(`Saved ${json.saved} students & photos successfully!`);
+      else setSaveMsg(`Saved ${json.photosSaved} photos to student_photos/`);
     } catch {
-      setSaveMsg('Failed to save');
+      setSaveMsg('Failed to save photos');
     }
     setSaving(false);
   };
@@ -247,11 +283,17 @@ export default function DataInsertionPage() {
                   Upload New
                 </button>
                 <button
-                  onClick={handleSave}
+                  onClick={handleExportSQL}
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm hover:shadow-md"
+                >
+                  Export SQL
+                </button>
+                <button
+                  onClick={handleSavePhotos}
                   disabled={saving}
                   className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm hover:shadow-md disabled:cursor-not-allowed"
                 >
-                  {saving ? 'Saving…' : 'Save to Database'}
+                  {saving ? 'Saving…' : 'Save Photos'}
                 </button>
               </div>
             </div>
