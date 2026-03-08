@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 
 interface StudentRecord {
   pageNum: number;
@@ -16,18 +16,14 @@ interface StudentRecord {
   photoHeight: number;
 }
 
-interface ExtractResult {
-  totalPages: number;
-  totalPhotosFound: number;
-  totalStudentPhotos: number;
-  students: StudentRecord[];
-}
-
 export default function DataInsertionPage() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState('');
-  const [result, setResult] = useState<ExtractResult | null>(null);
+  const [students, setStudents] = useState<StudentRecord[]>([]);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalPhotos, setTotalPhotos] = useState(0);
+  const [done, setDone] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
@@ -37,52 +33,94 @@ export default function DataInsertionPage() {
     if (f && f.type === 'application/pdf') {
       setFile(f);
       setError('');
-      setResult(null);
+      setStudents([]);
+      setDone(false);
+      setTotalPages(0);
+      setTotalPhotos(0);
       setSaveMsg('');
     } else if (f) {
       setError('Please select a PDF file');
     }
   };
 
-  const handleUpload = async () => {
+  /* ── Stream SSE page-by-page ── */
+  const handleUpload = useCallback(async () => {
     if (!file) return;
     setLoading(true);
-    setProgress('Uploading PDF…');
+    setProgress('Uploading…');
     setError('');
-    setResult(null);
+    setStudents([]);
+    setDone(false);
+    setTotalPages(0);
+    setTotalPhotos(0);
     setSaveMsg('');
 
     try {
       const formData = new FormData();
       formData.append('pdf', file);
+      setProgress(`Processing ${(file.size / 1024 / 1024).toFixed(1)} MB…`);
 
-      setProgress(`Processing ${(file.size / 1024 / 1024).toFixed(1)} MB — this may take a minute…`);
+      const res = await fetch('/api/pdf-extract', { method: 'POST', body: formData });
 
-      const res = await fetch('/api/pdf-extract', {
-        method: 'POST',
-        body: formData,
-      });
+      if (!res.ok || !res.body) {
+        const text = await res.text();
+        try { setError(JSON.parse(text).error || text); } catch { setError(text); }
+        setLoading(false);
+        setProgress('');
+        return;
+      }
 
-      const json = await res.json();
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
 
-      if (json.error) {
-        setError(json.error);
-      } else {
-        setResult(json);
+      while (true) {
+        const { done: streamDone, value } = await reader.read();
+        if (streamDone) break;
+
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop() || '';
+
+        for (const part of parts) {
+          const eventMatch = part.match(/^event:\s*(.+)$/m);
+          const dataMatch = part.match(/^data:\s*(.+)$/m);
+          if (!eventMatch || !dataMatch) continue;
+          const event = eventMatch[1];
+          const data = JSON.parse(dataMatch[1]);
+
+          if (event === 'init') {
+            setTotalPages(data.totalPages);
+            setProgress(`Extracting 0 / ${data.totalPages} pages…`);
+          } else if (event === 'page') {
+            setStudents(prev => {
+              const next = [...prev, data as StudentRecord];
+              setProgress(`Extracting ${next.length} / ${data.pageNum <= totalPages ? totalPages : '?'} pages…`);
+              return next;
+            });
+          } else if (event === 'done') {
+            setTotalPhotos(data.totalStudentPhotos);
+            setTotalPages(data.totalPages);
+            setDone(true);
+          } else if (event === 'error') {
+            setError(data.error);
+          }
+        }
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Upload failed');
     }
     setLoading(false);
     setProgress('');
-  };
+  }, [file, totalPages]);
 
+  /* ── Export SQL (client-side download) ── */
   const handleExportSQL = () => {
-    if (!result) return;
+    if (students.length === 0) return;
     const TABLE = '`1styearmaster`';
     const lines: string[] = [
       `-- Generated on ${new Date().toISOString()}`,
-      `-- ${result.students.filter(s => s.rollNo && s.name).length} records\n`,
+      `-- ${students.filter(s => s.rollNo && s.name).length} records\n`,
       `CREATE TABLE IF NOT EXISTS ${TABLE} (`,
       `  id INT AUTO_INCREMENT PRIMARY KEY,`,
       `  roll_no VARCHAR(50) NOT NULL,`,
@@ -97,7 +135,7 @@ export default function DataInsertionPage() {
       `  UNIQUE KEY uk_roll (roll_no)`,
       `) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n`,
     ];
-    for (const s of result.students) {
+    for (const s of students) {
       if (!s.rollNo || !s.name) continue;
       const esc = (v: string) => v.replace(/'/g, "''");
       lines.push(
@@ -110,18 +148,19 @@ export default function DataInsertionPage() {
     a.download = `1styearmaster_${Date.now()}.sql`;
     a.click();
     URL.revokeObjectURL(a.href);
-    setSaveMsg(`SQL file downloaded — ${result.students.filter(s => s.rollNo && s.name).length} records`);
+    setSaveMsg(`SQL file downloaded — ${students.filter(s => s.rollNo && s.name).length} records`);
   };
 
+  /* ── Save photos to disk ── */
   const handleSavePhotos = async () => {
-    if (!result) return;
+    if (students.length === 0) return;
     setSaving(true);
     setSaveMsg('');
     try {
       const res = await fetch('/api/pdf-save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ students: result.students }),
+        body: JSON.stringify({ students }),
       });
       const json = await res.json();
       if (json.error) setSaveMsg(`Error: ${json.error}`);
@@ -134,9 +173,21 @@ export default function DataInsertionPage() {
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    const f = e.dataTransfer.files?.[0];
-    handleFile(f || null);
+    handleFile(e.dataTransfer.files?.[0] || null);
   };
+
+  const handleReset = () => {
+    setFile(null);
+    setStudents([]);
+    setDone(false);
+    setTotalPages(0);
+    setTotalPhotos(0);
+    setError('');
+    setSaveMsg('');
+  };
+
+  const validCount = students.filter(s => s.rollNo && s.name).length;
+  const showResults = students.length > 0;
 
   return (
     <div className="min-h-screen bg-white">
@@ -158,36 +209,24 @@ export default function DataInsertionPage() {
       <div className="max-w-7xl mx-auto px-5 md:px-8 py-10">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-black text-neutral-900">
-            PDF Data Extraction
-          </h1>
+          <h1 className="text-2xl md:text-3xl font-black text-neutral-900">PDF Data Extraction</h1>
           <p className="mt-2 text-sm text-neutral-500">
-            Upload RTU admission card PDF to extract student photos &amp; details.
-            Verify the extracted data, then save to database.
+            Upload RTU admission card PDF — pages stream in one by one.
           </p>
         </div>
 
         {/* Upload Area */}
-        {!result && (
+        {!showResults && (
           <div className="mb-8">
             <div
               onDrop={handleDrop}
               onDragOver={(e) => e.preventDefault()}
               onClick={() => inputRef.current?.click()}
               className={`relative border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all ${
-                file
-                  ? 'border-orange-300 bg-orange-50'
-                  : 'border-neutral-300 bg-neutral-50 hover:border-orange-400 hover:bg-orange-50/50'
+                file ? 'border-orange-300 bg-orange-50' : 'border-neutral-300 bg-neutral-50 hover:border-orange-400 hover:bg-orange-50/50'
               }`}
             >
-              <input
-                ref={inputRef}
-                type="file"
-                accept=".pdf"
-                className="hidden"
-                onChange={(e) => handleFile(e.target.files?.[0] || null)}
-              />
-
+              <input ref={inputRef} type="file" accept=".pdf" className="hidden" onChange={(e) => handleFile(e.target.files?.[0] || null)} />
               {file ? (
                 <div>
                   <div className="w-14 h-14 rounded-2xl bg-orange-100 flex items-center justify-center mx-auto mb-4">
@@ -196,9 +235,7 @@ export default function DataInsertionPage() {
                     </svg>
                   </div>
                   <p className="font-bold text-neutral-900">{file.name}</p>
-                  <p className="text-sm text-neutral-500 mt-1">
-                    {(file.size / 1024 / 1024).toFixed(1)} MB — Ready to process
-                  </p>
+                  <p className="text-sm text-neutral-500 mt-1">{(file.size / 1024 / 1024).toFixed(1)} MB — Ready</p>
                 </div>
               ) : (
                 <div>
@@ -212,24 +249,13 @@ export default function DataInsertionPage() {
                 </div>
               )}
             </div>
-
-            {/* Process button */}
             {file && (
               <div className="mt-4 flex items-center gap-3">
-                <button
-                  onClick={handleUpload}
-                  disabled={loading}
-                  className="bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white font-bold px-8 py-3 rounded-xl text-sm transition-all shadow-sm hover:shadow-md disabled:cursor-not-allowed"
-                >
+                <button onClick={handleUpload} disabled={loading} className="bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white font-bold px-8 py-3 rounded-xl text-sm transition-all shadow-sm hover:shadow-md disabled:cursor-not-allowed">
                   {loading ? 'Processing…' : 'Extract Data'}
                 </button>
                 {!loading && (
-                  <button
-                    onClick={() => { setFile(null); setResult(null); setError(''); }}
-                    className="text-sm text-neutral-400 hover:text-neutral-700 transition-colors"
-                  >
-                    Clear
-                  </button>
+                  <button onClick={() => { setFile(null); setError(''); }} className="text-sm text-neutral-400 hover:text-neutral-700 transition-colors">Clear</button>
                 )}
                 {progress && (
                   <div className="flex items-center gap-2 text-sm text-neutral-500">
@@ -252,81 +278,73 @@ export default function DataInsertionPage() {
           </div>
         )}
 
+        {/* Live progress bar during streaming */}
+        {loading && totalPages > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between text-xs font-semibold text-neutral-500 mb-1">
+              <span>Extracting pages…</span>
+              <span>{students.length} / {totalPages}</span>
+            </div>
+            <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
+              <div className="h-full bg-orange-500 rounded-full transition-all duration-300" style={{ width: `${(students.length / totalPages) * 100}%` }} />
+            </div>
+          </div>
+        )}
+
         {/* Results */}
-        {result && (
+        {showResults && (
           <>
             {/* Summary bar */}
             <div className="bg-white border border-neutral-200 rounded-2xl p-5 mb-8 flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-6">
                 <div>
-                  <div className="text-2xl font-black text-neutral-900">{result.totalPages}</div>
+                  <div className="text-2xl font-black text-neutral-900">{totalPages || students.length}</div>
                   <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Pages</div>
                 </div>
                 <div className="w-px h-10 bg-neutral-200" />
                 <div>
-                  <div className="text-2xl font-black text-orange-500">{result.totalStudentPhotos}</div>
-                  <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Photos Found</div>
+                  <div className="text-2xl font-black text-orange-500">{students.filter(s => s.photoBase64).length}</div>
+                  <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Photos</div>
                 </div>
                 <div className="w-px h-10 bg-neutral-200" />
                 <div>
-                  <div className="text-2xl font-black text-emerald-600">
-                    {result.students.filter(s => s.rollNo && s.name).length}
-                  </div>
-                  <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Valid Records</div>
+                  <div className="text-2xl font-black text-emerald-600">{validCount}</div>
+                  <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Valid</div>
                 </div>
+                {!done && (
+                  <>
+                    <div className="w-px h-10 bg-neutral-200" />
+                    <div className="flex items-center gap-2 text-sm text-neutral-500">
+                      <div className="w-4 h-4 border-2 border-orange-200 border-t-orange-500 rounded-full animate-spin" />
+                      Processing…
+                    </div>
+                  </>
+                )}
               </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => { setResult(null); setFile(null); }}
-                  className="border border-neutral-200 text-neutral-600 hover:text-neutral-900 font-semibold px-5 py-2.5 rounded-xl text-sm transition-all"
-                >
-                  Upload New
-                </button>
-                <button
-                  onClick={handleExportSQL}
-                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm hover:shadow-md"
-                >
-                  Export SQL
-                </button>
-                <button
-                  onClick={handleSavePhotos}
-                  disabled={saving}
-                  className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm hover:shadow-md disabled:cursor-not-allowed"
-                >
-                  {saving ? 'Saving…' : 'Save Photos'}
-                </button>
-              </div>
+              {done && (
+                <div className="flex items-center gap-3">
+                  <button onClick={handleReset} className="border border-neutral-200 text-neutral-600 hover:text-neutral-900 font-semibold px-5 py-2.5 rounded-xl text-sm transition-all">Upload New</button>
+                  <button onClick={handleExportSQL} className="bg-blue-500 hover:bg-blue-600 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm hover:shadow-md">Export SQL</button>
+                  <button onClick={handleSavePhotos} disabled={saving} className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm hover:shadow-md disabled:cursor-not-allowed">
+                    {saving ? 'Saving…' : 'Save Photos'}
+                  </button>
+                </div>
+              )}
             </div>
 
             {saveMsg && (
-              <div className={`mb-6 rounded-2xl p-4 text-sm font-medium ${
-                saveMsg.startsWith('Error')
-                  ? 'bg-red-50 border border-red-200 text-red-700'
-                  : 'bg-emerald-50 border border-emerald-200 text-emerald-700'
-              }`}>
+              <div className={`mb-6 rounded-2xl p-4 text-sm font-medium ${saveMsg.startsWith('Error') ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-emerald-50 border border-emerald-200 text-emerald-700'}`}>
                 {saveMsg}
               </div>
             )}
 
-            {/* Student Preview Cards */}
+            {/* Student Cards — appear one by one */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {result.students.map((s, i) => (
-                <div
-                  key={i}
-                  className={`bg-white border rounded-2xl overflow-hidden transition-all ${
-                    s.rollNo && s.name
-                      ? 'border-neutral-200'
-                      : 'border-red-200 bg-red-50/30'
-                  }`}
-                >
-                  {/* Photo */}
+              {students.map((s, i) => (
+                <div key={i} className={`bg-white border rounded-2xl overflow-hidden transition-all animate-[fadeIn_0.3s_ease] ${s.rollNo && s.name ? 'border-neutral-200' : 'border-red-200 bg-red-50/30'}`}>
                   <div className="bg-neutral-50 border-b border-neutral-100 p-6 flex justify-center">
                     {s.photoBase64 ? (
-                      <img
-                        src={s.photoBase64}
-                        alt={s.name || `Page ${s.pageNum}`}
-                        className="w-28 h-36 object-cover rounded-xl border-2 border-neutral-200 shadow-sm"
-                      />
+                      <img src={s.photoBase64} alt={s.name || `Page ${s.pageNum}`} className="w-28 h-36 object-cover rounded-xl border-2 border-neutral-200 shadow-sm" />
                     ) : (
                       <div className="w-28 h-36 rounded-xl bg-neutral-200 flex items-center justify-center">
                         <svg className="w-8 h-8 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -335,31 +353,17 @@ export default function DataInsertionPage() {
                       </div>
                     )}
                   </div>
-
-                  {/* Details */}
                   <div className="p-4 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
-                        Page {s.pageNum}
-                      </span>
+                      <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Page {s.pageNum}</span>
                       {s.rollNo && s.name ? (
-                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
-                          OK
-                        </span>
+                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">OK</span>
                       ) : (
-                        <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">
-                          INCOMPLETE
-                        </span>
+                        <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">INCOMPLETE</span>
                       )}
                     </div>
-
-                    {s.rollNo && (
-                      <p className="text-orange-500 font-mono text-xs font-bold">{s.rollNo}</p>
-                    )}
-                    {s.name && (
-                      <p className="text-neutral-900 font-bold text-sm leading-snug">{s.name}</p>
-                    )}
-
+                    {s.rollNo && <p className="text-orange-500 font-mono text-xs font-bold">{s.rollNo}</p>}
+                    {s.name && <p className="text-neutral-900 font-bold text-sm leading-snug">{s.name}</p>}
                     <div className="space-y-1.5 text-xs pt-1">
                       <Row label="Father" value={s.fatherName} />
                       <Row label="Mother" value={s.motherName} />
