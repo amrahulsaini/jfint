@@ -1,7 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import StudentRecords from "./components/StudentRecords";
+
+const SESSION_SECS = 20 * 60; // 20 minutes
 
 type View = '1styear' | '2ndyear' | null;
 
@@ -26,10 +29,44 @@ const BANNERS = [
 ];
 
 export default function Home() {
+  const router = useRouter();
   const [view, setView] = useState<View>(null);
   const [bannerIdx, setBannerIdx] = useState(0);
   const [bannerVisible, setBannerVisible] = useState(true);
   const [fade, setFade] = useState(true);
+  const [remaining, setRemaining] = useState(SESSION_SECS);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Format mm:ss
+  const fmt = (s: number) => {
+    const m = Math.floor(s / 60).toString().padStart(2, '0');
+    const sec = (s % 60).toString().padStart(2, '0');
+    return `${m}:${sec}`;
+  };
+
+  const doLogout = useCallback(async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.replace('/login');
+  }, [router]);
+
+  // Countdown tick
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      setRemaining(r => {
+        if (r <= 1) { doLogout(); return 0; }
+        return r - 1;
+      });
+    }, 1000);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [doLogout]);
+
+  // Reset timer on any user activity
+  const resetTimer = useCallback(() => setRemaining(SESSION_SECS), []);
+  useEffect(() => {
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
+    return () => events.forEach(e => window.removeEventListener(e, resetTimer));
+  }, [resetTimer]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -98,14 +135,38 @@ export default function Home() {
             <a href="#portal" className="hover:text-orange-500 transition-colors duration-200">Portal</a>
             <a href="#about" className="hover:text-orange-500 transition-colors duration-200">About</a>
           </div>
-          {view && (
+          {/* Session timer + logout */}
+          <div className="flex items-center gap-2">
+            {view && (
+              <button
+                onClick={() => setView(null)}
+                className="flex items-center gap-1.5 text-xs font-bold text-neutral-400 hover:text-orange-500 transition-colors duration-200 md:hidden"
+              >
+                ← Back
+              </button>
+            )}
+            <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-black tabular-nums ${
+              remaining <= 120
+                ? 'bg-red-50 border-red-300 text-red-600'
+                : remaining <= 300
+                ? 'bg-amber-50 border-amber-300 text-amber-600'
+                : 'bg-neutral-100 border-neutral-200 text-neutral-500'
+            }`}>
+              <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              {fmt(remaining)}
+            </div>
             <button
-              onClick={() => setView(null)}
-              className="flex items-center gap-1.5 text-xs font-bold text-neutral-400 hover:text-orange-500 transition-colors duration-200 md:hidden"
+              onClick={doLogout}
+              className="flex items-center gap-1.5 bg-neutral-100 hover:bg-red-50 border border-neutral-200 hover:border-red-300 text-neutral-500 hover:text-red-600 text-xs font-black px-3 py-1.5 rounded-xl transition-all duration-200"
             >
-              ← Back
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/>
+              </svg>
+              <span className="hidden sm:inline">Logout</span>
             </button>
-          )}
+          </div>
         </div>
       </nav>
 
