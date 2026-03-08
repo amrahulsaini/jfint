@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 
-/* ── Interfaces ─────────────────────────────────────────── */
+/* ── Types ──────────────────────────────────────────────── */
 interface StudentRow {
   roll_no: string;
   student_name: string;
@@ -50,12 +50,18 @@ interface StudentDetail {
     year: string;
   };
   papers: PaperDetail[];
-  summary: {
-    totalPapers: number;
-    filled: number;
-    pending: number;
-  };
+  summary: { totalPapers: number; filled: number; pending: number };
 }
+
+/* ── helpers ────────────────────────────────────────────── */
+const statusPill = (s: string) => {
+  const l = s?.toLowerCase() || '';
+  if (l.includes('filled') || l.includes('complete') || l.includes('submit'))
+    return 'text-emerald-700 bg-emerald-50 border-emerald-200';
+  if (l.includes('not') || l.includes('pending'))
+    return 'text-orange-700 bg-orange-50 border-orange-200';
+  return 'text-neutral-500 bg-neutral-100 border-neutral-200';
+};
 
 /* ── Component ──────────────────────────────────────────── */
 export default function StudentRecords() {
@@ -71,17 +77,14 @@ export default function StudentRecords() {
   const [showModal, setShowModal] = useState(false);
   const LIMIT = 20;
 
-  /* ── Fetch ─────────────────────────────────────────────── */
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
-      if (search) params.set('search', search);
-      if (branch) params.set('branch', branch);
-
-      const res = await fetch(`/api/db/students?${params}`);
+      const p = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+      if (search) p.set('search', search);
+      if (branch) p.set('branch', branch);
+      const res = await fetch(`/api/db/students?${p}`);
       const json: ApiResponse = await res.json();
-
       if (json.error) { setError(json.error); setData(null); }
       else { setError(''); setData(json); }
     } catch {
@@ -93,20 +96,7 @@ export default function StudentRecords() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setPage(1);
-    setSearch(searchInput);
-  };
-
-  const statusColor = (s: string) => {
-    const l = s?.toLowerCase() || '';
-    if (l.includes('filled') || l.includes('complete') || l.includes('submit'))
-      return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
-    if (l.includes('not') || l.includes('pending'))
-      return 'text-orange-400 bg-orange-500/10 border-orange-500/20';
-    return 'text-neutral-400 bg-white/5 border-white/10';
-  };
+  const handleSearch = (e: React.FormEvent) => { e.preventDefault(); setPage(1); setSearch(searchInput); };
 
   const openDetail = async (rollNo: string) => {
     setShowModal(true);
@@ -120,315 +110,300 @@ export default function StudentRecords() {
     setDetailLoading(false);
   };
 
-  /* ── DB not connected placeholder ──────────────────────── */
+  /* ── DB not connected ──────────────────────────────────── */
   if (error && !data) {
     return (
-      <div className="max-w-7xl mx-auto px-5 md:px-8 py-16">
-        <div className="text-center mb-10">
-          <h2 className="text-2xl md:text-3xl font-bold">Student Results</h2>
-          <p className="mt-2 text-sm text-neutral-500">Live data from the marks entry database</p>
-        </div>
-        <div className="bg-neutral-950 border border-white/[0.08] rounded-2xl p-12 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-7 h-7 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <div className="max-w-7xl mx-auto px-5 md:px-8 py-16 text-center">
+        <div className="bg-orange-50 border border-orange-200 rounded-2xl p-12 max-w-lg mx-auto">
+          <div className="w-14 h-14 rounded-2xl bg-orange-100 flex items-center justify-center mx-auto mb-4">
+            <svg className="w-7 h-7 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125v-3.75" />
             </svg>
           </div>
-          <h3 className="text-lg font-bold text-white mb-2">Database Not Connected</h3>
-          <p className="text-sm text-neutral-500 max-w-md mx-auto">
-            Student results will appear once the SQL data is imported into the database.
-          </p>
+          <h3 className="text-lg font-bold text-neutral-900 mb-1">Database Not Connected</h3>
+          <p className="text-sm text-neutral-500">Student results will appear once the SQL data is imported.</p>
         </div>
       </div>
     );
   }
 
-  /* ── Main render ───────────────────────────────────────── */
+  /* ── Main ──────────────────────────────────────────────── */
   return (
-    <div className="max-w-7xl mx-auto px-5 md:px-8 py-16">
-      {/* Section Header */}
-      <div className="text-center mb-10">
-        <h2 className="text-2xl md:text-3xl font-bold">Student Results</h2>
-        <p className="mt-2 text-sm text-neutral-500">
-          Browse and search {data?.stats ? <span className="text-orange-400 font-semibold">{data.stats.totalStudents.toLocaleString()}</span> : '…'} students across all branches
-        </p>
-      </div>
+    <div className="max-w-7xl mx-auto px-5 md:px-8 py-10">
 
-      {/* ─── Stats Row ─────────────────────────────────────── */}
+      {/* ─── Stats ───────────────────────────────────────── */}
       {data?.stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'Total Records', value: data.stats.totalRecords, accent: false },
-            { label: 'Branches', value: data.stats.totalBranches, accent: false },
-            { label: 'Papers', value: data.stats.totalPapers, accent: false },
-            { label: 'Students', value: data.stats.totalStudents, accent: true },
+            { label: 'Total Records', val: data.stats.totalRecords, icon: (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+            )},
+            { label: 'Branches', val: data.stats.totalBranches, icon: (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"/></svg>
+            )},
+            { label: 'Papers', val: data.stats.totalPapers, icon: (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
+            )},
+            { label: 'Students', val: data.stats.totalStudents, accent: true, icon: (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+            )},
           ].map(s => (
             <div
               key={s.label}
-              className={`relative overflow-hidden rounded-2xl border p-5 text-center transition-all ${
+              className={`rounded-2xl border p-5 flex items-center gap-4 ${
                 s.accent
-                  ? 'bg-orange-500/[0.06] border-orange-500/20'
-                  : 'bg-neutral-950 border-white/[0.08]'
+                  ? 'bg-orange-50 border-orange-200'
+                  : 'bg-white border-neutral-200'
               }`}
             >
-              <div className={`text-3xl font-black ${s.accent ? 'text-orange-400' : 'text-white'}`}>
-                {s.value.toLocaleString()}
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                s.accent ? 'bg-orange-100 text-orange-600' : 'bg-neutral-100 text-neutral-500'
+              }`}>
+                {s.icon}
               </div>
-              <div className="text-[11px] font-medium uppercase tracking-widest text-neutral-500 mt-1.5">
-                {s.label}
+              <div>
+                <div className={`text-2xl font-black leading-none ${s.accent ? 'text-orange-600' : 'text-neutral-900'}`}>
+                  {s.val.toLocaleString()}
+                </div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 mt-1">{s.label}</div>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* ─── Filters ───────────────────────────────────────── */}
-      <div className="bg-neutral-950 border border-white/[0.08] rounded-2xl p-4 mb-6">
+      {/* ─── Search / Filter Bar ─────────────────────────── */}
+      <div className="bg-white border border-neutral-200 rounded-2xl p-4 mb-8 shadow-sm">
         <div className="flex flex-col sm:flex-row gap-3">
           <form onSubmit={handleSearch} className="flex-1 flex gap-2">
             <div className="relative flex-1">
-              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
               </svg>
               <input
                 type="text"
                 value={searchInput}
                 onChange={e => setSearchInput(e.target.value)}
                 placeholder="Search by name or roll number…"
-                className="w-full bg-black border border-white/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/20 transition-all"
+                className="w-full bg-neutral-50 border border-neutral-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all"
               />
             </div>
-            <button
-              type="submit"
-              className="bg-orange-500 hover:bg-orange-400 text-black font-bold px-5 py-2.5 rounded-xl text-sm transition-all hover:shadow-lg hover:shadow-orange-500/20"
-            >
+            <button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm hover:shadow-md">
               Search
             </button>
           </form>
-
-          {/* Branch filter */}
           <div className="relative">
             <select
               value={branch}
               onChange={e => { setBranch(e.target.value); setPage(1); }}
-              className="appearance-none bg-black border border-white/[0.08] rounded-xl pl-4 pr-9 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500/50 transition-all cursor-pointer min-w-[160px]"
+              className="appearance-none bg-neutral-50 border border-neutral-200 rounded-xl pl-4 pr-9 py-2.5 text-sm text-neutral-700 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all cursor-pointer min-w-[160px]"
             >
-              <option value="" className="bg-black">All Branches</option>
-              {data?.branches.map(b => (
-                <option key={b} value={b} className="bg-black">{b}</option>
-              ))}
+              <option value="">All Branches</option>
+              {data?.branches.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
-            <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/>
             </svg>
           </div>
         </div>
 
-        {/* Active filters */}
+        {/* Active filter chips */}
         {(search || branch) && (
-          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/[0.05]">
+          <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-neutral-100">
             {search && (
-              <span className="inline-flex items-center gap-1.5 bg-orange-500/10 border border-orange-500/20 rounded-full px-3 py-1 text-xs font-medium text-orange-400">
+              <span className="inline-flex items-center gap-1.5 bg-orange-50 border border-orange-200 rounded-full px-3 py-1 text-xs font-semibold text-orange-700">
                 &ldquo;{search}&rdquo;
-                <button onClick={() => { setSearch(''); setSearchInput(''); setPage(1); }} className="hover:text-white transition-colors">×</button>
+                <button onClick={() => { setSearch(''); setSearchInput(''); setPage(1); }} className="hover:text-orange-900">×</button>
               </span>
             )}
             {branch && (
-              <span className="inline-flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-full px-3 py-1 text-xs font-medium text-neutral-300">
+              <span className="inline-flex items-center gap-1.5 bg-neutral-100 border border-neutral-200 rounded-full px-3 py-1 text-xs font-semibold text-neutral-600">
                 {branch}
-                <button onClick={() => { setBranch(''); setPage(1); }} className="hover:text-white transition-colors">×</button>
+                <button onClick={() => { setBranch(''); setPage(1); }} className="hover:text-neutral-900">×</button>
               </span>
             )}
-            <button
-              onClick={() => { setSearch(''); setSearchInput(''); setBranch(''); setPage(1); }}
-              className="text-xs text-neutral-500 hover:text-orange-400 transition-colors ml-1"
-            >
+            <button onClick={() => { setSearch(''); setSearchInput(''); setBranch(''); setPage(1); }} className="text-xs text-neutral-400 hover:text-orange-500 transition-colors">
               Clear all
             </button>
           </div>
         )}
       </div>
 
-      {/* ─── Table Card ────────────────────────────────────── */}
-      <div className="bg-neutral-950 border border-white/[0.08] rounded-2xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/[0.08]">
-                <th className="px-5 py-4 text-left text-[11px] font-bold text-neutral-500 uppercase tracking-widest w-12">#</th>
-                <th className="px-5 py-4 text-left text-[11px] font-bold text-neutral-500 uppercase tracking-widest w-16"></th>
-                <th className="px-5 py-4 text-left text-[11px] font-bold text-neutral-500 uppercase tracking-widest">Roll No</th>
-                <th className="px-5 py-4 text-left text-[11px] font-bold text-neutral-500 uppercase tracking-widest">Student Name</th>
-                <th className="px-5 py-4 text-left text-[11px] font-bold text-neutral-500 uppercase tracking-widest hidden md:table-cell">Father Name</th>
-                <th className="px-5 py-4 text-left text-[11px] font-bold text-neutral-500 uppercase tracking-widest hidden lg:table-cell">Branch</th>
-                <th className="px-5 py-4 text-center text-[11px] font-bold text-neutral-500 uppercase tracking-widest">Papers</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i} className="border-b border-white/[0.04] animate-pulse">
-                    <td className="px-5 py-4"><div className="h-3.5 bg-white/[0.04] rounded-full w-6" /></td>
-                    <td className="px-5 py-3"><div className="w-10 h-10 bg-white/[0.04] rounded-full" /></td>
-                    <td className="px-5 py-4"><div className="h-3.5 bg-white/[0.04] rounded-full w-24" /></td>
-                    <td className="px-5 py-4"><div className="h-3.5 bg-white/[0.04] rounded-full w-32" /></td>
-                    <td className="px-5 py-4 hidden md:table-cell"><div className="h-3.5 bg-white/[0.04] rounded-full w-28" /></td>
-                    <td className="px-5 py-4 hidden lg:table-cell"><div className="h-3.5 bg-white/[0.04] rounded-full w-16" /></td>
-                    <td className="px-5 py-4"><div className="h-6 bg-white/[0.04] rounded-full w-8 mx-auto" /></td>
-                  </tr>
-                ))
-              ) : data?.rows.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-5 py-20 text-center">
-                    <div className="flex flex-col items-center">
-                      <svg className="w-12 h-12 text-neutral-700 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                      <span className="text-neutral-500 text-sm font-medium">No students found</span>
-                      <span className="text-neutral-600 text-xs mt-1">Try adjusting your search or filters</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                data?.rows.map((row, idx) => (
-                  <tr
-                    key={row.roll_no}
-                    onClick={() => openDetail(row.roll_no)}
-                    className="border-b border-white/[0.04] hover:bg-orange-500/[0.03] transition-all cursor-pointer group"
-                  >
-                    <td className="px-5 py-3.5 text-neutral-600 font-mono text-xs">
-                      {(page - 1) * LIMIT + idx + 1}
-                    </td>
-                    <td className="px-5 py-2.5">
-                      <div className="w-10 h-10 rounded-full overflow-hidden bg-neutral-900 border-2 border-white/[0.06] group-hover:border-orange-500/30 transition-all flex-shrink-0 shadow-sm">
-                        <Image
-                          src={`/student_photos/photo_${row.roll_no}.jpg`}
-                          alt={row.student_name}
-                          width={40}
-                          height={40}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            const target = e.currentTarget;
-                            target.style.display = 'none';
-                            const parent = target.parentElement;
-                            if (parent && !parent.querySelector('.avatar-fallback')) {
-                              const fb = document.createElement('div');
-                              fb.className = 'avatar-fallback w-full h-full flex items-center justify-center text-xs font-bold text-neutral-500 bg-neutral-900';
-                              fb.textContent = (row.student_name || '?').charAt(0).toUpperCase();
-                              parent.appendChild(fb);
-                            }
-                          }}
-                        />
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 font-mono text-xs font-semibold text-orange-400/80 group-hover:text-orange-400 transition-colors">
-                      {row.roll_no}
-                    </td>
-                    <td className="px-5 py-3.5 font-medium text-neutral-200 group-hover:text-white transition-colors">
-                      {row.student_name}
-                    </td>
-                    <td className="px-5 py-3.5 text-neutral-500 hidden md:table-cell">
-                      {row.father_name}
-                    </td>
-                    <td className="px-5 py-3.5 hidden lg:table-cell">
-                      <span className="inline-block bg-white/[0.04] border border-white/[0.08] rounded-lg px-2.5 py-1 text-[11px] font-medium text-neutral-400">
-                        {row.branch}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-center">
-                      <span className="inline-flex items-center justify-center min-w-[28px] h-7 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs font-bold px-2">
-                        {row.paper_count}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* ─── Pagination ──────────────────────────────────── */}
-        {data && data.totalPages > 1 && (
-          <div className="border-t border-white/[0.06] px-5 py-3.5 flex items-center justify-between">
-            <span className="text-xs text-neutral-600">
-              {((page - 1) * data.limit) + 1}–{Math.min(page * data.limit, data.total)} of{' '}
-              <span className="text-neutral-400 font-medium">{data.total.toLocaleString()}</span>
-            </span>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setPage(1)}
-                disabled={page <= 1}
-                className="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-neutral-500 hover:text-white hover:border-orange-500/30 disabled:opacity-20 disabled:cursor-not-allowed transition-all text-xs"
-                title="First"
-              >
-                ««
-              </button>
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-neutral-500 hover:text-white hover:border-orange-500/30 disabled:opacity-20 disabled:cursor-not-allowed transition-all text-xs"
-              >
-                ‹
-              </button>
-
-              {/* Page numbers */}
-              {(() => {
-                const pages: number[] = [];
-                const total = data.totalPages;
-                let start = Math.max(1, page - 2);
-                const end = Math.min(total, start + 4);
-                start = Math.max(1, end - 4);
-                for (let i = start; i <= end; i++) pages.push(i);
-                return pages.map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setPage(p)}
-                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
-                      p === page
-                        ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20'
-                        : 'bg-white/[0.03] border border-white/[0.06] text-neutral-500 hover:text-white hover:border-orange-500/30'
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ));
-              })()}
-
-              <button
-                onClick={() => setPage(p => Math.min(data.totalPages, p + 1))}
-                disabled={page >= data.totalPages}
-                className="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-neutral-500 hover:text-white hover:border-orange-500/30 disabled:opacity-20 disabled:cursor-not-allowed transition-all text-xs"
-              >
-                ›
-              </button>
-              <button
-                onClick={() => setPage(data.totalPages)}
-                disabled={page >= data.totalPages}
-                className="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-neutral-500 hover:text-white hover:border-orange-500/30 disabled:opacity-20 disabled:cursor-not-allowed transition-all text-xs"
-                title="Last"
-              >
-                »»
-              </button>
+      {/* ─── Card Grid ───────────────────────────────────── */}
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="bg-white border border-neutral-200 rounded-2xl p-5 animate-pulse">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-16 h-16 rounded-2xl bg-neutral-100" />
+                <div className="flex-1">
+                  <div className="h-4 bg-neutral-100 rounded-full w-3/4 mb-2" />
+                  <div className="h-3 bg-neutral-100 rounded-full w-1/2" />
+                </div>
+              </div>
+              <div className="h-3 bg-neutral-100 rounded-full w-full mb-2" />
+              <div className="h-3 bg-neutral-100 rounded-full w-2/3" />
             </div>
+          ))}
+        </div>
+      ) : data?.rows.length === 0 ? (
+        <div className="text-center py-20">
+          <svg className="w-16 h-16 text-neutral-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <p className="text-neutral-500 font-semibold">No students found</p>
+          <p className="text-neutral-400 text-sm mt-1">Try a different search or filter</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          {data?.rows.map((row) => (
+            <div
+              key={row.roll_no}
+              onClick={() => openDetail(row.roll_no)}
+              className="group bg-white border border-neutral-200 rounded-2xl p-5 cursor-pointer transition-all hover:shadow-lg hover:shadow-orange-500/[0.06] hover:border-orange-300 hover:-translate-y-0.5"
+            >
+              {/* Photo + Name */}
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-16 h-16 rounded-2xl overflow-hidden bg-neutral-100 border-2 border-neutral-200 group-hover:border-orange-300 transition-colors flex-shrink-0">
+                  <Image
+                    src={`/student_photos/photo_${row.roll_no}.jpg`}
+                    alt={row.student_name}
+                    width={64}
+                    height={64}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const t = e.currentTarget;
+                      t.style.display = 'none';
+                      const p = t.parentElement;
+                      if (p && !p.querySelector('.af')) {
+                        const d = document.createElement('div');
+                        d.className = 'af w-full h-full flex items-center justify-center text-xl font-black text-neutral-300 bg-neutral-50';
+                        d.textContent = (row.student_name || '?').charAt(0).toUpperCase();
+                        p.appendChild(d);
+                      }
+                    }}
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-neutral-900 text-sm leading-snug truncate group-hover:text-orange-600 transition-colors">
+                    {row.student_name}
+                  </h3>
+                  <p className="text-orange-500 font-mono text-xs font-bold mt-0.5">{row.roll_no}</p>
+                </div>
+              </div>
+
+              {/* Info rows */}
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-neutral-400 font-medium">Father</span>
+                  <span className="text-neutral-700 font-medium truncate ml-2 text-right max-w-[60%]">{row.father_name}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-neutral-400 font-medium">Branch</span>
+                  <span className="bg-neutral-100 border border-neutral-200 text-neutral-600 rounded-lg px-2 py-0.5 text-[11px] font-semibold">
+                    {row.branch}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-neutral-400 font-medium">Papers</span>
+                  <span className="bg-orange-50 border border-orange-200 text-orange-700 rounded-lg px-2.5 py-0.5 text-[11px] font-bold">
+                    {row.paper_count}
+                  </span>
+                </div>
+              </div>
+
+              {/* View arrow */}
+              <div className="mt-4 pt-3 border-t border-neutral-100 flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">View Details</span>
+                <svg className="w-4 h-4 text-neutral-300 group-hover:text-orange-500 group-hover:translate-x-0.5 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/>
+                </svg>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ─── Pagination ──────────────────────────────────── */}
+      {data && data.totalPages > 1 && (
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <span className="text-sm text-neutral-400">
+            Showing <span className="font-semibold text-neutral-700">{((page - 1) * data.limit) + 1}–{Math.min(page * data.limit, data.total)}</span> of <span className="font-semibold text-neutral-700">{data.total.toLocaleString()}</span>
+          </span>
+          <div className="flex items-center gap-1.5">
+            {/* First */}
+            <button
+              onClick={() => setPage(1)}
+              disabled={page <= 1}
+              className="w-9 h-9 rounded-xl border border-neutral-200 bg-white flex items-center justify-center text-neutral-400 hover:text-orange-500 hover:border-orange-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-bold"
+            >
+              ««
+            </button>
+            {/* Prev */}
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="w-9 h-9 rounded-xl border border-neutral-200 bg-white flex items-center justify-center text-neutral-400 hover:text-orange-500 hover:border-orange-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-bold"
+            >
+              ‹
+            </button>
+            {/* Page numbers */}
+            {(() => {
+              const pages: number[] = [];
+              const t = data.totalPages;
+              let s = Math.max(1, page - 2);
+              const e = Math.min(t, s + 4);
+              s = Math.max(1, e - 4);
+              for (let i = s; i <= e; i++) pages.push(i);
+              return pages.map(p => (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`w-9 h-9 rounded-xl text-sm font-bold transition-all ${
+                    p === page
+                      ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25 border border-orange-500'
+                      : 'bg-white border border-neutral-200 text-neutral-500 hover:text-orange-500 hover:border-orange-300'
+                  }`}
+                >
+                  {p}
+                </button>
+              ));
+            })()}
+            {/* Next */}
+            <button
+              onClick={() => setPage(p => Math.min(data.totalPages, p + 1))}
+              disabled={page >= data.totalPages}
+              className="w-9 h-9 rounded-xl border border-neutral-200 bg-white flex items-center justify-center text-neutral-400 hover:text-orange-500 hover:border-orange-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-bold"
+            >
+              ›
+            </button>
+            {/* Last */}
+            <button
+              onClick={() => setPage(data.totalPages)}
+              disabled={page >= data.totalPages}
+              className="w-9 h-9 rounded-xl border border-neutral-200 bg-white flex items-center justify-center text-neutral-400 hover:text-orange-500 hover:border-orange-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-bold"
+            >
+              »»
+            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ─── Detail Modal ──────────────────────────────────── */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowModal(false)} />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowModal(false)} />
 
-          <div className="relative bg-neutral-950 border border-white/[0.08] rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl shadow-black/50">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
-              <h3 className="text-base font-bold text-white">Student Details</h3>
+          <div className="relative bg-white border border-neutral-200 rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
+              <h3 className="text-base font-bold text-neutral-900">Student Details</h3>
               <button
                 onClick={() => setShowModal(false)}
-                className="w-8 h-8 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] flex items-center justify-center text-neutral-500 hover:text-white transition-all"
+                className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center text-neutral-400 hover:text-neutral-700 transition-all"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
               </button>
             </div>
@@ -436,19 +411,17 @@ export default function StudentRecords() {
             <div className="overflow-y-auto max-h-[calc(85vh-57px)]">
               {detailLoading ? (
                 <div className="flex flex-col items-center py-16">
-                  <div className="w-10 h-10 border-2 border-orange-500/30 border-t-orange-500 rounded-full animate-spin mb-4" />
-                  <span className="text-sm text-neutral-500">Loading…</span>
+                  <div className="w-10 h-10 border-[3px] border-orange-200 border-t-orange-500 rounded-full animate-spin mb-4" />
+                  <span className="text-sm text-neutral-400">Loading…</span>
                 </div>
               ) : !detail ? (
-                <div className="text-center py-16 text-neutral-600">
-                  Failed to load student details.
-                </div>
+                <div className="text-center py-16 text-neutral-400">Failed to load student details.</div>
               ) : (
                 <div className="p-6">
-                  {/* ── Profile Card ─────────────────────────── */}
-                  <div className="bg-black border border-white/[0.06] rounded-2xl p-5 mb-6">
+                  {/* Profile */}
+                  <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-5 mb-6">
                     <div className="flex items-start gap-5">
-                      <div className="w-20 h-20 rounded-2xl overflow-hidden bg-neutral-900 border-2 border-white/[0.08] flex-shrink-0 shadow-lg">
+                      <div className="w-20 h-20 rounded-2xl overflow-hidden bg-neutral-100 border-2 border-neutral-200 flex-shrink-0">
                         <Image
                           src={`/student_photos/photo_${detail.student.roll_no}.jpg`}
                           alt={detail.student.student_name}
@@ -456,87 +429,79 @@ export default function StudentRecords() {
                           height={80}
                           className="w-full h-full object-cover"
                           onError={(e) => {
-                            const target = e.currentTarget;
-                            target.style.display = 'none';
-                            const parent = target.parentElement;
-                            if (parent && !parent.querySelector('.avatar-fallback')) {
-                              const fb = document.createElement('div');
-                              fb.className = 'avatar-fallback w-full h-full flex items-center justify-center text-2xl font-bold text-neutral-500 bg-neutral-900';
-                              fb.textContent = (detail.student.student_name || '?').charAt(0).toUpperCase();
-                              parent.appendChild(fb);
+                            const t = e.currentTarget; t.style.display = 'none';
+                            const p = t.parentElement;
+                            if (p && !p.querySelector('.af')) {
+                              const d = document.createElement('div');
+                              d.className = 'af w-full h-full flex items-center justify-center text-2xl font-black text-neutral-300 bg-neutral-50';
+                              d.textContent = (detail.student.student_name || '?').charAt(0).toUpperCase();
+                              p.appendChild(d);
                             }
                           }}
                         />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-xl font-black text-white leading-tight">{detail.student.student_name}</h4>
-                        <p className="text-orange-400 font-mono text-sm font-bold mt-0.5">{detail.student.roll_no}</p>
+                        <h4 className="text-xl font-black text-neutral-900">{detail.student.student_name}</h4>
+                        <p className="text-orange-500 font-mono text-sm font-bold mt-0.5">{detail.student.roll_no}</p>
                         <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-4 text-sm">
-                          <div>
-                            <span className="text-neutral-600 text-xs uppercase tracking-wider font-medium">Father</span>
-                            <p className="text-neutral-300 font-medium">{detail.student.father_name}</p>
-                          </div>
-                          <div>
-                            <span className="text-neutral-600 text-xs uppercase tracking-wider font-medium">Mother</span>
-                            <p className="text-neutral-300 font-medium">{detail.student.mother_name}</p>
-                          </div>
-                          <div>
-                            <span className="text-neutral-600 text-xs uppercase tracking-wider font-medium">Branch</span>
-                            <p className="text-neutral-300 font-medium">{detail.student.branch}</p>
-                          </div>
-                          <div>
-                            <span className="text-neutral-600 text-xs uppercase tracking-wider font-medium">Year</span>
-                            <p className="text-neutral-300 font-medium">{detail.student.year}</p>
-                          </div>
+                          {[
+                            { l: 'Father', v: detail.student.father_name },
+                            { l: 'Mother', v: detail.student.mother_name },
+                            { l: 'Branch', v: detail.student.branch },
+                            { l: 'Year', v: detail.student.year },
+                          ].map(f => (
+                            <div key={f.l}>
+                              <span className="text-neutral-400 text-[11px] uppercase tracking-wider font-semibold">{f.l}</span>
+                              <p className="text-neutral-800 font-semibold text-sm">{f.v}</p>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* ── Summary Cards ────────────────────────── */}
+                  {/* Summary */}
                   <div className="grid grid-cols-3 gap-3 mb-6">
-                    <div className="bg-black border border-white/[0.06] rounded-xl px-4 py-3 text-center">
-                      <div className="text-2xl font-black text-white">{detail.summary.totalPapers}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mt-1">Total</div>
+                    <div className="bg-white border border-neutral-200 rounded-xl px-4 py-3 text-center">
+                      <div className="text-2xl font-black text-neutral-900">{detail.summary.totalPapers}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mt-1">Total</div>
                     </div>
-                    <div className="bg-emerald-500/[0.05] border border-emerald-500/20 rounded-xl px-4 py-3 text-center">
-                      <div className="text-2xl font-black text-emerald-400">{detail.summary.filled}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-500/60 mt-1">Filled</div>
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-center">
+                      <div className="text-2xl font-black text-emerald-600">{detail.summary.filled}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 mt-1">Filled</div>
                     </div>
-                    <div className="bg-orange-500/[0.05] border border-orange-500/20 rounded-xl px-4 py-3 text-center">
-                      <div className="text-2xl font-black text-orange-400">{detail.summary.pending}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-orange-500/60 mt-1">Pending</div>
+                    <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-center">
+                      <div className="text-2xl font-black text-orange-600">{detail.summary.pending}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-orange-400 mt-1">Pending</div>
                     </div>
                   </div>
 
-                  {/* ── Papers Table ─────────────────────────── */}
-                  <div className="bg-black border border-white/[0.06] rounded-2xl overflow-hidden">
-                    <div className="px-5 py-3 border-b border-white/[0.06]">
-                      <h5 className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Paper-wise Status</h5>
+                  {/* Papers table */}
+                  <div className="bg-white border border-neutral-200 rounded-2xl overflow-hidden">
+                    <div className="px-5 py-3 border-b border-neutral-100 bg-neutral-50">
+                      <h5 className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Paper-wise Status</h5>
                     </div>
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-white/[0.04]">
-                          <th className="px-5 py-3 text-left text-[10px] font-bold text-neutral-600 uppercase tracking-widest w-10">#</th>
-                          <th className="px-5 py-3 text-left text-[10px] font-bold text-neutral-600 uppercase tracking-widest">Paper</th>
-                          <th className="px-5 py-3 text-left text-[10px] font-bold text-neutral-600 uppercase tracking-widest hidden sm:table-cell">Type</th>
-                          <th className="px-5 py-3 text-left text-[10px] font-bold text-neutral-600 uppercase tracking-widest hidden sm:table-cell">Exam</th>
-                          <th className="px-5 py-3 text-left text-[10px] font-bold text-neutral-600 uppercase tracking-widest">Status</th>
+                        <tr className="border-b border-neutral-100">
+                          <th className="px-5 py-3 text-left text-[10px] font-bold text-neutral-400 uppercase tracking-widest w-10">#</th>
+                          <th className="px-5 py-3 text-left text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Paper</th>
+                          <th className="px-5 py-3 text-left text-[10px] font-bold text-neutral-400 uppercase tracking-widest hidden sm:table-cell">Type</th>
+                          <th className="px-5 py-3 text-left text-[10px] font-bold text-neutral-400 uppercase tracking-widest hidden sm:table-cell">Exam</th>
+                          <th className="px-5 py-3 text-left text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Status</th>
                         </tr>
                       </thead>
                       <tbody>
                         {detail.papers.map((p, i) => (
-                          <tr key={i} className="border-b border-white/[0.03] last:border-b-0 hover:bg-white/[0.02] transition-colors">
-                            <td className="px-5 py-3 text-neutral-600 font-mono text-xs">{i + 1}</td>
-                            <td className="px-5 py-3 text-neutral-200 text-xs font-medium">{p.paper_name}</td>
+                          <tr key={i} className="border-b border-neutral-50 last:border-b-0 hover:bg-orange-50/40 transition-colors">
+                            <td className="px-5 py-3 text-neutral-400 font-mono text-xs">{i + 1}</td>
+                            <td className="px-5 py-3 text-neutral-800 text-xs font-medium">{p.paper_name}</td>
                             <td className="px-5 py-3 hidden sm:table-cell">
-                              <span className="inline-block bg-white/[0.04] border border-white/[0.06] rounded-lg px-2 py-0.5 text-[11px] text-neutral-400">
-                                {p.paper_type}
-                              </span>
+                              <span className="inline-block bg-neutral-100 border border-neutral-200 rounded-lg px-2 py-0.5 text-[11px] text-neutral-500 font-medium">{p.paper_type}</span>
                             </td>
                             <td className="px-5 py-3 text-neutral-500 text-xs hidden sm:table-cell">{p.exam_type}</td>
                             <td className="px-5 py-3">
-                              <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusColor(p.marks_status)}`}>
+                              <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusPill(p.marks_status)}`}>
                                 {p.marks_status || '—'}
                               </span>
                             </td>
