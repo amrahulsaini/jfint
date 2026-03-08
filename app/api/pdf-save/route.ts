@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No student data provided' }, { status: 400 });
     }
 
-    const photoDir = path.join(process.cwd(), 'public', 'student_photos');
+    const photoDir = path.join(process.cwd(), 'public', '1styearphotos');
     await mkdir(photoDir, { recursive: true });
 
     let photosSaved = 0;

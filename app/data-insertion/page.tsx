@@ -14,6 +14,7 @@ interface StudentRecord {
   photoBase64: string | null;
   photoWidth: number;
   photoHeight: number;
+  alternatives: string[];
 }
 
 export default function DataInsertionPage() {
@@ -27,6 +28,9 @@ export default function DataInsertionPage() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
+  const [savingPhotoIdx, setSavingPhotoIdx] = useState<number | null>(null);
+  const [savedRollNos, setSavedRollNos] = useState<string[]>([]);
+  const [pickerIdx, setPickerIdx] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (f: File | null) => {
@@ -38,6 +42,7 @@ export default function DataInsertionPage() {
       setTotalPages(0);
       setTotalPhotos(0);
       setSaveMsg('');
+      setSavedRollNos([]);
     } else if (f) {
       setError('Please select a PDF file');
     }
@@ -54,6 +59,7 @@ export default function DataInsertionPage() {
     setTotalPages(0);
     setTotalPhotos(0);
     setSaveMsg('');
+    setSavedRollNos([]);
 
     try {
       const formData = new FormData();
@@ -114,6 +120,30 @@ export default function DataInsertionPage() {
     setProgress('');
   }, [file, totalPages]);
 
+  /* ── Pick alternative photo for a student ── */
+  const pickPhoto = (studentIdx: number, altBase64: string) => {
+    setStudents(prev => {
+      const next = [...prev];
+      next[studentIdx] = { ...next[studentIdx], photoBase64: altBase64 };
+      return next;
+    });
+    const rollNo = students[studentIdx]?.rollNo;
+    if (rollNo) setSavedRollNos(prev => prev.filter(r => r !== rollNo));
+    setPickerIdx(null);
+  };
+
+  /* ── Clear photo ── */
+  const clearPhoto = (studentIdx: number) => {
+    setStudents(prev => {
+      const next = [...prev];
+      next[studentIdx] = { ...next[studentIdx], photoBase64: null };
+      return next;
+    });
+    const rollNo = students[studentIdx]?.rollNo;
+    if (rollNo) setSavedRollNos(prev => prev.filter(r => r !== rollNo));
+    setPickerIdx(null);
+  };
+
   /* ── Export SQL (client-side download) ── */
   const handleExportSQL = () => {
     if (students.length === 0) return;
@@ -164,11 +194,39 @@ export default function DataInsertionPage() {
       });
       const json = await res.json();
       if (json.error) setSaveMsg(`Error: ${json.error}`);
-      else setSaveMsg(`Saved ${json.photosSaved} photos to student_photos/`);
+      else {
+        setSaveMsg(`Saved ${json.photosSaved} photos to 1styearphotos/`);
+        setSavedRollNos(students.filter(s => s.rollNo && s.photoBase64).map(s => s.rollNo));
+      }
     } catch {
       setSaveMsg('Failed to save photos');
     }
     setSaving(false);
+  };
+
+  const handleSaveSinglePhoto = async (studentIdx: number) => {
+    const student = students[studentIdx];
+    if (!student?.rollNo || !student?.name || !student?.photoBase64) return;
+
+    setSavingPhotoIdx(studentIdx);
+    setSaveMsg('');
+    try {
+      const res = await fetch('/api/pdf-save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ students: [student] }),
+      });
+      const json = await res.json();
+      if (json.error) {
+        setSaveMsg(`Error: ${json.error}`);
+      } else {
+        setSavedRollNos(prev => Array.from(new Set([...prev, student.rollNo])));
+        setSaveMsg(`Saved photo for ${student.rollNo} to 1styearphotos/`);
+      }
+    } catch {
+      setSaveMsg(`Failed to save photo for ${student.rollNo}`);
+    }
+    setSavingPhotoIdx(null);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -184,6 +242,9 @@ export default function DataInsertionPage() {
     setTotalPhotos(0);
     setError('');
     setSaveMsg('');
+    setSavedRollNos([]);
+    setSavingPhotoIdx(null);
+    setPickerIdx(null);
   };
 
   const validCount = students.filter(s => s.rollNo && s.name).length;
@@ -211,7 +272,7 @@ export default function DataInsertionPage() {
         <div className="mb-8">
           <h1 className="text-2xl md:text-3xl font-black text-neutral-900">PDF Data Extraction</h1>
           <p className="mt-2 text-sm text-neutral-500">
-            Upload RTU admission card PDF — pages stream in one by one.
+            Upload RTU admission card PDF — click any photo to change it.
           </p>
         </div>
 
@@ -338,22 +399,59 @@ export default function DataInsertionPage() {
               </div>
             )}
 
-            {/* Student Cards — appear one by one */}
+            {done && (
+              <p className="mb-4 text-xs text-neutral-400 font-medium">
+                Click any photo to pick a different image from that page. Wrong photo or signature? Click it and choose the right one.
+              </p>
+            )}
+
+            {/* Student Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {students.map((s, i) => (
                 <div key={i} className={`bg-white border rounded-2xl overflow-hidden transition-all animate-[fadeIn_0.3s_ease] ${s.rollNo && s.name ? 'border-neutral-200' : 'border-red-200 bg-red-50/30'}`}>
-                  <div className="bg-neutral-50 border-b border-neutral-100 p-6 flex justify-center">
+                  {/* Photo — clickable */}
+                  <div
+                    className="bg-neutral-50 border-b border-neutral-100 p-6 flex justify-center cursor-pointer group relative"
+                    onClick={() => done && s.alternatives?.length > 0 && setPickerIdx(i)}
+                  >
                     {s.photoBase64 ? (
-                      <img src={s.photoBase64} alt={s.name || `Page ${s.pageNum}`} className="w-28 h-36 object-cover rounded-xl border-2 border-neutral-200 shadow-sm" />
+                      <div className="relative">
+                        <img src={s.photoBase64} alt={s.name || `Page ${s.pageNum}`} className="w-28 h-36 object-contain bg-white rounded-xl border-2 border-neutral-200 shadow-sm" />
+                        {done && s.alternatives?.length > 1 && (
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100">
+                            <span className="text-white text-xs font-bold bg-black/60 px-2 py-1 rounded-lg">Change</span>
+                          </div>
+                        )}
+                      </div>
                     ) : (
-                      <div className="w-28 h-36 rounded-xl bg-neutral-200 flex items-center justify-center">
-                        <svg className="w-8 h-8 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                        </svg>
+                      <div className="w-28 h-36 rounded-xl bg-neutral-200 flex items-center justify-center group-hover:bg-orange-100 transition-colors">
+                        {done && s.alternatives?.length > 0 ? (
+                          <span className="text-xs font-bold text-neutral-400 group-hover:text-orange-500 text-center px-2">Click to pick photo</span>
+                        ) : (
+                          <svg className="w-8 h-8 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                          </svg>
+                        )}
                       </div>
                     )}
                   </div>
                   <div className="p-4 space-y-2">
+                    {done && (
+                      <div className="flex items-center justify-end gap-2">
+                        {savedRollNos.includes(s.rollNo) && s.rollNo ? (
+                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-1">
+                            Saved
+                          </span>
+                        ) : null}
+                        <button
+                          onClick={() => handleSaveSinglePhoto(i)}
+                          disabled={!s.rollNo || !s.name || !s.photoBase64 || savingPhotoIdx === i}
+                          className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-200 disabled:text-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-[11px] transition-all disabled:cursor-not-allowed"
+                        >
+                          {savingPhotoIdx === i ? 'Saving…' : 'Save'}
+                        </button>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Page {s.pageNum}</span>
                       {s.rollNo && s.name ? (
@@ -376,6 +474,66 @@ export default function DataInsertionPage() {
           </>
         )}
       </div>
+
+      {/* ── Photo Picker Modal ── */}
+      {pickerIdx !== null && students[pickerIdx] && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setPickerIdx(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-bold text-neutral-900">Pick photo for Page {students[pickerIdx].pageNum}</h3>
+                <p className="text-xs text-neutral-500 mt-0.5">
+                  {students[pickerIdx].name || students[pickerIdx].rollNo || `Student #${pickerIdx + 1}`}
+                </p>
+              </div>
+              <button onClick={() => setPickerIdx(null)} className="text-neutral-400 hover:text-neutral-700 transition-colors">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-3 max-h-[60vh] overflow-y-auto">
+              {students[pickerIdx].alternatives?.map((alt, ai) => (
+                <button
+                  key={ai}
+                  onClick={() => pickPhoto(pickerIdx!, alt)}
+                  className={`relative rounded-xl overflow-hidden border-2 transition-all hover:scale-105 ${
+                    alt === students[pickerIdx!].photoBase64
+                      ? 'border-orange-500 ring-2 ring-orange-200'
+                      : 'border-neutral-200 hover:border-orange-300'
+                  }`}
+                >
+                  <img src={alt} alt={`Option ${ai + 1}`} className="w-full aspect-[3/4] object-contain bg-white" />
+                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-1">
+                    <span className="text-[10px] font-bold text-white">#{ai + 1}</span>
+                  </div>
+                  {alt === students[pickerIdx!].photoBase64 && (
+                    <div className="absolute top-1 right-1 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 flex items-center justify-between">
+              <button
+                onClick={() => clearPhoto(pickerIdx!)}
+                className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors"
+              >
+                Remove photo
+              </button>
+              <button
+                onClick={() => setPickerIdx(null)}
+                className="bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-semibold px-5 py-2 rounded-xl text-sm transition-all"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

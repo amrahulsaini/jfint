@@ -1,69 +1,11 @@
+import { execFile } from 'child_process';
+import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
+import os from 'os';
+import path from 'path';
 import { NextRequest } from 'next/server';
+import { promisify } from 'util';
 
 /* ── helpers ──────────────────────────────────────────────────── */
-
-/** Scan PDF buffer for raw JPEG streams (FF D8 … FF D9) */
-function extractJPEGs(buf: Buffer): Buffer[] {
-  const jpegs: Buffer[] = [];
-  let pos = 0;
-  while (pos < buf.length - 3) {
-    if (buf[pos] === 0xff && buf[pos + 1] === 0xd8 && buf[pos + 2] === 0xff) {
-      const start = pos;
-      pos += 3;
-      while (pos < buf.length - 1) {
-        if (buf[pos] === 0xff && buf[pos + 1] === 0xd9) {
-          jpegs.push(Buffer.from(buf.subarray(start, pos + 2)));
-          pos += 2;
-          break;
-        }
-        pos++;
-      }
-    } else {
-      pos++;
-    }
-  }
-  return jpegs;
-}
-
-/** Read JPEG width/height from SOF marker */
-function jpegDimensions(buf: Buffer): { w: number; h: number } | null {
-  let pos = 2;
-  while (pos < buf.length - 9) {
-    if (buf[pos] !== 0xff) return null;
-    const marker = buf[pos + 1];
-    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
-      return { h: buf.readUInt16BE(pos + 5), w: buf.readUInt16BE(pos + 7) };
-    }
-    if (pos + 3 >= buf.length) break;
-    pos += 2 + buf.readUInt16BE(pos + 2);
-  }
-  return null;
-}
-
-/** Quick hash for dedup (first 200 + last 200 bytes) */
-function bufKey(b: Buffer): string {
-  return (
-    b.subarray(0, Math.min(200, b.length)).toString('hex') +
-    ':' +
-    b.subarray(Math.max(0, b.length - 200)).toString('hex')
-  );
-}
-
-/** Remove the most-repeated image (logo) from list */
-function removeLogo(bufs: Buffer[]): Buffer[] {
-  const counts = new Map<string, number>();
-  for (const b of bufs) {
-    const k = bufKey(b);
-    counts.set(k, (counts.get(k) || 0) + 1);
-  }
-  let logoKey = '';
-  let maxC = 0;
-  for (const [k, c] of counts) {
-    if (c > maxC) { maxC = c; logoKey = k; }
-  }
-  if (maxC <= 1) return bufs; // no duplicate = no logo
-  return bufs.filter((b) => bufKey(b) !== logoKey);
-}
 
 /** Extract a regex group from text */
 function field(text: string, re: RegExp): string {
@@ -71,12 +13,12 @@ function field(text: string, re: RegExp): string {
   return m ? m[1].replace(/\s+/g, ' ').trim() : '';
 }
 
-/** Strip Hindi / non-ASCII text: keep only up to first '(' or non-Latin char */
+/** Strip Hindi / non-ASCII text + clean junk chars like ] \ */
 function englishOnly(s: string): string {
-  // remove anything from '(' onward  e.g. "AJAY YADAV (अजय yadav)" → "AJAY YADAV"
   let cleaned = s.replace(/\s*\(.*$/, '').trim();
-  // also strip any remaining non-ASCII characters (Devanagari etc.)
   cleaned = cleaned.replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, ' ').trim();
+  // remove stray ] \ at end from pdf extraction artifacts
+  cleaned = cleaned.replace(/[\]\[\\\/]+\s*$/, '').trim();
   return cleaned;
 }
 
@@ -94,6 +36,58 @@ function parseAdmissionCard(text: string) {
   };
 }
 
+function uniqueImages(images: string[]) {
+  return [...new Set(images.filter(Boolean))];
+}
+
+const execFileAsync = promisify(execFile);
+
+interface PythonPageResult {
+  pageNum: number;
+  text: string;
+  photoBase64: string | null;
+  photoWidth: number;
+  photoHeight: number;
+  alternatives: string[];
+}
+
+interface PythonExtractResult {
+  totalPages: number;
+  pages: PythonPageResult[];
+}
+
+async function runPythonExtractor(pdfPath: string, outputPath: string): Promise<PythonExtractResult> {
+  const scriptPath = path.join(process.cwd(), 'scripts', 'extract_student_photos.py');
+  const preferredPython = process.env.PYTHON_PATH || 'C:/Users/ammra/AppData/Local/Programs/Python/Python313/python.exe';
+  const candidates = process.platform === 'win32'
+    ? [
+        { cmd: preferredPython, args: [scriptPath, pdfPath, outputPath] },
+        { cmd: 'py', args: ['-3', scriptPath, pdfPath, outputPath] },
+        { cmd: 'python', args: [scriptPath, pdfPath, outputPath] },
+      ]
+    : [
+        { cmd: preferredPython, args: [scriptPath, pdfPath, outputPath] },
+        { cmd: 'python3', args: [scriptPath, pdfPath, outputPath] },
+        { cmd: 'python', args: [scriptPath, pdfPath, outputPath] },
+      ];
+
+  let lastError = 'Python extractor failed';
+
+  for (const candidate of candidates) {
+    try {
+      await execFileAsync(candidate.cmd, candidate.args, {
+        maxBuffer: 10 * 1024 * 1024,
+      });
+      const json = await readFile(outputPath, 'utf-8');
+      return JSON.parse(json) as PythonExtractResult;
+    } catch (error: unknown) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  throw new Error(lastError);
+}
+
 /* ── SSE stream: one event per page ───────────────────────────── */
 
 export async function POST(req: NextRequest) {
@@ -107,10 +101,6 @@ export async function POST(req: NextRequest) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { PDFParse } = require('pdf-parse');
-
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -119,67 +109,40 @@ export async function POST(req: NextRequest) {
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       };
 
+      let tempDir = '';
+
       try {
-        /* ─── 1. load PDF ─── */
-        const parser = new PDFParse({ data: buffer });
+        tempDir = await mkdtemp(path.join(os.tmpdir(), 'jfint-'));
+        const tempPdfPath = path.join(tempDir, file.name || 'upload.pdf');
+        const tempJsonPath = path.join(tempDir, 'extract-result.json');
+        await writeFile(tempPdfPath, buffer);
 
-        /* ─── 2. get text per page ─── */
-        const textResult = await parser.getText();
-        const totalPages: number = textResult.total;
+        const extracted = await runPythonExtractor(tempPdfPath, tempJsonPath);
+        const totalPages = extracted.totalPages;
         send('init', { totalPages });
+        let totalPhotosFound = 0;
 
-        /* ─── 3. extract student photos from raw JPEG streams ─── */
-        // Scan the PDF binary for embedded JPEG images
-        const rawJpegs = extractJPEGs(buffer);
-        const meaningful = rawJpegs.filter((j) => {
-          const dims = jpegDimensions(j);
-          return j.length > 800 && dims && dims.w > 20 && dims.h > 20;
-        });
-        // remove logos: any image that appears more than once is a logo
-        const afterLogo = removeLogo(meaningful);
-
-        // Each admission card page has ~2 images after logo removal: photo + signature
-        // Photo is ALWAYS bigger in byte size than signature (color photo vs B&W strokes)
-        // Group images by page: we know totalPages, so split into groups
-        const imgsPerPage = Math.max(1, Math.round(afterLogo.length / totalPages));
-        const pagePhotoMap: Map<number, string> = new Map();
-
-        for (let i = 0; i < totalPages; i++) {
-          const start = i * imgsPerPage;
-          const end = Math.min(start + imgsPerPage, afterLogo.length);
-          const pageImgs = afterLogo.slice(start, end);
-          if (pageImgs.length === 0) continue;
-          // pick the one with most bytes = the actual photo (not signature)
-          const photo = pageImgs.reduce((best, cur) => cur.length > best.length ? cur : best);
-          pagePhotoMap.set(i + 1, `data:image/jpeg;base64,${photo.toString('base64')}`);
-        }
-
-        /* ─── 4. process page by page & stream ─── */
-        for (let i = 0; i < totalPages; i++) {
-          const pageNum = i + 1;
-          const pageText = textResult.pages.find((p: { num: number }) => p.num === pageNum)?.text || '';
-          const parsed = parseAdmissionCard(pageText);
-
-          const photoBase64 = pagePhotoMap.get(pageNum) || null;
+        for (const page of extracted.pages) {
+          const parsed = parseAdmissionCard(page.text || '');
+          const alternatives = uniqueImages(page.alternatives || []);
+          if (page.photoBase64) totalPhotosFound++;
 
           send('page', {
-            pageNum,
+            pageNum: page.pageNum,
             ...parsed,
-            photoBase64,
-            photoWidth: 0,
-            photoHeight: 0,
+            photoBase64: page.photoBase64,
+            photoWidth: page.photoWidth || 0,
+            photoHeight: page.photoHeight || 0,
+            alternatives,
           });
         }
-
-        await parser.destroy();
-
-        send('done', {
-          totalPages,
-          totalPhotosFound: rawJpegs.length,
-          totalStudentPhotos: pagePhotoMap.size,
-        });
+        send('done', { totalPages, totalStudentPhotos: totalPhotosFound });
       } catch (err: unknown) {
         send('error', { error: err instanceof Error ? err.message : 'Failed to process PDF' });
+      } finally {
+        if (tempDir) {
+          await rm(tempDir, { recursive: true, force: true });
+        }
       }
 
       controller.close();
