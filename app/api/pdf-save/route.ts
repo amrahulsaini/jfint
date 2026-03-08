@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
-import pool from '@/lib/db';
+import { getPool } from '@/lib/db';
 
 interface StudentPayload {
   rollNo: string;
@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
     await mkdir(photoDir, { recursive: true });
 
     // 2. Create table if not exists
+    const pool = getPool();
     const conn = await pool.getConnection();
     try {
       await conn.execute(`
