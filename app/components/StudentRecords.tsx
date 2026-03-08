@@ -57,14 +57,20 @@ interface StudentDetail {
 const statusPill = (s: string) => {
   const l = s?.toLowerCase() || '';
   if (l.includes('filled') || l.includes('complete') || l.includes('submit'))
-    return 'text-emerald-700 bg-emerald-50 border-emerald-200';
+    return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
   if (l.includes('not') || l.includes('pending'))
-    return 'text-orange-700 bg-orange-50 border-orange-200';
-  return 'text-neutral-500 bg-neutral-100 border-neutral-200';
+    return 'text-orange-400 bg-orange-500/10 border-orange-500/30';
+  return 'text-white/40 bg-white/[0.04] border-white/10';
 };
 
 /* ── Component ──────────────────────────────────────────── */
-export default function StudentRecords() {
+export default function StudentRecords({
+  table = 'jecr_2ndyear',
+  photoDir = 'student_photos',
+}: {
+  table?: string;
+  photoDir?: string;
+}) {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -80,7 +86,7 @@ export default function StudentRecords() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const p = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+      const p = new URLSearchParams({ page: String(page), limit: String(LIMIT), table });
       if (search) p.set('search', search);
       if (branch) p.set('branch', branch);
       const res = await fetch(`/api/db/students?${p}`);
@@ -92,9 +98,12 @@ export default function StudentRecords() {
       setData(null);
     }
     setLoading(false);
-  }, [page, search, branch]);
+  }, [page, search, branch, table]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Reset page/filters when table switches
+  useEffect(() => { setPage(1); setSearch(''); setSearchInput(''); setBranch(''); }, [table]);
 
   const handleSearch = (e: React.FormEvent) => { e.preventDefault(); setPage(1); setSearch(searchInput); };
 
@@ -103,7 +112,7 @@ export default function StudentRecords() {
     setDetailLoading(true);
     setDetail(null);
     try {
-      const res = await fetch(`/api/db/student-detail?roll_no=${encodeURIComponent(rollNo)}`);
+      const res = await fetch(`/api/db/student-detail?roll_no=${encodeURIComponent(rollNo)}&table=${encodeURIComponent(table)}`);
       const json = await res.json();
       if (!json.error) setDetail(json);
     } catch { /* noop */ }
@@ -114,14 +123,14 @@ export default function StudentRecords() {
   if (error && !data) {
     return (
       <div className="max-w-7xl mx-auto px-5 md:px-8 py-16 text-center">
-        <div className="bg-orange-50 border border-orange-200 rounded-2xl p-12 max-w-lg mx-auto">
-          <div className="w-14 h-14 rounded-2xl bg-orange-100 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-7 h-7 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-12 max-w-lg mx-auto">
+          <div className="w-14 h-14 rounded-2xl bg-orange-500/20 flex items-center justify-center mx-auto mb-4">
+            <svg className="w-7 h-7 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125v-3.75" />
             </svg>
           </div>
-          <h3 className="text-lg font-bold text-neutral-900 mb-1">Database Not Connected</h3>
-          <p className="text-sm text-neutral-500">Student results will appear once the SQL data is imported.</p>
+          <h3 className="text-lg font-black text-white mb-1">Database Not Connected</h3>
+          <p className="text-sm text-white/40 font-semibold">Student results will appear once the SQL data is imported.</p>
         </div>
       </div>
     );
@@ -129,7 +138,7 @@ export default function StudentRecords() {
 
   /* ── Main ──────────────────────────────────────────────── */
   return (
-    <div className="max-w-7xl mx-auto px-5 md:px-8 py-10">
+    <div className="max-w-7xl mx-auto px-5 md:px-8 py-6">
 
       {/* ─── Stats ───────────────────────────────────────── */}
       {data?.stats && (
@@ -152,20 +161,20 @@ export default function StudentRecords() {
               key={s.label}
               className={`rounded-2xl border p-5 flex items-center gap-4 ${
                 s.accent
-                  ? 'bg-orange-50 border-orange-200'
-                  : 'bg-white border-neutral-200'
+                  ? 'bg-orange-500/10 border-orange-500/20 hover:border-orange-500/40 hover:shadow-lg hover:shadow-orange-500/10 transition-all duration-200 hover:-translate-y-0.5'
+                  : 'bg-white/[0.03] border-white/[0.08] hover:border-white/[0.15] hover:bg-white/[0.06] transition-all duration-200 hover:-translate-y-0.5'
               }`}
             >
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                s.accent ? 'bg-orange-100 text-orange-600' : 'bg-neutral-100 text-neutral-500'
+                s.accent ? 'bg-orange-500/20 text-orange-400' : 'bg-white/[0.06] text-white/40'
               }`}>
                 {s.icon}
               </div>
               <div>
-                <div className={`text-2xl font-black leading-none ${s.accent ? 'text-orange-600' : 'text-neutral-900'}`}>
+                <div className={`text-2xl font-black leading-none ${s.accent ? 'text-orange-400' : 'text-white'}`}>
                   {s.val.toLocaleString()}
                 </div>
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 mt-1">{s.label}</div>
+                <div className="text-[11px] font-black uppercase tracking-wider text-white/30 mt-1">{s.label}</div>
               </div>
             </div>
           ))}
@@ -173,11 +182,11 @@ export default function StudentRecords() {
       )}
 
       {/* ─── Search / Filter Bar ─────────────────────────── */}
-      <div className="bg-white border border-neutral-200 rounded-2xl p-4 mb-8 shadow-sm">
+      <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-4 mb-8">
         <div className="flex flex-col sm:flex-row gap-3">
           <form onSubmit={handleSearch} className="flex-1 flex gap-2">
             <div className="relative flex-1">
-              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
               </svg>
               <input
@@ -185,10 +194,10 @@ export default function StudentRecords() {
                 value={searchInput}
                 onChange={e => setSearchInput(e.target.value)}
                 placeholder="Search by name or roll number…"
-                className="w-full bg-neutral-50 border border-neutral-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all"
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-sm font-semibold text-white placeholder-white/25 focus:outline-none focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/10 transition-all duration-200"
               />
             </div>
-            <button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm hover:shadow-md">
+            <button type="submit" className="bg-orange-500 hover:bg-orange-400 active:bg-orange-600 text-white font-black px-6 py-2.5 rounded-xl text-sm transition-all duration-200 shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 hover:-translate-y-0.5">
               Search
             </button>
           </form>
@@ -196,12 +205,12 @@ export default function StudentRecords() {
             <select
               value={branch}
               onChange={e => { setBranch(e.target.value); setPage(1); }}
-              className="appearance-none bg-neutral-50 border border-neutral-200 rounded-xl pl-4 pr-9 py-2.5 text-sm text-neutral-700 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all cursor-pointer min-w-[160px]"
+              className="appearance-none bg-white/[0.04] border border-white/[0.08] rounded-xl pl-4 pr-9 py-2.5 text-sm font-bold text-white/70 focus:outline-none focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/10 transition-all duration-200 cursor-pointer min-w-[160px]"
             >
-              <option value="">All Branches</option>
-              {data?.branches.map(b => <option key={b} value={b}>{b}</option>)}
+              <option value="" className="bg-[#111118] text-white">All Branches</option>
+              {data?.branches.map(b => <option key={b} value={b} className="bg-[#111118] text-white">{b}</option>)}
             </select>
-            <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/>
             </svg>
           </div>
@@ -209,20 +218,20 @@ export default function StudentRecords() {
 
         {/* Active filter chips */}
         {(search || branch) && (
-          <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-neutral-100">
+          <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-white/[0.06]">
             {search && (
-              <span className="inline-flex items-center gap-1.5 bg-orange-50 border border-orange-200 rounded-full px-3 py-1 text-xs font-semibold text-orange-700">
+              <span className="inline-flex items-center gap-1.5 bg-orange-500/10 border border-orange-500/20 rounded-full px-3 py-1 text-xs font-black text-orange-400">
                 &ldquo;{search}&rdquo;
-                <button onClick={() => { setSearch(''); setSearchInput(''); setPage(1); }} className="hover:text-orange-900">×</button>
+                <button onClick={() => { setSearch(''); setSearchInput(''); setPage(1); }} className="hover:text-orange-200 transition-colors">×</button>
               </span>
             )}
             {branch && (
-              <span className="inline-flex items-center gap-1.5 bg-neutral-100 border border-neutral-200 rounded-full px-3 py-1 text-xs font-semibold text-neutral-600">
+              <span className="inline-flex items-center gap-1.5 bg-white/[0.05] border border-white/[0.10] rounded-full px-3 py-1 text-xs font-black text-white/60">
                 {branch}
-                <button onClick={() => { setBranch(''); setPage(1); }} className="hover:text-neutral-900">×</button>
+                <button onClick={() => { setBranch(''); setPage(1); }} className="hover:text-white transition-colors">×</button>
               </span>
             )}
-            <button onClick={() => { setSearch(''); setSearchInput(''); setBranch(''); setPage(1); }} className="text-xs text-neutral-400 hover:text-orange-500 transition-colors">
+            <button onClick={() => { setSearch(''); setSearchInput(''); setBranch(''); setPage(1); }} className="text-xs font-bold text-white/25 hover:text-orange-400 transition-colors">
               Clear all
             </button>
           </div>
@@ -233,26 +242,26 @@ export default function StudentRecords() {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="bg-white border border-neutral-200 rounded-2xl p-5 animate-pulse">
+            <div key={i} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 animate-pulse">
               <div className="flex items-center gap-4 mb-4">
-                <div className="w-16 h-16 rounded-2xl bg-neutral-100" />
+                <div className="w-16 h-16 rounded-2xl bg-white/[0.06]" />
                 <div className="flex-1">
-                  <div className="h-4 bg-neutral-100 rounded-full w-3/4 mb-2" />
-                  <div className="h-3 bg-neutral-100 rounded-full w-1/2" />
+                  <div className="h-4 bg-white/[0.06] rounded-full w-3/4 mb-2" />
+                  <div className="h-3 bg-white/[0.06] rounded-full w-1/2" />
                 </div>
               </div>
-              <div className="h-3 bg-neutral-100 rounded-full w-full mb-2" />
-              <div className="h-3 bg-neutral-100 rounded-full w-2/3" />
+              <div className="h-3 bg-white/[0.06] rounded-full w-full mb-2" />
+              <div className="h-3 bg-white/[0.06] rounded-full w-2/3" />
             </div>
           ))}
         </div>
       ) : data?.rows.length === 0 ? (
         <div className="text-center py-20">
-          <svg className="w-16 h-16 text-neutral-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+          <svg className="w-16 h-16 text-white/10 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
-          <p className="text-neutral-500 font-semibold">No students found</p>
-          <p className="text-neutral-400 text-sm mt-1">Try a different search or filter</p>
+          <p className="text-white/50 font-black">No students found</p>
+          <p className="text-white/25 font-semibold text-sm mt-1">Try a different search or filter</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
@@ -260,13 +269,15 @@ export default function StudentRecords() {
             <div
               key={row.roll_no}
               onClick={() => openDetail(row.roll_no)}
-              className="group bg-white border border-neutral-200 rounded-2xl p-5 cursor-pointer transition-all hover:shadow-lg hover:shadow-orange-500/[0.06] hover:border-orange-300 hover:-translate-y-0.5"
+              className="group relative bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] hover:border-orange-500/40 rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:shadow-2xl hover:shadow-orange-500/10 hover:-translate-y-1 active:translate-y-0 overflow-hidden"
             >
+              {/* Top glow on hover */}
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/0 to-transparent group-hover:via-orange-500/50 transition-all duration-300" />
               {/* Photo + Name */}
               <div className="flex items-center gap-4 mb-4">
-                <div className="w-16 h-16 rounded-2xl overflow-hidden bg-neutral-100 border-2 border-neutral-200 group-hover:border-orange-300 transition-colors flex-shrink-0">
+                <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white/[0.06] border-2 border-white/[0.08] group-hover:border-orange-500/40 transition-all duration-300 flex-shrink-0">
                   <Image
-                    src={`/student_photos/photo_${row.roll_no}.jpg`}
+                    src={`/${photoDir}/photo_${row.roll_no}.jpg`}
                     alt={row.student_name}
                     width={64}
                     height={64}
@@ -277,7 +288,7 @@ export default function StudentRecords() {
                       const p = t.parentElement;
                       if (p && !p.querySelector('.af')) {
                         const d = document.createElement('div');
-                        d.className = 'af w-full h-full flex items-center justify-center text-xl font-black text-neutral-300 bg-neutral-50';
+                        d.className = 'af w-full h-full flex items-center justify-center text-xl font-black text-white/20 bg-white/[0.04]';
                         d.textContent = (row.student_name || '?').charAt(0).toUpperCase();
                         p.appendChild(d);
                       }
@@ -285,37 +296,37 @@ export default function StudentRecords() {
                   />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-neutral-900 text-sm leading-snug truncate group-hover:text-orange-600 transition-colors">
+                  <h3 className="font-black text-white text-sm leading-snug truncate group-hover:text-orange-300 transition-colors duration-200">
                     {row.student_name}
                   </h3>
-                  <p className="text-orange-500 font-mono text-xs font-bold mt-0.5">{row.roll_no}</p>
+                  <p className="text-orange-400 font-mono text-xs font-bold mt-0.5">{row.roll_no}</p>
                 </div>
               </div>
 
               {/* Info rows */}
               <div className="space-y-2 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-neutral-400 font-medium">Father</span>
-                  <span className="text-neutral-700 font-medium truncate ml-2 text-right max-w-[60%]">{row.father_name}</span>
+                  <span className="text-white/30 font-bold">Father</span>
+                  <span className="text-white/70 font-bold truncate ml-2 text-right max-w-[60%]">{row.father_name}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-neutral-400 font-medium">Branch</span>
-                  <span className="bg-neutral-100 border border-neutral-200 text-neutral-600 rounded-lg px-2 py-0.5 text-[11px] font-semibold">
+                  <span className="text-white/30 font-bold">Branch</span>
+                  <span className="bg-white/[0.06] border border-white/[0.10] text-white/60 rounded-lg px-2 py-0.5 text-[11px] font-black">
                     {row.branch}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-neutral-400 font-medium">Papers</span>
-                  <span className="bg-orange-50 border border-orange-200 text-orange-700 rounded-lg px-2.5 py-0.5 text-[11px] font-bold">
+                  <span className="text-white/30 font-bold">Papers</span>
+                  <span className="bg-orange-500/10 border border-orange-500/25 text-orange-400 rounded-lg px-2.5 py-0.5 text-[11px] font-black">
                     {row.paper_count}
                   </span>
                 </div>
               </div>
 
               {/* View arrow */}
-              <div className="mt-4 pt-3 border-t border-neutral-100 flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">View Details</span>
-                <svg className="w-4 h-4 text-neutral-300 group-hover:text-orange-500 group-hover:translate-x-0.5 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between">
+                <span className="text-[11px] font-black text-white/20 uppercase tracking-wider group-hover:text-orange-400/70 transition-colors duration-200">View Details</span>
+                <svg className="w-4 h-4 text-white/15 group-hover:text-orange-400 group-hover:translate-x-1 transition-all duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/>
                 </svg>
               </div>
@@ -327,15 +338,15 @@ export default function StudentRecords() {
       {/* ─── Pagination ──────────────────────────────────── */}
       {data && data.totalPages > 1 && (
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span className="text-sm text-neutral-400">
-            Showing <span className="font-semibold text-neutral-700">{((page - 1) * data.limit) + 1}–{Math.min(page * data.limit, data.total)}</span> of <span className="font-semibold text-neutral-700">{data.total.toLocaleString()}</span>
+          <span className="text-sm text-white/30 font-bold">
+            Showing <span className="font-black text-white/70">{((page - 1) * data.limit) + 1}–{Math.min(page * data.limit, data.total)}</span> of <span className="font-black text-white/70">{data.total.toLocaleString()}</span>
           </span>
           <div className="flex items-center gap-1.5">
             {/* First */}
             <button
               onClick={() => setPage(1)}
               disabled={page <= 1}
-              className="w-9 h-9 rounded-xl border border-neutral-200 bg-white flex items-center justify-center text-neutral-400 hover:text-orange-500 hover:border-orange-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-bold"
+              className="w-9 h-9 rounded-xl border border-white/[0.08] bg-white/[0.03] flex items-center justify-center text-white/30 hover:text-orange-400 hover:border-orange-500/40 disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200 text-xs font-black"
             >
               ««
             </button>
@@ -343,7 +354,7 @@ export default function StudentRecords() {
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="w-9 h-9 rounded-xl border border-neutral-200 bg-white flex items-center justify-center text-neutral-400 hover:text-orange-500 hover:border-orange-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-bold"
+              className="w-9 h-9 rounded-xl border border-white/[0.08] bg-white/[0.03] flex items-center justify-center text-white/30 hover:text-orange-400 hover:border-orange-500/40 disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200 text-xs font-black"
             >
               ‹
             </button>
@@ -361,8 +372,8 @@ export default function StudentRecords() {
                   onClick={() => setPage(p)}
                   className={`w-9 h-9 rounded-xl text-sm font-bold transition-all ${
                     p === page
-                      ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25 border border-orange-500'
-                      : 'bg-white border border-neutral-200 text-neutral-500 hover:text-orange-500 hover:border-orange-300'
+                      ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30 border border-orange-500 scale-110'
+                      : 'bg-white/[0.03] border border-white/[0.08] text-white/40 hover:text-orange-400 hover:border-orange-500/40'
                   }`}
                 >
                   {p}
@@ -373,7 +384,7 @@ export default function StudentRecords() {
             <button
               onClick={() => setPage(p => Math.min(data.totalPages, p + 1))}
               disabled={page >= data.totalPages}
-              className="w-9 h-9 rounded-xl border border-neutral-200 bg-white flex items-center justify-center text-neutral-400 hover:text-orange-500 hover:border-orange-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-bold"
+              className="w-9 h-9 rounded-xl border border-white/[0.08] bg-white/[0.03] flex items-center justify-center text-white/30 hover:text-orange-400 hover:border-orange-500/40 disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200 text-xs font-black"
             >
               ›
             </button>
@@ -381,8 +392,7 @@ export default function StudentRecords() {
             <button
               onClick={() => setPage(data.totalPages)}
               disabled={page >= data.totalPages}
-              className="w-9 h-9 rounded-xl border border-neutral-200 bg-white flex items-center justify-center text-neutral-400 hover:text-orange-500 hover:border-orange-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-bold"
-            >
+              className="w-9 h-9 rounded-xl border border-white/[0.08] bg-white/[0.03] flex items-center justify-center text-white/30 hover:text-orange-400 hover:border-orange-500/40 disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200 text-xs font-black">
               »»
             </button>
           </div>
@@ -392,16 +402,15 @@ export default function StudentRecords() {
       {/* ─── Detail Modal ──────────────────────────────────── */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowModal(false)} />
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setShowModal(false)} />
 
-          <div className="relative bg-white border border-neutral-200 rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl">
+          <div className="relative bg-[#111118] border border-white/[0.10] rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl shadow-black/60">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
-              <h3 className="text-base font-bold text-neutral-900">Student Details</h3>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+              <h3 className="text-base font-black text-white">Student Details</h3>
               <button
                 onClick={() => setShowModal(false)}
-                className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center text-neutral-400 hover:text-neutral-700 transition-all"
-              >
+                className="w-8 h-8 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] flex items-center justify-center text-white/40 hover:text-white transition-all duration-200">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -411,19 +420,19 @@ export default function StudentRecords() {
             <div className="overflow-y-auto max-h-[calc(85vh-57px)]">
               {detailLoading ? (
                 <div className="flex flex-col items-center py-16">
-                  <div className="w-10 h-10 border-[3px] border-orange-200 border-t-orange-500 rounded-full animate-spin mb-4" />
-                  <span className="text-sm text-neutral-400">Loading…</span>
+                  <div className="w-10 h-10 border-[3px] border-orange-500/20 border-t-orange-500 rounded-full animate-spin mb-4" />
+                  <span className="text-sm text-white/30 font-bold">Loading…</span>
                 </div>
               ) : !detail ? (
-                <div className="text-center py-16 text-neutral-400">Failed to load student details.</div>
+                <div className="text-center py-16 text-white/30 font-bold">Failed to load student details.</div>
               ) : (
                 <div className="p-6">
                   {/* Profile */}
-                  <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-5 mb-6">
+                  <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-5 mb-6">
                     <div className="flex items-start gap-5">
-                      <div className="w-20 h-20 rounded-2xl overflow-hidden bg-neutral-100 border-2 border-neutral-200 flex-shrink-0">
+                      <div className="w-20 h-20 rounded-2xl overflow-hidden bg-white/[0.06] border-2 border-white/[0.10] flex-shrink-0">
                         <Image
-                          src={`/student_photos/photo_${detail.student.roll_no}.jpg`}
+                          src={`/${photoDir}/photo_${detail.student.roll_no}.jpg`}
                           alt={detail.student.student_name}
                           width={80}
                           height={80}
@@ -433,7 +442,7 @@ export default function StudentRecords() {
                             const p = t.parentElement;
                             if (p && !p.querySelector('.af')) {
                               const d = document.createElement('div');
-                              d.className = 'af w-full h-full flex items-center justify-center text-2xl font-black text-neutral-300 bg-neutral-50';
+                              d.className = 'af w-full h-full flex items-center justify-center text-2xl font-black text-white/20 bg-white/[0.04]';
                               d.textContent = (detail.student.student_name || '?').charAt(0).toUpperCase();
                               p.appendChild(d);
                             }
@@ -441,9 +450,9 @@ export default function StudentRecords() {
                         />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-xl font-black text-neutral-900">{detail.student.student_name}</h4>
-                        <p className="text-orange-500 font-mono text-sm font-bold mt-0.5">{detail.student.roll_no}</p>
-                        <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-4 text-sm">
+                        <h4 className="text-xl font-black text-white">{detail.student.student_name}</h4>
+                        <p className="text-orange-400 font-mono text-sm font-bold mt-0.5">{detail.student.roll_no}</p>
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-3 mt-4 text-sm">
                           {[
                             { l: 'Father', v: detail.student.father_name },
                             { l: 'Mother', v: detail.student.mother_name },
@@ -451,8 +460,8 @@ export default function StudentRecords() {
                             { l: 'Year', v: detail.student.year },
                           ].map(f => (
                             <div key={f.l}>
-                              <span className="text-neutral-400 text-[11px] uppercase tracking-wider font-semibold">{f.l}</span>
-                              <p className="text-neutral-800 font-semibold text-sm">{f.v}</p>
+                              <span className="text-white/25 text-[11px] uppercase tracking-wider font-black">{f.l}</span>
+                              <p className="text-white font-black text-sm mt-0.5">{f.v}</p>
                             </div>
                           ))}
                         </div>
@@ -462,46 +471,46 @@ export default function StudentRecords() {
 
                   {/* Summary */}
                   <div className="grid grid-cols-3 gap-3 mb-6">
-                    <div className="bg-white border border-neutral-200 rounded-xl px-4 py-3 text-center">
-                      <div className="text-2xl font-black text-neutral-900">{detail.summary.totalPapers}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mt-1">Total</div>
+                    <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3 text-center">
+                      <div className="text-2xl font-black text-white">{detail.summary.totalPapers}</div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-white/30 mt-1">Total</div>
                     </div>
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-center">
-                      <div className="text-2xl font-black text-emerald-600">{detail.summary.filled}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 mt-1">Filled</div>
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 text-center">
+                      <div className="text-2xl font-black text-emerald-400">{detail.summary.filled}</div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-emerald-500/50 mt-1">Filled</div>
                     </div>
-                    <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-center">
-                      <div className="text-2xl font-black text-orange-600">{detail.summary.pending}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-orange-400 mt-1">Pending</div>
+                    <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl px-4 py-3 text-center">
+                      <div className="text-2xl font-black text-orange-400">{detail.summary.pending}</div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-orange-500/50 mt-1">Pending</div>
                     </div>
                   </div>
 
                   {/* Papers table */}
-                  <div className="bg-white border border-neutral-200 rounded-2xl overflow-hidden">
-                    <div className="px-5 py-3 border-b border-neutral-100 bg-neutral-50">
-                      <h5 className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Paper-wise Status</h5>
+                  <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl overflow-hidden">
+                    <div className="px-5 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+                      <h5 className="text-xs font-black text-white/30 uppercase tracking-widest">Paper-wise Status</h5>
                     </div>
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-neutral-100">
-                          <th className="px-5 py-3 text-left text-[10px] font-bold text-neutral-400 uppercase tracking-widest w-10">#</th>
-                          <th className="px-5 py-3 text-left text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Paper</th>
-                          <th className="px-5 py-3 text-left text-[10px] font-bold text-neutral-400 uppercase tracking-widest hidden sm:table-cell">Type</th>
-                          <th className="px-5 py-3 text-left text-[10px] font-bold text-neutral-400 uppercase tracking-widest hidden sm:table-cell">Exam</th>
-                          <th className="px-5 py-3 text-left text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Status</th>
+                        <tr className="border-b border-white/[0.06]">
+                          <th className="px-5 py-3 text-left text-[10px] font-black text-white/25 uppercase tracking-widest w-10">#</th>
+                          <th className="px-5 py-3 text-left text-[10px] font-black text-white/25 uppercase tracking-widest">Paper</th>
+                          <th className="px-5 py-3 text-left text-[10px] font-black text-white/25 uppercase tracking-widest hidden sm:table-cell">Type</th>
+                          <th className="px-5 py-3 text-left text-[10px] font-black text-white/25 uppercase tracking-widest hidden sm:table-cell">Exam</th>
+                          <th className="px-5 py-3 text-left text-[10px] font-black text-white/25 uppercase tracking-widest">Status</th>
                         </tr>
                       </thead>
                       <tbody>
                         {detail.papers.map((p, i) => (
-                          <tr key={i} className="border-b border-neutral-50 last:border-b-0 hover:bg-orange-50/40 transition-colors">
-                            <td className="px-5 py-3 text-neutral-400 font-mono text-xs">{i + 1}</td>
-                            <td className="px-5 py-3 text-neutral-800 text-xs font-medium">{p.paper_name}</td>
+                          <tr key={i} className="border-b border-white/[0.04] last:border-b-0 hover:bg-orange-500/[0.03] transition-colors duration-150">
+                            <td className="px-5 py-3 text-white/25 font-mono text-xs font-bold">{i + 1}</td>
+                            <td className="px-5 py-3 text-white/80 text-xs font-bold">{p.paper_name}</td>
                             <td className="px-5 py-3 hidden sm:table-cell">
-                              <span className="inline-block bg-neutral-100 border border-neutral-200 rounded-lg px-2 py-0.5 text-[11px] text-neutral-500 font-medium">{p.paper_type}</span>
+                              <span className="inline-block bg-white/[0.05] border border-white/[0.08] rounded-lg px-2 py-0.5 text-[11px] text-white/40 font-bold">{p.paper_type}</span>
                             </td>
-                            <td className="px-5 py-3 text-neutral-500 text-xs hidden sm:table-cell">{p.exam_type}</td>
+                            <td className="px-5 py-3 text-white/35 text-xs font-bold hidden sm:table-cell">{p.exam_type}</td>
                             <td className="px-5 py-3">
-                              <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusPill(p.marks_status)}`}>
+                              <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-black ${statusPill(p.marks_status)}`}>
                                 {p.marks_status || '—'}
                               </span>
                             </td>

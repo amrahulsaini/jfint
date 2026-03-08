@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
 
+const ALLOWED_TABLES = ['jecr_2ndyear', 'jecr_1styear'] as const;
+type AllowedTable = typeof ALLOWED_TABLES[number];
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const rollNo = (searchParams.get('roll_no') || '').trim();
+  const rawTable = (searchParams.get('table') || 'jecr_2ndyear').trim();
+  const tableName: AllowedTable = ALLOWED_TABLES.includes(rawTable as AllowedTable)
+    ? rawTable as AllowedTable
+    : 'jecr_2ndyear';
 
   if (!rollNo) {
     return NextResponse.json({ error: 'roll_no is required' }, { status: 400 });
@@ -14,7 +21,7 @@ export async function GET(req: Request) {
 
     // Get all records for this roll number (all papers, marks, etc.)
     const [rows] = await pool.query(
-      `SELECT * FROM \`jecr_2ndyear\` WHERE \`roll_no\` = ? ORDER BY \`paper_name\` ASC`,
+      `SELECT * FROM \`${tableName}\` WHERE \`roll_no\` = ? ORDER BY \`paper_name\` ASC`,
       [rollNo]
     );
 
