@@ -126,7 +126,8 @@ export async function POST(req: NextRequest) {
         const rawJpegs = extractJPEGs(buffer);
         const meaningful = rawJpegs.filter((j) => {
           const dims = jpegDimensions(j);
-          return j.length > 1500 && dims && dims.w > 20 && dims.h > 20;
+          // must be reasonable size, not tiny, and portrait-ish (photo, not signature)
+          return j.length > 1500 && dims && dims.w > 20 && dims.h > 20 && dims.h >= dims.w;
         });
         let studentPhotos = removeLogo(meaningful);
 
@@ -134,11 +135,22 @@ export async function POST(req: NextRequest) {
         // pdf-parse provides images per page
         const pagePhotos: Map<number, string> = new Map();
         for (const pg of imgResult.pages) {
-          // pick the largest image on each page (likely the student photo)
           if (pg.images.length > 0) {
-            const sorted = [...pg.images].sort((a: { width: number; height: number }, b: { width: number; height: number }) => (b.width * b.height) - (a.width * a.height));
-            // skip tiny images (likely logos)
-            const best = sorted.find((img: { width: number; height: number; dataUrl: string }) => img.width > 30 && img.height > 30 && img.dataUrl);
+            // separate portrait images (photos) from landscape (signatures)
+            const candidates = pg.images.filter(
+              (img: { width: number; height: number; dataUrl: string }) =>
+                img.width > 30 && img.height > 30 && img.dataUrl
+            );
+            // prefer portrait (height >= width) — passport photos
+            const portraits = candidates.filter(
+              (img: { width: number; height: number }) => img.height >= img.width
+            );
+            const pool = portraits.length > 0 ? portraits : candidates;
+            // pick the largest from the filtered pool
+            const best = pool.sort(
+              (a: { width: number; height: number }, b: { width: number; height: number }) =>
+                (b.width * b.height) - (a.width * a.height)
+            )[0];
             if (best) pagePhotos.set(pg.pageNumber, best.dataUrl);
           }
         }
