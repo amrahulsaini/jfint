@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "JECRC Foundation — Admin Tools",
-  description: "Internal administration tools for JECRC Foundation — RTU marks entry tracking, exports & analytics.",
+  title: "JECRC Foundation — Student Results",
+  description: "Browse student marks entry status for JECRC Foundation, Jaipur — search, filter by branch, and view paper-wise details.",
 };
 
 export default function RootLayout({

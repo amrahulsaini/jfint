@@ -632,7 +632,7 @@ export default function MarksEntryPage() {
 
     setExportProgress({ current: 0, total: toFetch.length });
 
-    const TABLE = '`jecr_2ndyear`';
+    const TABLE = '`jecr_1styear`';
     const COLS  = '(`sno`, `year`, `branch`, `paper_name`, `paper_type`, `roll_no`, `exam_type`, `student_name`, `father_name`, `mother_name`, `marks_status`)';
 
     const sqlEsc = (s: string) => (s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
