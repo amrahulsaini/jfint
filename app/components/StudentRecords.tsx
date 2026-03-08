@@ -107,6 +107,78 @@ export default function StudentRecords({
 
   const handleSearch = (e: React.FormEvent) => { e.preventDefault(); setPage(1); setSearch(searchInput); };
 
+  const exportStudentPDF = () => {
+    if (!detail) return;
+    const photoUrl = `${window.location.origin}/${photoDir}/photo_${detail.student.roll_no}.jpg`;
+    const htmlContent = `<!DOCTYPE html><html><head>
+<title>${detail.student.student_name} — JECRC Marks Report</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;color:#111;background:#fff;padding:40px;max-width:800px;margin:0 auto}
+.header{display:flex;align-items:center;gap:16px;margin-bottom:28px;padding-bottom:20px;border-bottom:3px solid #f97316}
+.logo{width:48px;height:48px;background:linear-gradient(135deg,#fb923c,#ea580c);border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:800;flex-shrink:0}
+.hdr-text .sub{font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:2px;font-weight:700}
+.hdr-text .main{font-size:18px;font-weight:800;color:#111}
+.profile{display:flex;gap:20px;margin-bottom:24px;background:#fff7ed;border:2px solid #fed7aa;border-radius:16px;padding:20px}
+.photo{width:88px;height:88px;border-radius:12px;overflow:hidden;border:3px solid #f97316;flex-shrink:0;object-fit:cover}
+.photo-init{width:88px;height:88px;border-radius:12px;background:#fed7aa;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;color:#f97316;flex-shrink:0}
+.pname{font-size:20px;font-weight:800;color:#111;margin-bottom:4px}
+.proll{font-family:monospace;font-size:14px;font-weight:800;color:#f97316;margin-bottom:14px}
+.igrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.il label{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#9ca3af;font-weight:700;display:block;margin-bottom:2px}
+.il .v{font-size:13px;font-weight:700;color:#111}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.sc{border-radius:12px;padding:14px;text-align:center}
+.sc .n{font-size:26px;font-weight:800}
+.sc .l{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-top:3px}
+.s0{background:#f9fafb;border:1px solid #e5e7eb}.s0 .n{color:#111}.s0 .l{color:#6b7280}
+.s1{background:#f0fdf4;border:1px solid #bbf7d0}.s1 .n{color:#16a34a}.s1 .l{color:#16a34a}
+.s2{background:#fff7ed;border:1px solid #fed7aa}.s2 .n{color:#f97316}.s2 .l{color:#f97316}
+.disc{background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px;padding:14px 18px;margin-bottom:20px}
+.disc h4{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#b45309;margin-bottom:8px}
+.disc li{font-size:12px;color:#92400e;font-weight:600;padding:3px 0;list-style:none;display:flex;align-items:center;gap:8px}
+.disc li:before{content:'●';color:#f59e0b;font-size:7px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{background:#f97316;color:#fff;font-weight:800;font-size:9px;text-transform:uppercase;letter-spacing:1.5px;padding:10px 12px;text-align:left}
+tbody tr:nth-child(even){background:#fafafa}
+tbody td{padding:9px 12px;color:#374151;border-bottom:1px solid #f3f4f6;font-weight:600}
+.sf{color:#16a34a;background:#f0fdf4;border:1px solid #bbf7d0;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;display:inline-block}
+.sp{color:#f97316;background:#fff7ed;border:1px solid #fed7aa;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;display:inline-block}
+.sd{color:#6b7280;background:#f3f4f6;border:1px solid #e5e7eb;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;display:inline-block}
+.footer{margin-top:28px;text-align:center;font-size:10px;color:#d1d5db;padding-top:14px;border-top:1px solid #f3f4f6}
+@media print{body{padding:20px}button{display:none}}
+</style></head><body>
+<div class="header"><div class="logo">J</div><div class="hdr-text"><div class="sub">JECRC Foundation</div><div class="main">Internal Marks Report</div></div></div>
+<div class="profile">
+<img class="photo" src="${photoUrl}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
+<div class="photo-init" style="display:none">${(detail.student.student_name||'?').charAt(0).toUpperCase()}</div>
+<div style="flex:1"><div class="pname">${detail.student.student_name}</div><div class="proll">${detail.student.roll_no}</div>
+<div class="igrid">
+<div class="il"><label>Father</label><div class="v">${detail.student.father_name}</div></div>
+<div class="il"><label>Mother</label><div class="v">${detail.student.mother_name}</div></div>
+<div class="il"><label>Branch</label><div class="v">${detail.student.branch}</div></div>
+<div class="il"><label>Year</label><div class="v">${detail.student.year}</div></div>
+</div></div></div>
+<div class="summary">
+<div class="sc s0"><div class="n">${detail.summary.totalPapers}</div><div class="l">Total Papers</div></div>
+<div class="sc s1"><div class="n">${detail.summary.filled}</div><div class="l">Marks Filled</div></div>
+<div class="sc s2"><div class="n">${detail.summary.pending}</div><div class="l">Pending</div></div>
+</div>
+<div class="disc"><h4>⚠ Marks Scheme</h4><ul>
+<li>Mid Term marks are out of <strong>30</strong></li>
+<li>Practical marks are out of <strong>40</strong></li>
+<li>Sessional marks are out of <strong>60</strong></li>
+</ul></div>
+<table><thead><tr><th>#</th><th>Paper Name</th><th>Type</th><th>Exam</th><th>Marks Status</th></tr></thead><tbody>
+${detail.papers.map((p,i)=>{const l=(p.marks_status||'').toLowerCase();const cls=l.includes('filled')||l.includes('complete')||l.includes('submit')?'sf':l.includes('not')||l.includes('pending')?'sp':'sd';return `<tr><td>${i+1}</td><td>${p.paper_name}</td><td>${p.paper_type}</td><td>${p.exam_type}</td><td><span class="${cls}">${p.marks_status||'—'}</span></td></tr>`;}).join('')}
+</tbody></table>
+<div class="footer">Generated on ${new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'})} &nbsp;|&nbsp; JECRC Foundation, Jaipur &nbsp;|&nbsp; Computer-generated report</div>
+</body></html>`;
+    const w = window.open('', '_blank', 'width=860,height=960');
+    if (w) { w.document.write(htmlContent); w.document.close(); w.focus(); setTimeout(() => w.print(), 600); }
+  };
+
   const openDetail = async (rollNo: string) => {
     setShowModal(true);
     setDetailLoading(true);
@@ -399,38 +471,61 @@ export default function StudentRecords({
         </div>
       )}
 
-      {/* ─── Detail Modal ──────────────────────────────────── */}
+      {/* ─── Detail Modal ─────────────────────────────── */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setShowModal(false)} />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)} />
 
-          <div className="relative bg-[#111118] border border-white/[0.10] rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl shadow-black/60">
+          <div className="relative bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl shadow-black/20 border border-neutral-200">
+
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
-              <h3 className="text-base font-black text-white">Student Details</h3>
-              <button
-                onClick={() => setShowModal(false)}
-                className="w-8 h-8 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] flex items-center justify-center text-white/40 hover:text-white transition-all duration-200">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </button>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-orange-50 to-white">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center font-black text-sm text-white shadow-md shadow-orange-500/30">
+                  J
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-orange-500 uppercase tracking-[0.15em]">JECRC Foundation</div>
+                  <h3 className="text-sm font-extrabold text-neutral-900 leading-none">Student Details</h3>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {detail && (
+                  <button
+                    onClick={exportStudentPDF}
+                    className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-400 active:bg-orange-600 text-white text-xs font-extrabold px-3.5 py-2 rounded-xl shadow-md shadow-orange-500/30 hover:shadow-orange-500/50 transition-all duration-200 hover:-translate-y-0.5"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                    </svg>
+                    Export PDF
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center text-neutral-400 hover:text-neutral-700 transition-all duration-200">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
             </div>
 
-            <div className="overflow-y-auto max-h-[calc(85vh-57px)]">
+            <div className="overflow-y-auto max-h-[calc(90vh-65px)]">
               {detailLoading ? (
                 <div className="flex flex-col items-center py-16">
-                  <div className="w-10 h-10 border-[3px] border-orange-500/20 border-t-orange-500 rounded-full animate-spin mb-4" />
-                  <span className="text-sm text-white/30 font-bold">Loading…</span>
+                  <div className="w-10 h-10 border-[3px] border-orange-200 border-t-orange-500 rounded-full animate-spin mb-4" />
+                  <span className="text-sm text-neutral-400 font-semibold">Loading student data…</span>
                 </div>
               ) : !detail ? (
-                <div className="text-center py-16 text-white/30 font-bold">Failed to load student details.</div>
+                <div className="text-center py-16 text-neutral-400 font-semibold">Failed to load student details.</div>
               ) : (
-                <div className="p-6">
-                  {/* Profile */}
-                  <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-5 mb-6">
-                    <div className="flex items-start gap-5">
-                      <div className="w-20 h-20 rounded-2xl overflow-hidden bg-white/[0.06] border-2 border-white/[0.10] flex-shrink-0">
+                <div className="p-5 space-y-4">
+
+                  {/* Profile card */}
+                  <div className="bg-gradient-to-br from-orange-50 to-amber-50/50 border border-orange-100 rounded-2xl p-5">
+                    <div className="flex items-start gap-4">
+                      <div className="w-20 h-20 rounded-2xl overflow-hidden bg-orange-100 border-2 border-orange-200 flex-shrink-0 shadow-md">
                         <Image
                           src={`/${photoDir}/photo_${detail.student.roll_no}.jpg`}
                           alt={detail.student.student_name}
@@ -442,7 +537,7 @@ export default function StudentRecords({
                             const p = t.parentElement;
                             if (p && !p.querySelector('.af')) {
                               const d = document.createElement('div');
-                              d.className = 'af w-full h-full flex items-center justify-center text-2xl font-black text-white/20 bg-white/[0.04]';
+                              d.className = 'af w-full h-full flex items-center justify-center text-2xl font-extrabold text-orange-400 bg-orange-100';
                               d.textContent = (detail.student.student_name || '?').charAt(0).toUpperCase();
                               p.appendChild(d);
                             }
@@ -450,9 +545,9 @@ export default function StudentRecords({
                         />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-xl font-black text-white">{detail.student.student_name}</h4>
-                        <p className="text-orange-400 font-mono text-sm font-bold mt-0.5">{detail.student.roll_no}</p>
-                        <div className="grid grid-cols-2 gap-x-6 gap-y-3 mt-4 text-sm">
+                        <h4 className="text-xl font-extrabold text-neutral-900 leading-tight">{detail.student.student_name}</h4>
+                        <p className="text-orange-500 font-mono text-sm font-bold mt-0.5 tracking-wide">{detail.student.roll_no}</p>
+                        <div className="grid grid-cols-2 gap-x-5 gap-y-3 mt-4">
                           {[
                             { l: 'Father', v: detail.student.father_name },
                             { l: 'Mother', v: detail.student.mother_name },
@@ -460,8 +555,8 @@ export default function StudentRecords({
                             { l: 'Year', v: detail.student.year },
                           ].map(f => (
                             <div key={f.l}>
-                              <span className="text-white/25 text-[11px] uppercase tracking-wider font-black">{f.l}</span>
-                              <p className="text-white font-black text-sm mt-0.5">{f.v}</p>
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-orange-400">{f.l}</span>
+                              <p className="text-neutral-800 font-bold text-sm mt-0.5">{f.v}</p>
                             </div>
                           ))}
                         </div>
@@ -470,55 +565,88 @@ export default function StudentRecords({
                   </div>
 
                   {/* Summary */}
-                  <div className="grid grid-cols-3 gap-3 mb-6">
-                    <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3 text-center">
-                      <div className="text-2xl font-black text-white">{detail.summary.totalPapers}</div>
-                      <div className="text-[10px] font-black uppercase tracking-widest text-white/30 mt-1">Total</div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3.5 text-center">
+                      <div className="text-3xl font-extrabold text-neutral-900">{detail.summary.totalPapers}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mt-1">Total Papers</div>
                     </div>
-                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 text-center">
-                      <div className="text-2xl font-black text-emerald-400">{detail.summary.filled}</div>
-                      <div className="text-[10px] font-black uppercase tracking-widest text-emerald-500/50 mt-1">Filled</div>
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3.5 text-center">
+                      <div className="text-3xl font-extrabold text-emerald-600">{detail.summary.filled}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-500 mt-1">Marks Filled</div>
                     </div>
-                    <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl px-4 py-3 text-center">
-                      <div className="text-2xl font-black text-orange-400">{detail.summary.pending}</div>
-                      <div className="text-[10px] font-black uppercase tracking-widest text-orange-500/50 mt-1">Pending</div>
+                    <div className="bg-orange-50 border border-orange-200 rounded-2xl px-4 py-3.5 text-center">
+                      <div className="text-3xl font-extrabold text-orange-600">{detail.summary.pending}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-orange-400 mt-1">Pending</div>
                     </div>
                   </div>
 
+                  {/* Disclaimer */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                      </svg>
+                      <span className="text-xs font-extrabold uppercase tracking-widest text-amber-700">Marks Scheme</span>
+                    </div>
+                    <ul className="space-y-1.5">
+                      {[
+                        { label: 'Mid Term marks', max: 30, color: 'text-blue-600', bg: 'bg-blue-100' },
+                        { label: 'Practical marks', max: 40, color: 'text-purple-600', bg: 'bg-purple-100' },
+                        { label: 'Sessional marks', max: 60, color: 'text-emerald-600', bg: 'bg-emerald-100' },
+                      ].map(item => (
+                        <li key={item.label} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                            <span className="text-sm font-semibold text-amber-800">{item.label} are out of</span>
+                          </div>
+                          <span className={`${item.color} ${item.bg} text-sm font-extrabold px-2.5 py-0.5 rounded-lg`}>{item.max}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
                   {/* Papers table */}
-                  <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl overflow-hidden">
-                    <div className="px-5 py-3 border-b border-white/[0.06] bg-white/[0.02]">
-                      <h5 className="text-xs font-black text-white/30 uppercase tracking-widest">Paper-wise Status</h5>
+                  <div className="border border-neutral-200 rounded-2xl overflow-hidden">
+                    <div className="px-5 py-3 border-b border-neutral-100 bg-gradient-to-r from-neutral-50 to-white flex items-center justify-between">
+                      <h5 className="text-xs font-extrabold text-neutral-500 uppercase tracking-widest">Paper-wise Marks Status</h5>
+                      <span className="text-xs font-bold text-neutral-400">{detail.papers.length} papers</span>
                     </div>
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-white/[0.06]">
-                          <th className="px-5 py-3 text-left text-[10px] font-black text-white/25 uppercase tracking-widest w-10">#</th>
-                          <th className="px-5 py-3 text-left text-[10px] font-black text-white/25 uppercase tracking-widest">Paper</th>
-                          <th className="px-5 py-3 text-left text-[10px] font-black text-white/25 uppercase tracking-widest hidden sm:table-cell">Type</th>
-                          <th className="px-5 py-3 text-left text-[10px] font-black text-white/25 uppercase tracking-widest hidden sm:table-cell">Exam</th>
-                          <th className="px-5 py-3 text-left text-[10px] font-black text-white/25 uppercase tracking-widest">Status</th>
+                        <tr className="bg-neutral-50 border-b border-neutral-200">
+                          <th className="px-4 py-2.5 text-left text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest w-8">#</th>
+                          <th className="px-4 py-2.5 text-left text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest">Paper Name</th>
+                          <th className="px-4 py-2.5 text-left text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest hidden sm:table-cell">Type</th>
+                          <th className="px-4 py-2.5 text-left text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest hidden sm:table-cell">Exam</th>
+                          <th className="px-4 py-2.5 text-left text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest">Marks</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {detail.papers.map((p, i) => (
-                          <tr key={i} className="border-b border-white/[0.04] last:border-b-0 hover:bg-orange-500/[0.03] transition-colors duration-150">
-                            <td className="px-5 py-3 text-white/25 font-mono text-xs font-bold">{i + 1}</td>
-                            <td className="px-5 py-3 text-white/80 text-xs font-bold">{p.paper_name}</td>
-                            <td className="px-5 py-3 hidden sm:table-cell">
-                              <span className="inline-block bg-white/[0.05] border border-white/[0.08] rounded-lg px-2 py-0.5 text-[11px] text-white/40 font-bold">{p.paper_type}</span>
-                            </td>
-                            <td className="px-5 py-3 text-white/35 text-xs font-bold hidden sm:table-cell">{p.exam_type}</td>
-                            <td className="px-5 py-3">
-                              <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-black ${statusPill(p.marks_status)}`}>
-                                {p.marks_status || '—'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        {detail.papers.map((p, i) => {
+                          const l = (p.marks_status || '').toLowerCase();
+                          const isFilled = l.includes('filled') || l.includes('complete') || l.includes('submit');
+                          const isPending = l.includes('not') || l.includes('pending');
+                          return (
+                            <tr key={i} className="border-b border-neutral-100 last:border-b-0 hover:bg-orange-50/50 transition-colors duration-150">
+                              <td className="px-4 py-3 text-neutral-400 font-bold text-xs">{i + 1}</td>
+                              <td className="px-4 py-3 text-neutral-800 text-xs font-semibold">{p.paper_name}</td>
+                              <td className="px-4 py-3 hidden sm:table-cell">
+                                <span className="inline-block bg-neutral-100 border border-neutral-200 rounded-lg px-2 py-0.5 text-[11px] text-neutral-600 font-bold">{p.paper_type}</span>
+                              </td>
+                              <td className="px-4 py-3 text-neutral-500 text-xs font-semibold hidden sm:table-cell">{p.exam_type}</td>
+                              <td className="px-4 py-3">
+                                <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${statusPill(p.marks_status)}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isFilled ? 'bg-emerald-500' : isPending ? 'bg-orange-400' : 'bg-neutral-400'}`} />
+                                  {p.marks_status || '—'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
+
                 </div>
               )}
             </div>
