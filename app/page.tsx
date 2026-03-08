@@ -36,34 +36,44 @@ export default function Home() {
   const [fade, setFade] = useState(true);
   const [remaining, setRemaining] = useState(SESSION_SECS);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const EXPIRY_KEY = 'jfint_session_expiry';
 
   // Format mm:ss
   const fmt = (s: number) => {
-    const m = Math.floor(s / 60).toString().padStart(2, '0');
-    const sec = (s % 60).toString().padStart(2, '0');
+    const m = Math.floor(Math.max(0, s) / 60).toString().padStart(2, '0');
+    const sec = (Math.max(0, s) % 60).toString().padStart(2, '0');
     return `${m}:${sec}`;
   };
 
   const doLogout = useCallback(async () => {
+    localStorage.removeItem(EXPIRY_KEY);
     await fetch('/api/auth/logout', { method: 'POST' });
     router.replace('/login');
   }, [router]);
 
-  // Countdown tick
+  // On mount: read existing expiry from localStorage so page navigation doesn't reset the timer
   useEffect(() => {
-    timerRef.current = setInterval(() => {
-      setRemaining(r => {
-        if (r <= 1) { doLogout(); return 0; }
-        return r - 1;
-      });
-    }, 1000);
+    const stored = localStorage.getItem(EXPIRY_KEY);
+    const expiry = stored ? parseInt(stored, 10) : Date.now() + SESSION_SECS * 1000;
+    if (!stored) localStorage.setItem(EXPIRY_KEY, String(expiry));
+
+    const tick = () => {
+      const secs = Math.round((parseInt(localStorage.getItem(EXPIRY_KEY) || '0', 10) - Date.now()) / 1000);
+      if (secs <= 0) { doLogout(); return; }
+      setRemaining(secs);
+    };
+
+    tick(); // immediate first read
+    timerRef.current = setInterval(tick, 1000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [doLogout]);
 
-  // Reset timer on any user activity
-  const resetTimer = useCallback(() => setRemaining(SESSION_SECS), []);
+  // Only meaningful interactions (clicks, keyboard, touch) extend the session — NOT scroll/mousemove
+  const resetTimer = useCallback(() => {
+    localStorage.setItem(EXPIRY_KEY, String(Date.now() + SESSION_SECS * 1000));
+  }, []);
   useEffect(() => {
-    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+    const events = ['mousedown', 'keydown', 'touchstart'];
     events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
     return () => events.forEach(e => window.removeEventListener(e, resetTimer));
   }, [resetTimer]);
