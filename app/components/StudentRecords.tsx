@@ -296,6 +296,37 @@ export default function StudentRecords({
         },
       });
 
+      // ── Affiliation Disclaimer box ────────────────────────────
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tableEndY: number = (doc as any).lastAutoTable?.finalY ?? y;
+      const disclaimerH = 28;
+      const pageH0 = doc.internal.pageSize.getHeight();
+      let dy = tableEndY + 8;
+      if (dy + disclaimerH > pageH0 - 18) {
+        doc.addPage();
+        dy = 14;
+      }
+      doc.setFillColor(249, 250, 251);
+      doc.roundedRect(margin, dy, W - margin * 2, disclaimerH, 2, 2, 'F');
+      doc.setDrawColor(209, 213, 219);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(margin, dy, W - margin * 2, disclaimerH, 2, 2, 'S');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(107, 114, 128);
+      doc.text('DISCLAIMER', margin + 4, dy + 5);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(75, 85, 99);
+      const disclaimerText = 'This website is not affiliated with JECRC Foundation or any associated institution in any manner. It is an independent';
+      const disclaimerText2 = 'project developed solely for skill practice and to give students early access to information beyond what universities provide.';
+      const disclaimerText3 = 'For any issues, contact: jecrc@jecrcfoundation.live';
+      doc.text(disclaimerText, margin + 4, dy + 11);
+      doc.text(disclaimerText2, margin + 4, dy + 16.5);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(107, 114, 128);
+      doc.text(disclaimerText3, margin + 4, dy + 22);
+
       // ── Footer + Watermark ────────────────────────────────────
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const pCount: number = (doc as any).getNumberOfPages?.() || 1;

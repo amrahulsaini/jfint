@@ -234,6 +234,35 @@ export default function Home() {
                 ))}
               </div>
             </div>
+            {/* Premium info banner */}
+            <div className="mb-4 rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50/60 overflow-hidden">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 px-4 py-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-black uppercase tracking-[0.15em] text-indigo-400">Premium Access</span>
+                    <p className="text-xs font-semibold text-indigo-800 leading-snug">
+                      Aadhar, Caste, 10th/12th %, Address &amp; Parents&apos; contact available on request &mdash;
+                      <span className="flex-shrink-0 hidden sm:inline"> </span>
+                      <span className="text-indigo-500 font-bold">🪪 📋 📊 🏠 📞</span>
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href="mailto:jecrc@jecrcfoundation.live"
+                  className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-extrabold px-3.5 py-2 rounded-xl transition-all duration-200 hover:-translate-y-0.5 shadow-sm flex-shrink-0 whitespace-nowrap"
+                >
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                  </svg>
+                  jecrc@jecrcfoundation.live
+                </a>
+              </div>
+            </div>
             <StudentRecords table={VIEWS[view].table} photoDir={VIEWS[view].photoDir} />
           </div>
         )}
@@ -241,15 +270,43 @@ export default function Home() {
 
       {/* ── About ── */}
       <section id="about" className="border-t border-neutral-200 bg-neutral-50">
-        <div className="max-w-3xl mx-auto px-5 py-14 md:py-16 text-center">
-          <h2 className="text-xl md:text-2xl font-black text-neutral-900 mb-3">About This Portal</h2>
-          <p className="text-neutral-500 leading-relaxed text-sm max-w-xl mx-auto font-semibold">
-            This portal is developed for{" "}
-            <span className="text-neutral-900 font-black">
-              Jaipur Engineering College &amp; Research Centre (JECRC)
-            </span>{" "}
-            to provide transparency into RTU examination internal marks entry status.
-          </p>
+        <div className="max-w-3xl mx-auto px-5 py-14 md:py-16">
+          <div className="text-center mb-8">
+            <h2 className="text-xl md:text-2xl font-black text-neutral-900 mb-3">About This Portal</h2>
+            <p className="text-neutral-500 leading-relaxed text-sm max-w-xl mx-auto font-semibold">
+              This portal displays RTU internal marks entry status for students of{" "}
+              <span className="text-neutral-900 font-black">
+                Jaipur Engineering College &amp; Research Centre (JECRC)
+              </span>
+              , giving students early and convenient access to information that universities typically provide late.
+            </p>
+          </div>
+
+          {/* Affiliation Disclaimer */}
+          <div className="bg-white border border-neutral-200 rounded-2xl p-5 sm:p-6 shadow-sm">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="w-8 h-8 rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg className="w-4 h-4 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                </svg>
+              </div>
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.15em] text-neutral-400 mb-0.5">Disclaimer</div>
+                <h3 className="text-sm font-extrabold text-neutral-800">No Affiliation Notice</h3>
+              </div>
+            </div>
+            <p className="text-sm text-neutral-600 leading-relaxed font-medium">
+              This website is <span className="font-black text-neutral-900">not affiliated with JECRC Foundation</span> or any associated institution in any manner.
+              It is an independent project developed solely for skill practice and enhancement in web technologies.
+              The portal is built to give students{" "}
+              <span className="font-black text-neutral-900">early and convenient access to information</span>{" "}
+              beyond what universities typically provide.
+            </p>
+            <p className="text-sm text-neutral-600 leading-relaxed font-medium mt-2">
+              If you face any issues, kindly drop a mail to{" "}
+              <a href="mailto:jecrc@jecrcfoundation.live" className="text-orange-500 font-extrabold hover:text-orange-600 transition-colors">jecrc@jecrcfoundation.live</a>
+            </p>
+          </div>
         </div>
       </section>
 
