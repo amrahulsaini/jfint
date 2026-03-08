@@ -170,35 +170,59 @@ export default function StudentRecords({
 
       // ── Student info ────────────────────────────────────────
       const infoX = margin + 32;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.setTextColor(17, 24, 39);
-      doc.text(detail.student.student_name, infoX, y + 7);
+      const infoMaxW = W - margin - infoX - 2; // available width right of photo
 
+      // Name (truncated to fit)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(17, 24, 39);
+      const nameLines = doc.splitTextToSize(detail.student.student_name, infoMaxW);
+      doc.text(nameLines[0], infoX, y + 7);
+
+      // Roll no
       doc.setFontSize(9);
       doc.setTextColor(249, 115, 22);
       doc.text(detail.student.roll_no, infoX, y + 13);
 
-      const fields = [
-        ['Father', detail.student.father_name],
-        ['Mother', detail.student.mother_name],
-        ['Branch', detail.student.branch],
-        ['Year', detail.student.year],
-      ];
+      // Row 1: Father (left) | Mother (right)
+      const halfW = (infoMaxW - 4) / 2;
       let fy = y + 20;
-      fields.forEach(([label, value], idx) => {
-        const fx = idx % 2 === 0 ? infoX : infoX + 70;
-        if (idx % 2 === 0 && idx > 0) fy += 8;
-        doc.setFontSize(7);
+      (['Father', 'Mother'] as const).forEach((label, idx) => {
+        const fx = idx === 0 ? infoX : infoX + halfW + 4;
+        const val = idx === 0 ? detail.student.father_name : detail.student.mother_name;
+        doc.setFontSize(6.5);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(156, 163, 175);
         doc.text(label.toUpperCase(), fx, fy);
-        doc.setFontSize(9);
+        doc.setFontSize(8.5);
         doc.setTextColor(17, 24, 39);
-        doc.text(String(value || '—'), fx, fy + 4.5);
+        const truncated = doc.splitTextToSize(String(val || '\u2014'), halfW);
+        doc.text(truncated[0], fx, fy + 4.5);
       });
 
-      y += 38;
+      // Row 2: Branch (full width, up to 2 lines)
+      fy += 10;
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(156, 163, 175);
+      doc.text('BRANCH', infoX, fy);
+      doc.setFontSize(8.5);
+      doc.setTextColor(17, 24, 39);
+      const branchLines = doc.splitTextToSize(String(detail.student.branch || '\u2014'), infoMaxW);
+      doc.text(branchLines.slice(0, 2) as string[], infoX, fy + 4.5);
+      const branchH = branchLines.length > 1 ? 5 : 0;
+
+      // Row 3: Year
+      fy += 10 + branchH;
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(156, 163, 175);
+      doc.text('YEAR', infoX, fy);
+      doc.setFontSize(8.5);
+      doc.setTextColor(17, 24, 39);
+      doc.text(String(detail.student.year || '\u2014'), infoX, fy + 4.5);
+
+      y += Math.max(38, fy - y + 10);
 
       // ── Summary boxes ────────────────────────────────────────
       const boxW = (W - margin * 2 - 8) / 3;
@@ -230,11 +254,11 @@ export default function StudentRecords({
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7);
       doc.setTextColor(180, 83, 9);
-      doc.text('⚠  MARKS SCHEME', margin + 4, y + 5);
+      doc.text('[!]  MARKS SCHEME', margin + 4, y + 5);
       const disc = [
-        '● Mid Term marks are out of 30',
-        '● Practical marks are out of 40',
-        '● Sessional marks are out of 60',
+        '- Mid Term marks are out of 30',
+        '- Practical marks are out of 40',
+        '- Sessional marks are out of 60',
       ];
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
@@ -257,7 +281,7 @@ export default function StudentRecords({
         styles: { fontSize: 8, cellPadding: 3, font: 'helvetica', textColor: [55, 65, 81] },
         headStyles: { fillColor: [249, 115, 22], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5, halign: 'left' },
         alternateRowStyles: { fillColor: [250, 250, 250] },
-        columnStyles: { 0: { cellWidth: 8, halign: 'center' }, 1: { cellWidth: 72 }, 2: { cellWidth: 22 }, 3: { cellWidth: 28 }, 4: { cellWidth: 36 } },
+        columnStyles: { 0: { cellWidth: 14, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 24 }, 3: { cellWidth: 26 }, 4: { cellWidth: 36 } },
         didParseCell: (data) => {
           if (data.column.index === 4 && data.section === 'body') {
             const val = String(data.cell.raw || '').toLowerCase();
