@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 
 interface Student {
   id: number;
@@ -174,6 +175,7 @@ export default function StudentRecords() {
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.03]">
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">S.No</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Photo</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Roll No</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Student Name</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider hidden md:table-cell">Father Name</th>
@@ -186,8 +188,10 @@ export default function StudentRecords() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    {Array.from({ length: 7 }).map((_, j) => (
-                      <td key={j} className={`px-4 py-3 ${j === 3 ? 'hidden md:table-cell' : ''} ${j >= 4 && j <= 5 ? 'hidden lg:table-cell' : ''}`}>
+                    <td className="px-4 py-3"><div className="h-4 bg-white/5 rounded w-8" /></td>
+                    <td className="px-4 py-3"><div className="w-10 h-10 bg-white/5 rounded-full" /></td>
+                    {Array.from({ length: 6 }).map((_, j) => (
+                      <td key={j} className={`px-4 py-3 ${j === 2 ? 'hidden md:table-cell' : ''} ${j >= 3 && j <= 4 ? 'hidden lg:table-cell' : ''}`}>
                         <div className="h-4 bg-white/5 rounded w-20" />
                       </td>
                     ))}
@@ -195,7 +199,7 @@ export default function StudentRecords() {
                 ))
               ) : data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
+                  <td colSpan={8} className="px-4 py-12 text-center text-slate-500">
                     No records found
                   </td>
                 </tr>
@@ -203,6 +207,28 @@ export default function StudentRecords() {
                 data?.rows.map((row) => (
                   <tr key={row.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="px-4 py-3 text-slate-400 font-mono text-xs">{row.sno}</td>
+                    <td className="px-4 py-2">
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-white/5 border border-white/10 flex-shrink-0">
+                        <Image
+                          src={`/student_photos/photo_${row.roll_no}.jpg`}
+                          alt={row.student_name}
+                          width={40}
+                          height={40}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent && !parent.querySelector('.avatar-fallback')) {
+                              const fallback = document.createElement('div');
+                              fallback.className = 'avatar-fallback w-full h-full flex items-center justify-center text-xs font-bold text-slate-400';
+                              fallback.textContent = (row.student_name || '?').charAt(0).toUpperCase();
+                              parent.appendChild(fallback);
+                            }
+                          }}
+                        />
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-blue-400 font-mono text-xs font-medium">{row.roll_no}</td>
                     <td className="px-4 py-3 text-slate-200 font-medium">{row.student_name}</td>
                     <td className="px-4 py-3 text-slate-400 hidden md:table-cell">{row.father_name}</td>
