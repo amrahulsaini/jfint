@@ -122,37 +122,59 @@ export async function POST(req: NextRequest) {
         /* ─── 3. get all images (with base64 dataUrls) ─── */
         const imgResult = await parser.getImage({ imageDataUrl: true, imageBuffer: false, imageThreshold: 20 });
 
-        /* ─── 4. extract raw JPEGs for fallback + dedup ─── */
+        /* ─── 4. extract raw JPEGs for fallback ─── */
         const rawJpegs = extractJPEGs(buffer);
         const meaningful = rawJpegs.filter((j) => {
           const dims = jpegDimensions(j);
-          // must be reasonable size, not tiny, and portrait-ish (photo, not signature)
-          return j.length > 1500 && dims && dims.w > 20 && dims.h > 20 && dims.h >= dims.w;
+          return j.length > 2000 && dims && dims.w > 40 && dims.h > 40;
         });
-        let studentPhotos = removeLogo(meaningful);
+        // remove the logo (most repeated identical image)
+        const afterLogo = removeLogo(meaningful);
+        // among remaining, keep only the ones that look like photos:
+        // photos have high file-size-per-pixel (complex color data)
+        // signatures have low file-size-per-pixel (simple B&W strokes)
+        const studentPhotos = afterLogo.filter((j) => {
+          const dims = jpegDimensions(j);
+          if (!dims) return false;
+          const bytesPerPixel = j.length / (dims.w * dims.h);
+          // photos typically > 0.15 bytes/pixel, signatures < 0.08
+          return bytesPerPixel > 0.10 && dims.h >= dims.w * 0.8;
+        });
 
         /* ─── 5. build photo lookup: prefer pdf-parse images, fallback to raw jpegs ─── */
-        // pdf-parse provides images per page
+        // Step A: detect logo by finding image dims that appear on many pages
+        const dimPageCount = new Map<string, number>();
+        for (const pg of imgResult.pages) {
+          const seenDims = new Set<string>();
+          for (const img of pg.images) {
+            const dk = `${img.width}x${img.height}`;
+            if (!seenDims.has(dk)) { seenDims.add(dk); dimPageCount.set(dk, (dimPageCount.get(dk) || 0) + 1); }
+          }
+        }
+        // logo dims: appears on > 50% of pages
+        const logoDims = new Set<string>();
+        for (const [dk, cnt] of dimPageCount) {
+          if (cnt > totalPages * 0.5 && cnt > 1) logoDims.add(dk);
+        }
+
         const pagePhotos: Map<number, string> = new Map();
         for (const pg of imgResult.pages) {
-          if (pg.images.length > 0) {
-            // separate portrait images (photos) from landscape (signatures)
-            const candidates = pg.images.filter(
-              (img: { width: number; height: number; dataUrl: string }) =>
-                img.width > 30 && img.height > 30 && img.dataUrl
-            );
-            // prefer portrait (height >= width) — passport photos
-            const portraits = candidates.filter(
-              (img: { width: number; height: number }) => img.height >= img.width
-            );
-            const pool = portraits.length > 0 ? portraits : candidates;
-            // pick the largest from the filtered pool
-            const best = pool.sort(
-              (a: { width: number; height: number }, b: { width: number; height: number }) =>
-                (b.width * b.height) - (a.width * a.height)
-            )[0];
-            if (best) pagePhotos.set(pg.pageNumber, best.dataUrl);
-          }
+          if (pg.images.length === 0) continue;
+          // filter out tiny images & logo images
+          const candidates = pg.images.filter(
+            (img: { width: number; height: number; dataUrl: string }) =>
+              img.width > 30 && img.height > 30 && img.dataUrl &&
+              !logoDims.has(`${img.width}x${img.height}`)
+          );
+          if (candidates.length === 0) continue;
+
+          // pick the image with the MOST data (largest dataUrl) = most complex = photo
+          // signatures are simple B&W and compress to small data; photos are color-rich
+          const best = candidates.sort(
+            (a: { dataUrl: string }, b: { dataUrl: string }) =>
+              b.dataUrl.length - a.dataUrl.length
+          )[0];
+          if (best) pagePhotos.set(pg.pageNumber, best.dataUrl);
         }
 
         /* ─── 6. process page by page & stream ─── */
