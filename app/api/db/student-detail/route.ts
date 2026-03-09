@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
-import { validatePaidCookie, PAID_COOKIE } from '@/lib/payment';
+import { isRollNoPaid, PAID_COOKIE } from '@/lib/payment';
 
 const ALLOWED_TABLES = ['jecr_2ndyear', 'jecr_1styear'] as const;
 type AllowedTable = typeof ALLOWED_TABLES[number];
 
 export async function GET(req: NextRequest) {
-  // Require a valid payment cookie
+  // Require payment for this specific roll_no (or wildcard all-access)
   const paidValue = req.cookies.get(PAID_COOKIE)?.value;
-  if (!validatePaidCookie(paidValue)) {
+  const rollNoForCheck = (new URL(req.url).searchParams.get('roll_no') || '').trim();
+  if (!isRollNoPaid(paidValue, rollNoForCheck)) {
     return NextResponse.json({ error: 'payment_required' }, { status: 402 });
   }
 

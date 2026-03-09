@@ -97,11 +97,17 @@ export default function StudentRecords({
   const [exportGenerating, setExportGenerating] = useState(false);
 
   // Payment state
-  const [isPaid, setIsPaid] = useState(false);
+  const [allAccess, setAllAccess] = useState(false);          // coupon wildcard
+  const [paidRolls, setPaidRolls] = useState<Set<string>>(new Set()); // per-roll
   const [showPayModal, setShowPayModal] = useState(false);
   const [pendingRollNo, setPendingRollNo] = useState<string | null>(null);
   const [payLoading, setPayLoading] = useState(false);
   const [payPrice, setPayPrice] = useState<number | null>(null);
+  const [coupon, setCoupon] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState('');
+
+  const isRollPaid = (rollNo: string) => allAccess || paidRolls.has(rollNo);
 
   const LIMIT = 20;
 
@@ -127,12 +133,12 @@ export default function StudentRecords({
   // Reset page/filters when table switches
   useEffect(() => { setPage(1); setSearch(''); setSearchInput(''); setBranch(''); }, [table]);
 
-  // Check if user already paid (on mount)
+  // Check paid status + price on mount
   useEffect(() => {
     fetch('/api/payment/status').then(r => r.json()).then(d => {
-      if (d.paid) setIsPaid(true);
+      if (d.allAccess) setAllAccess(true);
+      if (d.paidRolls?.length) setPaidRolls(new Set(d.paidRolls));
     }).catch(() => {});
-    // Pre-fetch configured price
     fetch('/api/payment/create-order').then(r => r.json()).then(d => {
       if (d.amountRupees) setPayPrice(d.amountRupees);
     }).catch(() => {});
@@ -425,11 +431,9 @@ export default function StudentRecords({
     try {
       const res = await fetch(`/api/db/student-detail?roll_no=${encodeURIComponent(rollNo)}&table=${encodeURIComponent(table)}`);
       if (res.status === 402) {
-        // Payment required — shouldn't normally reach here but handle gracefully
+        // Fallback: cookie expired between status check and click
         setShowModal(false);
-        setIsPaid(false);
-        setPendingRollNo(rollNo);
-        setShowPayModal(true);
+        setPledingRoll(rollNo);
         setDetailLoading(false);
         return;
       }
@@ -439,22 +443,63 @@ export default function StudentRecords({
     setDetailLoading(false);
   };
 
+  // Helper used by 402 fallback to avoid circular reference
+  const setPledingRoll = (rollNo: string) => {
+    setPaidRolls(s => { const n = new Set(s); n.delete(rollNo); return n; });
+    setPendingRollNo(rollNo);
+    setShowPayModal(true);
+  };
+
   const openDetail = (rollNo: string) => {
-    if (!isPaid) {
+    if (!isRollPaid(rollNo)) {
       setPendingRollNo(rollNo);
+      setCoupon('');
+      setCouponError('');
       setShowPayModal(true);
       return;
     }
     openDetailDirect(rollNo);
   };
 
+  const applyCoupon = async () => {
+    if (!coupon.trim()) return;
+    setCouponLoading(true);
+    setCouponError('');
+    try {
+      const res = await fetch('/api/payment/apply-coupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coupon: coupon.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAllAccess(true);
+        setShowPayModal(false);
+        setCouponLoading(false);
+        if (pendingRollNo) {
+          const roll = pendingRollNo;
+          setPendingRollNo(null);
+          openDetailDirect(roll);
+        }
+      } else {
+        setCouponError(data.error || 'Invalid coupon');
+        setCouponLoading(false);
+      }
+    } catch {
+      setCouponError('Failed to apply coupon. Try again.');
+      setCouponLoading(false);
+    }
+  };
+
   const initiatePayment = async () => {
+    if (!pendingRollNo) return;
     setPayLoading(true);
     try {
       const orderRes = await fetch('/api/payment/create-order', { method: 'POST' });
       const order = await orderRes.json();
       if (order.error) { alert(order.error); setPayLoading(false); return; }
 
+      const rollForPayment = pendingRollNo;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rz = new (window as any).Razorpay({
         key: order.keyId,
@@ -462,7 +507,7 @@ export default function StudentRecords({
         currency: order.currency,
         order_id: order.orderId,
         name: 'JECRC Foundation Portal',
-        description: 'Access Student Result',
+        description: 'View Student Result',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         handler: async (response: any) => {
           const verifyRes = await fetch('/api/payment/verify', {
@@ -472,18 +517,16 @@ export default function StudentRecords({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
+              roll_no: rollForPayment,
             }),
           });
           const data = await verifyRes.json();
           if (data.success) {
-            setIsPaid(true);
+            setPaidRolls(s => new Set([...s, rollForPayment]));
             setShowPayModal(false);
             setPayLoading(false);
-            if (pendingRollNo) {
-              const roll = pendingRollNo;
-              setPendingRollNo(null);
-              openDetailDirect(roll);
-            }
+            setPendingRollNo(null);
+            openDetailDirect(rollForPayment);
           } else {
             alert('Payment verification failed. Please contact support.');
             setPayLoading(false);
@@ -706,9 +749,9 @@ export default function StudentRecords({
               {/* View arrow / lock */}
               <div className="mt-4 pt-3 border-t border-neutral-100 flex items-center justify-between">
                 <span className="text-[11px] font-black text-neutral-300 uppercase tracking-wider group-hover:text-orange-500 transition-colors duration-200">
-                  {isPaid ? 'View Details' : 'Unlock to View'}
+                  {isRollPaid(row.roll_no) ? 'View Details' : 'Unlock to View'}
                 </span>
-                {isPaid ? (
+                {isRollPaid(row.roll_no) ? (
                   <svg className="w-4 h-4 text-neutral-300 group-hover:text-orange-500 group-hover:translate-x-1 transition-all duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/>
                   </svg>
@@ -790,7 +833,7 @@ export default function StudentRecords({
       {/* ─── Payment Gate Modal ──────────────────────── */}
       {showPayModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setShowPayModal(false); setPendingRollNo(null); setPayLoading(false); }} />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setShowPayModal(false); setPendingRollNo(null); setPayLoading(false); setCoupon(''); setCouponError(''); }} />
           <div className="relative bg-white rounded-3xl w-full max-w-sm shadow-2xl shadow-black/20 border border-neutral-200 overflow-hidden">
             {/* Orange top bar */}
             <div className="h-1.5 bg-gradient-to-r from-orange-400 via-orange-500 to-amber-400" />
@@ -805,12 +848,12 @@ export default function StudentRecords({
 
               <h2 className="text-xl font-black text-neutral-900 mb-1">Unlock Student Results</h2>
               <p className="text-sm text-neutral-500 font-semibold mb-1">
-                One-time payment unlocks all results for 24 hours.
+                Pay once to view this student&apos;s result, or use a coupon for free all-access.
               </p>
               {payPrice !== null && (
                 <div className="inline-flex items-baseline gap-1 mt-2 mb-5">
                   <span className="text-3xl font-black text-orange-500">₹{payPrice}</span>
-                  <span className="text-sm text-neutral-400 font-bold">/ session</span>
+                  <span className="text-sm text-neutral-400 font-bold">/ result</span>
                 </div>
               )}
               {payPrice === null && <div className="h-4 mb-5" />}
@@ -818,8 +861,8 @@ export default function StudentRecords({
               {/* Features */}
               <ul className="text-left space-y-2 mb-6">
                 {[
-                  'View marks for all students',
-                  'Export any result to PDF',
+                  'View marks for this student',
+                  'Export result to PDF',
                   'Valid for 24 hours from payment',
                 ].map(f => (
                   <li key={f} className="flex items-center gap-2.5 text-sm text-neutral-600 font-semibold">
@@ -833,7 +876,7 @@ export default function StudentRecords({
 
               <button
                 onClick={initiatePayment}
-                disabled={payLoading}
+                disabled={payLoading || couponLoading}
                 className="w-full bg-orange-500 hover:bg-orange-400 active:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black py-3.5 rounded-2xl text-base shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 transition-all duration-200 hover:-translate-y-0.5 flex items-center justify-center gap-2"
               >
                 {payLoading ? (
@@ -854,7 +897,41 @@ export default function StudentRecords({
                 )}
               </button>
 
-              <p className="text-[11px] text-neutral-400 font-medium mt-3">
+              {/* Divider */}
+              <div className="flex items-center gap-3 my-4">
+                <div className="flex-1 h-px bg-neutral-200" />
+                <span className="text-xs font-black text-neutral-400 uppercase tracking-widest">or</span>
+                <div className="flex-1 h-px bg-neutral-200" />
+              </div>
+
+              {/* Coupon input */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={coupon}
+                  onChange={e => { setCoupon(e.target.value); setCouponError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && applyCoupon()}
+                  placeholder="Enter coupon code…"
+                  className="flex-1 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10 transition-all"
+                />
+                <button
+                  onClick={applyCoupon}
+                  disabled={couponLoading || !coupon.trim()}
+                  className="bg-neutral-900 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-black px-4 py-2.5 rounded-xl transition-all duration-200 flex items-center gap-1.5"
+                >
+                  {couponLoading ? (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                    </svg>
+                  ) : 'Apply'}
+                </button>
+              </div>
+              {couponError && (
+                <p className="text-xs text-red-500 font-semibold mt-2 text-left">{couponError}</p>
+              )}
+
+              <p className="text-[11px] text-neutral-400 font-medium mt-4">
                 Powered by Razorpay · 100% secure payment
               </p>
             </div>

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { createPaidCookie, PAID_COOKIE } from '@/lib/payment';
+import { addPaidEntry, PAID_COOKIE } from '@/lib/payment';
 
 export async function POST(req: NextRequest) {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = await req.json();
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, roll_no } = await req.json();
 
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !roll_no) {
       return NextResponse.json({ error: 'Missing payment fields' }, { status: 400 });
     }
 
@@ -31,8 +31,9 @@ export async function POST(req: NextRequest) {
 
     const res = NextResponse.json({ success: true });
 
-    // Set signed 24-hour paid cookie
-    res.cookies.set(PAID_COOKIE, createPaidCookie(), {
+    // Add this specific roll_no to the paid cookie (per-result tracking)
+    const existing = req.cookies.get(PAID_COOKIE)?.value;
+    res.cookies.set(PAID_COOKIE, addPaidEntry(existing, roll_no), {
       httpOnly: true,
       sameSite: 'lax',
       maxAge: 24 * 60 * 60,
