@@ -54,12 +54,13 @@ export async function GET(req: Request) {
     const summary = {
       totalPapers: papers.length,
       filled: papers.filter(p => {
-        const s = String(p.marks_status || '').toLowerCase();
-        return s.includes('filled') || s.includes('complete') || s.includes('submit');
+        const s = String(p.marks_status || '').trim().toLowerCase();
+        // Has a numeric value or is "Absent" → marks are entered
+        return s !== '' && !s.includes('not filled') && !s.includes('pending');
       }).length,
       pending: papers.filter(p => {
-        const s = String(p.marks_status || '').toLowerCase();
-        return s.includes('not') || s.includes('pending');
+        const s = String(p.marks_status || '').trim().toLowerCase();
+        return s === '' || s.includes('not filled') || s.includes('pending');
       }).length,
     };
 

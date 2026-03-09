@@ -54,6 +54,19 @@ interface StudentDetail {
 }
 
 /* ── helpers ────────────────────────────────────────────── */
+
+/** Returns the full (maximum) marks for a paper given its type and name */
+function getFullMarks(paperType: string, paperName: string): number {
+  const pt = (paperType || '').toLowerCase();
+  if (pt.includes('mid')) return 30;
+  if (pt.includes('sessional')) return 60;
+  if (pt.includes('practical')) {
+    // FEC papers (both tables): out of 100
+    return /^FEC/i.test(paperName || '') ? 100 : 40;
+  }
+  return 0;
+}
+
 const statusPill = (s: string) => {
   const l = s?.toLowerCase() || '';
   if (l.includes('filled') || l.includes('complete') || l.includes('submit'))
@@ -257,8 +270,8 @@ export default function StudentRecords({
       doc.text('[!]  MARKS SCHEME', margin + 4, y + 5);
       const disc = [
         '- Mid Term marks are out of 30',
-        '- Practical marks are out of 40',
         '- Sessional marks are out of 60',
+        '- Practical marks are out of 40',
       ];
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
@@ -269,26 +282,35 @@ export default function StudentRecords({
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(7);
       doc.setTextColor(180, 83, 9);
-      doc.text('* Practical marks greater than 60 are out of 100', margin + 4, y + 21);
+      doc.text('* FEC paper practical marks are out of 100', margin + 4, y + 21);
       y += 32;
 
       // ── Papers table ─────────────────────────────────────────
       autoTable(doc, {
         startY: y,
         head: [['#', 'Paper Name', 'Type', 'Exam Type', 'Marks Status']],
-        body: detail.papers.map((p, i) => [i + 1, p.paper_name, p.paper_type, p.exam_type, p.marks_status || '—']),
+        body: detail.papers.map((p, i) => {
+          const mv = (p.marks_status || '').trim();
+          const isAbsent = mv.toLowerCase() === 'absent';
+          const full = getFullMarks(p.paper_type, p.paper_name);
+          const marksDisplay = isAbsent ? 'Absent' : (mv && full > 0 ? `${mv} / ${full}` : (mv || '—'));
+          return [i + 1, p.paper_name, p.paper_type, p.exam_type, marksDisplay];
+        }),
         margin: { left: margin, right: margin },
         styles: { fontSize: 8, cellPadding: 3, font: 'helvetica', textColor: [55, 65, 81] },
         headStyles: { fillColor: [249, 115, 22], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5, halign: 'left' },
         alternateRowStyles: { fillColor: [250, 250, 250] },
-        columnStyles: { 0: { cellWidth: 14, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 24 }, 3: { cellWidth: 26 }, 4: { cellWidth: 36 } },
+        columnStyles: { 0: { cellWidth: 14, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 24 }, 3: { cellWidth: 26 }, 4: { cellWidth: 36, halign: 'center' } },
         didParseCell: (data) => {
           if (data.column.index === 4 && data.section === 'body') {
             const val = String(data.cell.raw || '').toLowerCase();
-            if (val.includes('filled') || val.includes('complete') || val.includes('submit')) {
+            if (val === 'absent') {
+              data.cell.styles.textColor = [220, 38, 38];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (val.includes('/')) {
               data.cell.styles.textColor = [22, 163, 74];
               data.cell.styles.fontStyle = 'bold';
-            } else if (val.includes('not') || val.includes('pending')) {
+            } else if (val.includes('not') || val.includes('pending') || val === '—') {
               data.cell.styles.textColor = [234, 88, 12];
               data.cell.styles.fontStyle = 'bold';
             }
@@ -791,59 +813,63 @@ export default function StudentRecords({
                     </div>
                     <ul className="space-y-1.5">
                       {[
-                        { label: 'Mid Term marks', max: 30, color: 'text-blue-600', bg: 'bg-blue-100' },
-                        { label: 'Practical marks', max: 40, color: 'text-purple-600', bg: 'bg-purple-100' },
-                        { label: 'Sessional marks', max: 60, color: 'text-emerald-600', bg: 'bg-emerald-100' },
+                        { label: 'Mid Term', max: '/ 30', color: 'text-blue-600', bg: 'bg-blue-100' },
+                        { label: 'Sessional', max: '/ 60', color: 'text-emerald-600', bg: 'bg-emerald-100' },
+                        { label: 'Practical (regular)', max: '/ 40', color: 'text-purple-600', bg: 'bg-purple-100' },
+                        { label: 'Practical (FEC papers)', max: '/ 100', color: 'text-orange-600', bg: 'bg-orange-100' },
                       ].map(item => (
                         <li key={item.label} className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
-                            <span className="text-xs sm:text-sm font-semibold text-amber-800">{item.label} are out of</span>
+                            <span className="text-xs font-semibold text-amber-800">{item.label}</span>
                           </div>
-                          <span className={`${item.color} ${item.bg} text-xs sm:text-sm font-extrabold px-2.5 py-0.5 rounded-lg flex-shrink-0`}>{item.max}</span>
+                          <span className={`${item.color} ${item.bg} text-xs font-extrabold px-2.5 py-0.5 rounded-lg flex-shrink-0 tabular-nums`}>{item.max}</span>
                         </li>
                       ))}
                     </ul>
-                    <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 font-semibold">
-                      <span className="flex-shrink-0 mt-0.5">*</span>
-                      <span>Practical marks greater than 60 are out of 100</span>
-                    </p>
                   </div>
 
                   {/* Papers table */}
-                  <div className="border border-neutral-200 rounded-2xl overflow-x-auto">
+                  <div className="border border-neutral-200 rounded-2xl overflow-hidden">
                     <div className="px-5 py-3 border-b border-neutral-100 bg-gradient-to-r from-neutral-50 to-white flex items-center justify-between">
-                      <h5 className="text-xs font-extrabold text-neutral-500 uppercase tracking-widest">Paper-wise Marks Status</h5>
+                      <h5 className="text-xs font-extrabold text-neutral-500 uppercase tracking-widest">Paper-wise Marks</h5>
                       <span className="text-xs font-bold text-neutral-400">{detail.papers.length} papers</span>
                     </div>
-                    <table className="w-full text-sm min-w-[420px]">
+                    <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-neutral-50 border-b border-neutral-200">
-                          <th className="px-4 py-2.5 text-left text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest w-8">#</th>
-                          <th className="px-4 py-2.5 text-left text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest">Paper Name</th>
-                          <th className="px-4 py-2.5 text-left text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest hidden sm:table-cell">Type</th>
-                          <th className="px-4 py-2.5 text-left text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest hidden sm:table-cell">Exam</th>
-                          <th className="px-4 py-2.5 text-left text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest">Marks</th>
+                          <th className="px-3 py-2.5 text-left text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest w-7">#</th>
+                          <th className="px-3 py-2.5 text-left text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest">Paper</th>
+                          <th className="px-3 py-2.5 text-right text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest whitespace-nowrap">Marks</th>
                         </tr>
                       </thead>
                       <tbody>
                         {detail.papers.map((p, i) => {
-                          const l = (p.marks_status || '').toLowerCase();
-                          const isFilled = l.includes('filled') || l.includes('complete') || l.includes('submit');
-                          const isPending = l.includes('not') || l.includes('pending');
+                          const mv = (p.marks_status || '').trim();
+                          const isAbsent = mv.toLowerCase() === 'absent';
+                          const isNumeric = !isAbsent && mv !== '' && !isNaN(Number(mv));
+                          const full = getFullMarks(p.paper_type, p.paper_name);
                           return (
-                            <tr key={i} className="border-b border-neutral-100 last:border-b-0 hover:bg-orange-50/50 transition-colors duration-150">
-                              <td className="px-4 py-3 text-neutral-400 font-bold text-xs">{i + 1}</td>
-                              <td className="px-4 py-3 text-neutral-800 text-xs font-semibold">{p.paper_name}</td>
-                              <td className="px-4 py-3 hidden sm:table-cell">
-                                <span className="inline-block bg-neutral-100 border border-neutral-200 rounded-lg px-2 py-0.5 text-[11px] text-neutral-600 font-bold">{p.paper_type}</span>
+                            <tr key={i} className="border-b border-neutral-100 last:border-b-0 hover:bg-orange-50/40 transition-colors duration-150">
+                              <td className="px-3 py-3 text-neutral-400 font-bold text-xs align-top pt-3.5">{i + 1}</td>
+                              <td className="px-3 py-3">
+                                <div className="text-neutral-800 text-xs font-semibold leading-snug">{p.paper_name}</div>
+                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                  <span className="inline-block bg-neutral-100 border border-neutral-200 rounded-md px-1.5 py-0.5 text-[10px] text-neutral-500 font-bold">{p.paper_type}</span>
+                                  {p.exam_type && <span className="inline-block bg-neutral-50 border border-neutral-200 rounded-md px-1.5 py-0.5 text-[10px] text-neutral-400 font-semibold">{p.exam_type}</span>}
+                                </div>
                               </td>
-                              <td className="px-4 py-3 text-neutral-500 text-xs font-semibold hidden sm:table-cell">{p.exam_type}</td>
-                              <td className="px-4 py-3">
-                                <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${statusPill(p.marks_status)}`}>
-                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isFilled ? 'bg-emerald-500' : isPending ? 'bg-orange-400' : 'bg-neutral-400'}`} />
-                                  {p.marks_status || '—'}
-                                </span>
+                              <td className="px-3 py-3 text-right align-top pt-3.5">
+                                {isAbsent ? (
+                                  <span className="text-red-600 font-extrabold text-xs">Absent</span>
+                                ) : isNumeric && full > 0 ? (
+                                  <span className="font-extrabold text-xs tabular-nums">
+                                    <span className="text-neutral-900">{mv}</span>
+                                    <span className="text-neutral-400 font-bold">/{full}</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-neutral-400 text-xs font-semibold">{mv || '—'}</span>
+                                )}
                               </td>
                             </tr>
                           );
