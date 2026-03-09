@@ -20,12 +20,11 @@ export async function POST(req: NextRequest) {
 
     const res = NextResponse.json({ success: true });
 
-    // '*' = all-access wildcard for 24 hours
+    // Session cookie — no maxAge/expires, browser deletes it when closed
     const existing = req.cookies.get(PAID_COOKIE)?.value;
     res.cookies.set(PAID_COOKIE, addPaidEntry(existing, '*'), {
       httpOnly: true,
       sameSite: 'lax',
-      maxAge: 24 * 60 * 60,
       path: '/',
     });
 

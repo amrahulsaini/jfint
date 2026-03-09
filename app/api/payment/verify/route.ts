@@ -31,12 +31,10 @@ export async function POST(req: NextRequest) {
 
     const res = NextResponse.json({ success: true });
 
-    // Add this specific roll_no to the paid cookie (per-result tracking)
-    const existing = req.cookies.get(PAID_COOKIE)?.value;
+    // Session cookie — no maxAge/expires, browser deletes it when closed
     res.cookies.set(PAID_COOKIE, addPaidEntry(existing, roll_no), {
       httpOnly: true,
       sameSite: 'lax',
-      maxAge: 24 * 60 * 60,
       path: '/',
     });
 

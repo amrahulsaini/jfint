@@ -859,7 +859,7 @@ export default function StudentRecords({
                 {[
                   'View marks for this student',
                   'Export result to PDF',
-                  'Valid for 24 hours from payment',
+                  'Access expires when you close the browser',
                 ].map(f => (
                   <li key={f} className="flex items-center gap-2.5 text-sm text-neutral-600 font-semibold">
                     <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>

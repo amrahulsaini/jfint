@@ -3,7 +3,7 @@ import crypto from 'crypto';
 const secret = () => process.env.OTP_SECRET!;
 
 export const PAID_COOKIE = 'jfint_paid';
-const ENTRY_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const ENTRY_TTL_MS = 4 * 60 * 60 * 1000; // 4h server-side backup (cookie itself is session-only)
 
 /** Internal cookie entry — r = roll_no, '*' = all-access (coupon) */
 interface PaidEntry { r: string; exp: number; }
