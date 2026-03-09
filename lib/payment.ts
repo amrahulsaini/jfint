@@ -63,33 +63,45 @@ export async function saveCouponAccess(sessionId: string, email: string | null):
 
 // ─────────────────────────── Read helpers ────────────────────────────────────
 
-/** Returns true if sessionId has paid for rollNo (or has a valid all-access plan) */
-export async function isRollAccessible(sessionId: string, rollNo: string): Promise<boolean> {
+/**
+ * Returns true if sessionId (or email) has paid for rollNo (or has a valid all-access plan).
+ * Querying by email ensures payments survive logout/re-login with the same email.
+ */
+export async function isRollAccessible(sessionId: string, rollNo: string, email?: string | null): Promise<boolean> {
   const pool = getPool();
+  const hasEmail = email && email.length > 0;
   const [rows] = await pool.query(
     `SELECT 1 FROM portal_payments
-     WHERE session_id = ?
-       AND (
-         (plan = 'single' AND roll_no = ?)
-         OR
-         (plan = 'all' AND (expires_at IS NULL OR expires_at > NOW()))
-       )
+     WHERE (
+       session_id = ?
+       ${hasEmail ? 'OR (email IS NOT NULL AND email = ?)' : ''}
+     )
+     AND (
+       (plan = 'single' AND roll_no = ?)
+       OR
+       (plan = 'all' AND (expires_at IS NULL OR expires_at > NOW()))
+     )
      LIMIT 1`,
-    [sessionId, rollNo],
+    hasEmail ? [sessionId, email, rollNo] : [sessionId, rollNo],
   ) as [unknown[], unknown];
   return (rows as unknown[]).length > 0;
 }
 
-/** Return current payment status for status API response */
-export async function getPaymentStatus(sessionId: string): Promise<{
+/**
+ * Return current payment status for status API response.
+ * Queries by email OR session_id so history survives logout/re-login.
+ */
+export async function getPaymentStatus(sessionId: string, email?: string | null): Promise<{
   allAccess: boolean;
   allAccessExpiresAt: string | null;
   paidRolls: string[];
 }> {
   const pool = getPool();
+  const hasEmail = email && email.length > 0;
   const [rows] = await pool.query(
-    `SELECT plan, roll_no, expires_at FROM portal_payments WHERE session_id = ?`,
-    [sessionId],
+    `SELECT plan, roll_no, expires_at FROM portal_payments
+     WHERE session_id = ?${hasEmail ? ' OR (email IS NOT NULL AND email = ?)' : ''}`,
+    hasEmail ? [sessionId, email] : [sessionId],
   ) as [unknown[], unknown];
 
   const entries = rows as { plan: string; roll_no: string | null; expires_at: Date | null }[];

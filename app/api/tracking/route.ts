@@ -20,13 +20,15 @@ export async function GET(req: NextRequest) {
     ) as [unknown[], unknown];
     const sess = (sessRows as { email: string | null; created_at: Date; expires_at: Date; ip_address: string | null }[])[0] ?? null;
 
-    // Full payment history
+    // Full payment history — query by email (if known) OR session_id
+    // so history from previous login sessions with same email is included
+    const hasEmail = sess?.email && sess.email.length > 0;
     const [payRows] = await pool.query(
       `SELECT plan, roll_no, amount_paise, razorpay_order_id, razorpay_payment_id, expires_at, created_at
        FROM portal_payments
-       WHERE session_id = ?
+       WHERE session_id = ?${hasEmail ? ' OR (email IS NOT NULL AND email = ?)' : ''}
        ORDER BY created_at ASC`,
-      [sessionId],
+      hasEmail ? [sessionId, sess!.email] : [sessionId],
     ) as [unknown[], unknown];
 
     const payments = (payRows as {

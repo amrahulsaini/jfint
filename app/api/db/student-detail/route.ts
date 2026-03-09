@@ -15,7 +15,10 @@ export async function GET(req: NextRequest) {
   if (!sessionId) {
     return NextResponse.json({ error: 'payment_required' }, { status: 402 });
   }
-  const accessible = await isRollAccessible(sessionId, rollNoForCheck).catch(() => false);
+  // Also pass email so prior-session payments (same email) are recognised
+  const { getSessionEmail } = await import('@/lib/session');
+  const email = await getSessionEmail(sessionId).catch(() => null);
+  const accessible = await isRollAccessible(sessionId, rollNoForCheck, email).catch(() => false);
   if (!accessible) {
     return NextResponse.json({ error: 'payment_required' }, { status: 402 });
   }
