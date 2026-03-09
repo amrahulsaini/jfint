@@ -56,15 +56,26 @@ export function verifySessionToken(cookieValue: string): string | null {
 }
 
 /** Persist session to DB after successful login */
-export async function saveSessionToDB(sessionId: string, ip: string): Promise<void> {
+export async function saveSessionToDB(sessionId: string, ip: string, email: string): Promise<void> {
   const pool = getPool();
   const expiresAt = new Date(Date.now() + SESSION_MS);
   await pool.query(
-    `INSERT INTO portal_sessions (id, expires_at, ip_address)
-     VALUES (?, ?, ?)
-     ON DUPLICATE KEY UPDATE expires_at = VALUES(expires_at)`,
-    [sessionId, expiresAt, ip]
+    `INSERT INTO portal_sessions (id, expires_at, ip_address, email)
+     VALUES (?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE expires_at = VALUES(expires_at), email = VALUES(email)`,
+    [sessionId, expiresAt, ip, email]
   );
+}
+
+/** Get the email associated with a session ID */
+export async function getSessionEmail(sessionId: string): Promise<string | null> {
+  const pool = getPool();
+  const [rows] = await pool.query(
+    'SELECT email FROM portal_sessions WHERE id = ? LIMIT 1',
+    [sessionId]
+  ) as [unknown[], unknown];
+  const r = (rows as { email: string | null }[])[0];
+  return r?.email ?? null;
 }
 
 /** Remove session from DB on logout */

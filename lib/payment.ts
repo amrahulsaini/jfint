@@ -16,6 +16,7 @@ export const ALL_ACCESS_DURATION_MS = 2 * 60 * 60 * 1000; // 2 hours
 /** Save a verified single-student payment to DB */
 export async function saveSinglePayment(
   sessionId: string,
+  email: string | null,
   rollNo: string,
   orderId: string,
   paymentId: string,
@@ -24,15 +25,16 @@ export async function saveSinglePayment(
   const pool = getPool();
   await pool.query(
     `INSERT INTO portal_payments
-       (session_id, razorpay_order_id, razorpay_payment_id, plan, roll_no, amount_paise)
-     VALUES (?, ?, ?, 'single', ?, ?)`,
-    [sessionId, orderId, paymentId, rollNo, amountPaise],
+       (session_id, email, razorpay_order_id, razorpay_payment_id, plan, roll_no, amount_paise)
+     VALUES (?, ?, ?, ?, 'single', ?, ?)`,
+    [sessionId, email, orderId, paymentId, rollNo, amountPaise],
   );
 }
 
 /** Save a verified all-access payment to DB (expires in 2 h) */
 export async function saveAllAccessPayment(
   sessionId: string,
+  email: string | null,
   orderId: string,
   paymentId: string,
   amountPaise: number,
@@ -41,21 +43,21 @@ export async function saveAllAccessPayment(
   const expiresAt = new Date(Date.now() + ALL_ACCESS_DURATION_MS);
   await pool.query(
     `INSERT INTO portal_payments
-       (session_id, razorpay_order_id, razorpay_payment_id, plan, roll_no, amount_paise, expires_at)
-     VALUES (?, ?, ?, 'all', NULL, ?, ?)`,
-    [sessionId, orderId, paymentId, amountPaise, expiresAt],
+       (session_id, email, razorpay_order_id, razorpay_payment_id, plan, roll_no, amount_paise, expires_at)
+     VALUES (?, ?, ?, ?, 'all', NULL, ?, ?)`,
+    [sessionId, email, orderId, paymentId, amountPaise, expiresAt],
   );
 }
 
 /** Save a coupon-based all-access grant to DB (expires in 2 h, zero amount) */
-export async function saveCouponAccess(sessionId: string): Promise<void> {
+export async function saveCouponAccess(sessionId: string, email: string | null): Promise<void> {
   const pool = getPool();
   const expiresAt = new Date(Date.now() + ALL_ACCESS_DURATION_MS);
   await pool.query(
     `INSERT INTO portal_payments
-       (session_id, razorpay_order_id, razorpay_payment_id, plan, roll_no, amount_paise, expires_at)
-     VALUES (?, 'coupon', NULL, 'all', NULL, 0, ?)`,
-    [sessionId, expiresAt],
+       (session_id, email, razorpay_order_id, razorpay_payment_id, plan, roll_no, amount_paise, expires_at)
+     VALUES (?, ?, 'coupon', NULL, 'all', NULL, 0, ?)`,
+    [sessionId, email, expiresAt],
   );
 }
 

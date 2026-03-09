@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { saveSinglePayment, saveAllAccessPayment } from '@/lib/payment';
-import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
+import { verifySessionToken, SESSION_COOKIE, getSessionEmail } from '@/lib/session';
 
 export async function POST(req: NextRequest) {
   try {
@@ -50,10 +50,11 @@ export async function POST(req: NextRequest) {
       : parseInt(process.env.PAYMENT_AMOUNT_PAISE || '500', 10);
 
     // Persist to DB
+    const email = await getSessionEmail(sessionId).catch(() => null);
     if (paymentPlan === 'all') {
-      await saveAllAccessPayment(sessionId, razorpay_order_id, razorpay_payment_id, amountPaise);
+      await saveAllAccessPayment(sessionId, email, razorpay_order_id, razorpay_payment_id, amountPaise);
     } else {
-      await saveSinglePayment(sessionId, roll_no!, razorpay_order_id, razorpay_payment_id, amountPaise);
+      await saveSinglePayment(sessionId, email, roll_no!, razorpay_order_id, razorpay_payment_id, amountPaise);
     }
 
     return NextResponse.json({ success: true, plan: paymentPlan });

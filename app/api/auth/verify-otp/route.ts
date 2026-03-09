@@ -33,7 +33,9 @@ export async function POST(req: NextRequest) {
       req.headers.get('cf-connecting-ip') ||
       req.headers.get('x-forwarded-for') ||
       '127.0.0.1';
-    try { await saveSessionToDB(sessionId, ip); } catch (e) { console.error('[verify-otp] DB session save failed', e); }
+    // email is validated above (verifyOtp checks it matches the OTP state)
+    const verifiedEmail = String(email || '').trim().toLowerCase();
+    try { await saveSessionToDB(sessionId, ip, verifiedEmail); } catch (e) { console.error('[verify-otp] DB session save failed', e); }
 
     const res = NextResponse.json({ success: true });
     // Auth cookie (middleware check — sliding 20 min)

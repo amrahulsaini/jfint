@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { saveCouponAccess } from '@/lib/payment';
-import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
+import { verifySessionToken, SESSION_COOKIE, getSessionEmail } from '@/lib/session';
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,7 +25,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No valid session — please log in again' }, { status: 401 });
     }
 
-    await saveCouponAccess(sessionId);
+    const email = await getSessionEmail(sessionId).catch(() => null);
+    await saveCouponAccess(sessionId, email);
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('[apply-coupon]', err);
