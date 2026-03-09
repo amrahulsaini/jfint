@@ -64,7 +64,13 @@ export default function Home() {
   // Timer: reads expiry from cookie on every tick — always in sync with server
   useEffect(() => {
     const tick = () => {
-      const exp = readExpiryCookie() ?? (Date.now() + SESSION_SECS * 1000);
+      const exp = readExpiryCookie();
+      // If cookie is gone (browser cleared it / expired), log out immediately
+      if (exp === null) {
+        if (timerRef.current) clearInterval(timerRef.current);
+        doLogout();
+        return;
+      }
       const secs = Math.round((exp - Date.now()) / 1000);
       if (secs <= 0) {
         if (timerRef.current) clearInterval(timerRef.current);
@@ -76,7 +82,18 @@ export default function Home() {
 
     tick(); // immediate first read
     timerRef.current = setInterval(tick, 1000);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+
+    // When user switches back to this tab, immediately re-sync the timer
+    // (browsers throttle setInterval on hidden tabs so the count can drift)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // runs once — doLogout is accessed via routerRef, no deps needed
 
@@ -146,6 +163,7 @@ export default function Home() {
           <div className="hidden md:flex items-center gap-8 text-[13px] font-bold text-neutral-500">
             <a href="#portal" className="hover:text-orange-500 transition-colors duration-200">Portal</a>
             <a href="#about" className="hover:text-orange-500 transition-colors duration-200">About</a>
+            <a href="/tracking" className="hover:text-orange-500 transition-colors duration-200">Tracking</a>
           </div>
           {/* Session timer + logout */}
           <div className="flex items-center gap-2">
