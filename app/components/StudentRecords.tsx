@@ -489,6 +489,11 @@ export default function StudentRecords({
 
   const initiatePayment = async () => {
     if (!pendingRollNo) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (typeof (window as any).Razorpay === 'undefined') {
+      alert('Payment gateway is still loading. Please wait a moment and try again.');
+      return;
+    }
     setPayLoading(true);
     try {
       const orderRes = await fetch('/api/payment/create-order', { method: 'POST' });

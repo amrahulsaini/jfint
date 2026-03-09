@@ -46,19 +46,22 @@ export default function Home() {
   };
 
   const doLogout = useCallback(async () => {
-    localStorage.removeItem(EXPIRY_KEY);
+    try { localStorage.removeItem(EXPIRY_KEY); } catch { /* private mode */ }
     await fetch('/api/auth/logout', { method: 'POST' });
     router.replace('/login');
   }, [router]);
 
   // On mount: read existing expiry from localStorage so page navigation doesn't reset the timer
   useEffect(() => {
-    const stored = localStorage.getItem(EXPIRY_KEY);
+    let stored: string | null = null;
+    try { stored = localStorage.getItem(EXPIRY_KEY); } catch { /* private mode */ }
     const expiry = stored ? parseInt(stored, 10) : Date.now() + SESSION_SECS * 1000;
-    if (!stored) localStorage.setItem(EXPIRY_KEY, String(expiry));
+    if (!stored) { try { localStorage.setItem(EXPIRY_KEY, String(expiry)); } catch { /* private mode */ } }
 
     const tick = () => {
-      const secs = Math.round((parseInt(localStorage.getItem(EXPIRY_KEY) || '0', 10) - Date.now()) / 1000);
+      let storedVal: string | null = null;
+      try { storedVal = localStorage.getItem(EXPIRY_KEY); } catch { /* private mode */ }
+      const secs = Math.round((parseInt(storedVal || String(expiry), 10) - Date.now()) / 1000);
       if (secs <= 0) { doLogout(); return; }
       setRemaining(secs);
     };
@@ -70,7 +73,7 @@ export default function Home() {
 
   // Only meaningful interactions (clicks, keyboard, touch) extend the session — NOT scroll/mousemove
   const resetTimer = useCallback(() => {
-    localStorage.setItem(EXPIRY_KEY, String(Date.now() + SESSION_SECS * 1000));
+    try { localStorage.setItem(EXPIRY_KEY, String(Date.now() + SESSION_SECS * 1000)); } catch { /* private mode */ }
   }, []);
   useEffect(() => {
     const events = ['mousedown', 'keydown', 'touchstart'];
