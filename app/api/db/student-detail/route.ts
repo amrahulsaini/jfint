@@ -1,10 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
+import { validatePaidCookie, PAID_COOKIE } from '@/lib/payment';
 
 const ALLOWED_TABLES = ['jecr_2ndyear', 'jecr_1styear'] as const;
 type AllowedTable = typeof ALLOWED_TABLES[number];
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
+  // Require a valid payment cookie
+  const paidValue = req.cookies.get(PAID_COOKIE)?.value;
+  if (!validatePaidCookie(paidValue)) {
+    return NextResponse.json({ error: 'payment_required' }, { status: 402 });
+  }
+
   const { searchParams } = new URL(req.url);
   const rollNo = (searchParams.get('roll_no') || '').trim();
   const rawTable = (searchParams.get('table') || 'jecr_2ndyear').trim();

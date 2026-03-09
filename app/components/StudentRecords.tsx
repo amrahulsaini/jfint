@@ -95,6 +95,14 @@ export default function StudentRecords({
   const [detailLoading, setDetailLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [exportGenerating, setExportGenerating] = useState(false);
+
+  // Payment state
+  const [isPaid, setIsPaid] = useState(false);
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [pendingRollNo, setPendingRollNo] = useState<string | null>(null);
+  const [payLoading, setPayLoading] = useState(false);
+  const [payPrice, setPayPrice] = useState<number | null>(null);
+
   const LIMIT = 20;
 
   const fetchData = useCallback(async () => {
@@ -118,6 +126,27 @@ export default function StudentRecords({
 
   // Reset page/filters when table switches
   useEffect(() => { setPage(1); setSearch(''); setSearchInput(''); setBranch(''); }, [table]);
+
+  // Check if user already paid (on mount)
+  useEffect(() => {
+    fetch('/api/payment/status').then(r => r.json()).then(d => {
+      if (d.paid) setIsPaid(true);
+    }).catch(() => {});
+    // Pre-fetch configured price
+    fetch('/api/payment/create-order').then(r => r.json()).then(d => {
+      if (d.amountRupees) setPayPrice(d.amountRupees);
+    }).catch(() => {});
+  }, []);
+
+  // Load Razorpay checkout script once
+  useEffect(() => {
+    if (document.getElementById('rzp-checkout-script')) return;
+    const script = document.createElement('script');
+    script.id = 'rzp-checkout-script';
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.head.appendChild(script);
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => { e.preventDefault(); setPage(1); setSearch(searchInput); };
 
@@ -389,16 +418,85 @@ export default function StudentRecords({
     }
   };
 
-  const openDetail = async (rollNo: string) => {
+  const openDetailDirect = async (rollNo: string) => {
     setShowModal(true);
     setDetailLoading(true);
     setDetail(null);
     try {
       const res = await fetch(`/api/db/student-detail?roll_no=${encodeURIComponent(rollNo)}&table=${encodeURIComponent(table)}`);
+      if (res.status === 402) {
+        // Payment required — shouldn't normally reach here but handle gracefully
+        setShowModal(false);
+        setIsPaid(false);
+        setPendingRollNo(rollNo);
+        setShowPayModal(true);
+        setDetailLoading(false);
+        return;
+      }
       const json = await res.json();
       if (!json.error) setDetail(json);
     } catch { /* noop */ }
     setDetailLoading(false);
+  };
+
+  const openDetail = (rollNo: string) => {
+    if (!isPaid) {
+      setPendingRollNo(rollNo);
+      setShowPayModal(true);
+      return;
+    }
+    openDetailDirect(rollNo);
+  };
+
+  const initiatePayment = async () => {
+    setPayLoading(true);
+    try {
+      const orderRes = await fetch('/api/payment/create-order', { method: 'POST' });
+      const order = await orderRes.json();
+      if (order.error) { alert(order.error); setPayLoading(false); return; }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rz = new (window as any).Razorpay({
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency,
+        order_id: order.orderId,
+        name: 'JECRC Foundation Portal',
+        description: 'Access Student Result',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        handler: async (response: any) => {
+          const verifyRes = await fetch('/api/payment/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }),
+          });
+          const data = await verifyRes.json();
+          if (data.success) {
+            setIsPaid(true);
+            setShowPayModal(false);
+            setPayLoading(false);
+            if (pendingRollNo) {
+              const roll = pendingRollNo;
+              setPendingRollNo(null);
+              openDetailDirect(roll);
+            }
+          } else {
+            alert('Payment verification failed. Please contact support.');
+            setPayLoading(false);
+          }
+        },
+        modal: { ondismiss: () => { setPayLoading(false); } },
+        theme: { color: '#f97316' },
+      });
+      rz.open();
+    } catch {
+      alert('Payment initialization failed. Please try again.');
+      setPayLoading(false);
+    }
   };
 
   /* ── DB not connected ──────────────────────────────────── */
@@ -605,12 +703,20 @@ export default function StudentRecords({
                 </div>
               </div>
 
-              {/* View arrow */}
+              {/* View arrow / lock */}
               <div className="mt-4 pt-3 border-t border-neutral-100 flex items-center justify-between">
-                <span className="text-[11px] font-black text-neutral-300 uppercase tracking-wider group-hover:text-orange-500 transition-colors duration-200">View Details</span>
-                <svg className="w-4 h-4 text-neutral-300 group-hover:text-orange-500 group-hover:translate-x-1 transition-all duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/>
-                </svg>
+                <span className="text-[11px] font-black text-neutral-300 uppercase tracking-wider group-hover:text-orange-500 transition-colors duration-200">
+                  {isPaid ? 'View Details' : 'Unlock to View'}
+                </span>
+                {isPaid ? (
+                  <svg className="w-4 h-4 text-neutral-300 group-hover:text-orange-500 group-hover:translate-x-1 transition-all duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/>
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4 text-neutral-300 group-hover:text-orange-500 transition-colors duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+                  </svg>
+                )}
               </div>
             </div>
           ))}
@@ -677,6 +783,81 @@ export default function StudentRecords({
               className="w-9 h-9 rounded-xl border border-neutral-200 bg-white flex items-center justify-center text-neutral-400 hover:text-orange-500 hover:border-orange-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 text-xs font-black">
               »»
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Payment Gate Modal ──────────────────────── */}
+      {showPayModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setShowPayModal(false); setPendingRollNo(null); setPayLoading(false); }} />
+          <div className="relative bg-white rounded-3xl w-full max-w-sm shadow-2xl shadow-black/20 border border-neutral-200 overflow-hidden">
+            {/* Orange top bar */}
+            <div className="h-1.5 bg-gradient-to-r from-orange-400 via-orange-500 to-amber-400" />
+
+            <div className="p-7 text-center">
+              {/* Lock icon */}
+              <div className="w-16 h-16 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center mx-auto mb-5">
+                <svg className="w-8 h-8 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+                </svg>
+              </div>
+
+              <h2 className="text-xl font-black text-neutral-900 mb-1">Unlock Student Results</h2>
+              <p className="text-sm text-neutral-500 font-semibold mb-1">
+                One-time payment unlocks all results for 24 hours.
+              </p>
+              {payPrice !== null && (
+                <div className="inline-flex items-baseline gap-1 mt-2 mb-5">
+                  <span className="text-3xl font-black text-orange-500">₹{payPrice}</span>
+                  <span className="text-sm text-neutral-400 font-bold">/ session</span>
+                </div>
+              )}
+              {payPrice === null && <div className="h-4 mb-5" />}
+
+              {/* Features */}
+              <ul className="text-left space-y-2 mb-6">
+                {[
+                  'View marks for all students',
+                  'Export any result to PDF',
+                  'Valid for 24 hours from payment',
+                ].map(f => (
+                  <li key={f} className="flex items-center gap-2.5 text-sm text-neutral-600 font-semibold">
+                    <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                onClick={initiatePayment}
+                disabled={payLoading}
+                className="w-full bg-orange-500 hover:bg-orange-400 active:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black py-3.5 rounded-2xl text-base shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 transition-all duration-200 hover:-translate-y-0.5 flex items-center justify-center gap-2"
+              >
+                {payLoading ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                    </svg>
+                    Processing…
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"/>
+                    </svg>
+                    Pay{payPrice !== null ? ` ₹${payPrice}` : ''} — Secure Checkout
+                  </>
+                )}
+              </button>
+
+              <p className="text-[11px] text-neutral-400 font-medium mt-3">
+                Powered by Razorpay · 100% secure payment
+              </p>
+            </div>
           </div>
         </div>
       )}
