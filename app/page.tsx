@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import StudentRecords from "./components/StudentRecords";
 
-const SESSION_SECS = 20 * 60; // 20 minutes
+const SESSION_SECS = 20 * 60; // 20 minutes — fallback only if cookie missing
 
 type View = '1styear' | '2ndyear' | null;
 
@@ -36,7 +36,18 @@ export default function Home() {
   const [fade, setFade] = useState(true);
   const [remaining, setRemaining] = useState(SESSION_SECS);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const EXPIRY_KEY = 'jfint_session_expiry';
+  // Stable ref so the timer interval never needs to be recreated when router changes
+  const routerRef = useRef(router);
+  useEffect(() => { routerRef.current = router; }, [router]);
+
+  /** Read the real session expiry from the non-httpOnly cookie the middleware writes */
+  function readExpiryCookie(): number | null {
+    try {
+      const match = document.cookie.match(/(?:^|;\s*)jfint_auth_exp=([^;]+)/);
+      if (match) return parseInt(match[1], 10);
+    } catch { /* SSR / private mode */ }
+    return null;
+  }
 
   // Format mm:ss
   const fmt = (s: number) => {
@@ -45,41 +56,29 @@ export default function Home() {
     return `${m}:${sec}`;
   };
 
-  const doLogout = useCallback(async () => {
-    try { localStorage.removeItem(EXPIRY_KEY); } catch { /* private mode */ }
+  const doLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
-    router.replace('/login');
-  }, [router]);
+    routerRef.current.replace('/login');
+  };
 
-  // On mount: read existing expiry from localStorage so page navigation doesn't reset the timer
+  // Timer: reads expiry from cookie on every tick — always in sync with server
   useEffect(() => {
-    let stored: string | null = null;
-    try { stored = localStorage.getItem(EXPIRY_KEY); } catch { /* private mode */ }
-    const expiry = stored ? parseInt(stored, 10) : Date.now() + SESSION_SECS * 1000;
-    if (!stored) { try { localStorage.setItem(EXPIRY_KEY, String(expiry)); } catch { /* private mode */ } }
-
     const tick = () => {
-      let storedVal: string | null = null;
-      try { storedVal = localStorage.getItem(EXPIRY_KEY); } catch { /* private mode */ }
-      const secs = Math.round((parseInt(storedVal || String(expiry), 10) - Date.now()) / 1000);
-      if (secs <= 0) { doLogout(); return; }
+      const exp = readExpiryCookie() ?? (Date.now() + SESSION_SECS * 1000);
+      const secs = Math.round((exp - Date.now()) / 1000);
+      if (secs <= 0) {
+        if (timerRef.current) clearInterval(timerRef.current);
+        doLogout();
+        return;
+      }
       setRemaining(secs);
     };
 
     tick(); // immediate first read
     timerRef.current = setInterval(tick, 1000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [doLogout]);
-
-  // Only meaningful interactions (clicks, keyboard, touch) extend the session — NOT scroll/mousemove
-  const resetTimer = useCallback(() => {
-    try { localStorage.setItem(EXPIRY_KEY, String(Date.now() + SESSION_SECS * 1000)); } catch { /* private mode */ }
-  }, []);
-  useEffect(() => {
-    const events = ['mousedown', 'keydown', 'touchstart'];
-    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
-    return () => events.forEach(e => window.removeEventListener(e, resetTimer));
-  }, [resetTimer]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // runs once — doLogout is accessed via routerRef, no deps needed
 
   useEffect(() => {
     const interval = setInterval(() => {

@@ -26,9 +26,17 @@ export function middleware(req: NextRequest) {
   }
 
   // Slide the session — refresh cookie on every valid request
+  const expiryMs = Date.now() + SESSION_MINUTES * 60 * 1000;
   const res = NextResponse.next();
   res.cookies.set('jfint_auth', expected!, {
     httpOnly: true,
+    sameSite: 'lax',
+    maxAge: SESSION_MINUTES * 60,
+    path: '/',
+  });
+  // Non-httpOnly expiry hint so the client timer can read the real expiry without a fetch
+  res.cookies.set('jfint_auth_exp', String(expiryMs), {
+    httpOnly: false,
     sameSite: 'lax',
     maxAge: SESSION_MINUTES * 60,
     path: '/',
