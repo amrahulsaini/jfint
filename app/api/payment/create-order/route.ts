@@ -13,31 +13,47 @@ function getRazorpay() {
   return razorpay;
 }
 
-/** GET — returns configured price without creating an order */
+/**
+ * GET — returns pricing for both plans.
+ * plan=single : PAYMENT_AMOUNT_PAISE (per student, no expiry)
+ * plan=all    : ALL_ACCESS_AMOUNT_PAISE (default 20000 = ₹200, valid 2 hours)
+ */
 export async function GET(_req: NextRequest) {
-  const amountPaise = parseInt(process.env.PAYMENT_AMOUNT_PAISE || '500', 10);
-  return NextResponse.json({ amountPaise, amountRupees: amountPaise / 100 });
+  const singlePaise = parseInt(process.env.PAYMENT_AMOUNT_PAISE || '500', 10);
+  const allPaise = parseInt(process.env.ALL_ACCESS_AMOUNT_PAISE || '20000', 10);
+  return NextResponse.json({
+    single: { amountPaise: singlePaise, amountRupees: singlePaise / 100 },
+    all:    { amountPaise: allPaise,    amountRupees: allPaise / 100, durationHours: 2 },
+    // Legacy field kept for backward compat with old client code
+    amountPaise: singlePaise,
+    amountRupees: singlePaise / 100,
+  });
 }
 
-/** POST — creates a real Razorpay order */
-export async function POST(_req: NextRequest) {
+/** POST — creates a Razorpay order for the given plan */
+export async function POST(req: NextRequest) {
   try {
     const keyId = process.env.RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
     if (!keyId || keyId.startsWith('YOUR_') || !keySecret || keySecret.startsWith('YOUR_')) {
       return NextResponse.json(
-        { error: 'Razorpay is not configured yet. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in env.' },
-        { status: 503 }
+        { error: 'Razorpay is not configured yet.' },
+        { status: 503 },
       );
     }
 
-    const amountPaise = parseInt(process.env.PAYMENT_AMOUNT_PAISE || '500', 10);
+    const body = await req.json().catch(() => ({})) as { plan?: string };
+    const plan = body.plan === 'all' ? 'all' : 'single';
+    const amountPaise = plan === 'all'
+      ? parseInt(process.env.ALL_ACCESS_AMOUNT_PAISE || '20000', 10)
+      : parseInt(process.env.PAYMENT_AMOUNT_PAISE || '500', 10);
 
     const order = await getRazorpay().orders.create({
       amount: amountPaise,
       currency: 'INR',
       receipt: `rcpt_${Date.now()}`,
+      notes: { plan },
     });
 
     return NextResponse.json({
@@ -45,6 +61,7 @@ export async function POST(_req: NextRequest) {
       amount: order.amount,
       currency: order.currency,
       keyId,
+      plan,
     });
   } catch (err) {
     console.error('[create-order]', err);

@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPaidEntries, PAID_COOKIE } from '@/lib/payment';
+import { getPaymentStatus } from '@/lib/payment';
+import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
 
 export async function GET(req: NextRequest) {
-  const value = req.cookies.get(PAID_COOKIE)?.value;
-  const entries = getPaidEntries(value);
-  const allAccess = entries.some(e => e.r === '*');
-  const paidRolls = entries.filter(e => e.r !== '*').map(e => e.r);
-  return NextResponse.json({ allAccess, paidRolls });
+  const sidCookie = req.cookies.get(SESSION_COOKIE)?.value;
+  const sessionId = sidCookie ? verifySessionToken(sidCookie) : null;
+
+  if (!sessionId) {
+    // No session = not logged in properly yet, return empty state
+    return NextResponse.json({ allAccess: false, allAccessExpiresAt: null, paidRolls: [] });
+  }
+
+  try {
+    const status = await getPaymentStatus(sessionId);
+    return NextResponse.json(status);
+  } catch (err) {
+    console.error('[payment/status]', err);
+    return NextResponse.json({ allAccess: false, allAccessExpiresAt: null, paidRolls: [] });
+  }
 }

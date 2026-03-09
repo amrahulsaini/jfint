@@ -97,12 +97,15 @@ export default function StudentRecords({
   const [exportGenerating, setExportGenerating] = useState(false);
 
   // Payment state
-  const [allAccess, setAllAccess] = useState(false);          // coupon wildcard
-  const [paidRolls, setPaidRolls] = useState<Set<string>>(new Set()); // per-roll
+  const [allAccess, setAllAccess] = useState(false);          // all-access plan or coupon
+  const [allAccessExpiresAt, setAllAccessExpiresAt] = useState<string | null>(null);
+  const [paidRolls, setPaidRolls] = useState<Set<string>>(new Set()); // per-roll single plan
   const [showPayModal, setShowPayModal] = useState(false);
   const [pendingRollNo, setPendingRollNo] = useState<string | null>(null);
   const [payLoading, setPayLoading] = useState(false);
-  const [payPrice, setPayPrice] = useState<number | null>(null);
+  const [payPrice, setPayPrice] = useState<number | null>(null);     // single plan price
+  const [allPrice, setAllPrice] = useState<number | null>(null);     // all-access plan price
+  const [selectedPlan, setSelectedPlan] = useState<'single' | 'all'>('single');
   const [coupon, setCoupon] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState('');
@@ -136,11 +139,13 @@ export default function StudentRecords({
   // Check paid status + price on mount
   useEffect(() => {
     fetch('/api/payment/status').then(r => r.json()).then(d => {
-      if (d.allAccess) setAllAccess(true);
+      if (d.allAccess) { setAllAccess(true); setAllAccessExpiresAt(d.allAccessExpiresAt ?? null); }
       if (d.paidRolls?.length) setPaidRolls(new Set(d.paidRolls));
     }).catch(() => {});
     fetch('/api/payment/create-order').then(r => r.json()).then(d => {
-      if (d.amountRupees) setPayPrice(d.amountRupees);
+      if (d.single?.amountRupees) setPayPrice(d.single.amountRupees);
+      else if (d.amountRupees) setPayPrice(d.amountRupees); // legacy fallback
+      if (d.all?.amountRupees) setAllPrice(d.all.amountRupees);
     }).catch(() => {});
   }, []);
 
@@ -487,8 +492,8 @@ export default function StudentRecords({
     }
   };
 
-  const initiatePayment = async () => {
-    if (!pendingRollNo) return;
+  const initiatePayment = async (plan: 'single' | 'all' = selectedPlan) => {
+    if (!pendingRollNo && plan === 'single') return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (typeof (window as any).Razorpay === 'undefined') {
       alert('Payment gateway is still loading. Please wait a moment and try again.');
@@ -496,7 +501,11 @@ export default function StudentRecords({
     }
     setPayLoading(true);
     try {
-      const orderRes = await fetch('/api/payment/create-order', { method: 'POST' });
+      const orderRes = await fetch('/api/payment/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan }),
+      });
       const order = await orderRes.json();
       if (order.error) { alert(order.error); setPayLoading(false); return; }
 
@@ -508,7 +517,7 @@ export default function StudentRecords({
         currency: order.currency,
         order_id: order.orderId,
         name: 'JECRC Foundation Portal',
-        description: 'View Student Result',
+        description: plan === 'all' ? 'All Students Access — 2 Hours' : 'View Student Result',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         handler: async (response: any) => {
           const verifyRes = await fetch('/api/payment/verify', {
@@ -519,15 +528,20 @@ export default function StudentRecords({
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
               roll_no: rollForPayment,
+              plan,
             }),
           });
           const data = await verifyRes.json();
           if (data.success) {
-            setPaidRolls(s => new Set([...s, rollForPayment]));
+            if (plan === 'all') {
+              setAllAccess(true);
+            } else {
+              setPaidRolls(s => new Set([...s, rollForPayment!]));
+            }
             setShowPayModal(false);
             setPayLoading(false);
             setPendingRollNo(null);
-            openDetailDirect(rollForPayment);
+            if (rollForPayment) openDetailDirect(rollForPayment);
           } else {
             alert('Payment verification failed. Please contact support.');
             setPayLoading(false);
@@ -847,26 +861,75 @@ export default function StudentRecords({
                 </svg>
               </div>
 
-              <h2 className="text-xl font-black text-neutral-900 mb-1">Unlock Student Results</h2>
-              <p className="text-sm text-neutral-500 font-semibold mb-1">
-                Pay once to view this student&apos;s result, or use a coupon for free all-access.
-              </p>
-              {payPrice !== null && (
-                <div className="inline-flex items-baseline gap-1 mt-2 mb-5">
-                  <span className="text-3xl font-black text-orange-500">₹{payPrice}</span>
-                  <span className="text-sm text-neutral-400 font-bold">/ result</span>
-                </div>
-              )}
-              {payPrice === null && <div className="h-4 mb-5" />}
+              <h2 className="text-xl font-black text-neutral-900 mb-1">Choose a Plan</h2>
+              <p className="text-sm text-neutral-500 font-semibold mb-5">Select how you want to access student results</p>
 
-              {/* Features */}
-              <ul className="text-left space-y-2 mb-6">
-                {[
+              {/* Plan selector cards */}
+              <div className="grid grid-cols-2 gap-3 mb-5">
+                {/* Single plan */}
+                <button
+                  onClick={() => setSelectedPlan('single')}
+                  className={`relative rounded-2xl border-2 p-4 text-left transition-all duration-200 ${
+                    selectedPlan === 'single'
+                      ? 'border-orange-500 bg-orange-50'
+                      : 'border-neutral-200 bg-white hover:border-neutral-300'
+                  }`}
+                >
+                  {selectedPlan === 'single' && (
+                    <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+                      </svg>
+                    </div>
+                  )}
+                  <div className="text-xs font-black text-neutral-500 uppercase tracking-wider mb-1">Single</div>
+                  <div className="text-2xl font-black text-orange-500">
+                    {payPrice !== null ? `₹${payPrice}` : '…'}
+                  </div>
+                  <div className="text-xs text-neutral-500 font-semibold mt-1">Per student result</div>
+                  <div className="text-[10px] text-neutral-400 font-medium mt-0.5">Valid until browser closes</div>
+                </button>
+
+                {/* All-access plan */}
+                <button
+                  onClick={() => setSelectedPlan('all')}
+                  className={`relative rounded-2xl border-2 p-4 text-left transition-all duration-200 ${
+                    selectedPlan === 'all'
+                      ? 'border-orange-500 bg-orange-50'
+                      : 'border-neutral-200 bg-white hover:border-neutral-300'
+                  }`}
+                >
+                  {selectedPlan === 'all' && (
+                    <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+                      </svg>
+                    </div>
+                  )}
+                  <div className="absolute -top-2.5 left-3">
+                    <span className="bg-orange-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">Best Value</span>
+                  </div>
+                  <div className="text-xs font-black text-neutral-500 uppercase tracking-wider mb-1 mt-1">All Access</div>
+                  <div className="text-2xl font-black text-orange-500">
+                    {allPrice !== null ? `₹${allPrice}` : '₹200'}
+                  </div>
+                  <div className="text-xs text-neutral-500 font-semibold mt-1">Unlimited students</div>
+                  <div className="text-[10px] text-neutral-400 font-medium mt-0.5">Valid for 2 hours</div>
+                </button>
+              </div>
+
+              {/* Selected plan features */}
+              <ul className="text-left space-y-1.5 mb-5">
+                {(selectedPlan === 'single' ? [
                   'View marks for this student',
                   'Export result to PDF',
-                  'Access expires when you close the browser',
-                ].map(f => (
-                  <li key={f} className="flex items-center gap-2.5 text-sm text-neutral-600 font-semibold">
+                  'Access valid until browser closes',
+                ] : [
+                  'Unlimited student results for 2 hours',
+                  'Export any result to PDF',
+                  'Access all batches seamlessly',
+                ]).map((f: string) => (
+                  <li key={f} className="flex items-center gap-2 text-sm text-neutral-600 font-semibold">
                     <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
                     </svg>
@@ -876,7 +939,7 @@ export default function StudentRecords({
               </ul>
 
               <button
-                onClick={initiatePayment}
+                onClick={() => initiatePayment(selectedPlan)}
                 disabled={payLoading || couponLoading}
                 className="w-full bg-orange-500 hover:bg-orange-400 active:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black py-3.5 rounded-2xl text-base shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 transition-all duration-200 hover:-translate-y-0.5 flex items-center justify-center gap-2"
               >
@@ -893,7 +956,9 @@ export default function StudentRecords({
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"/>
                     </svg>
-                    Pay{payPrice !== null ? ` ₹${payPrice}` : ''} — Secure Checkout
+                    Pay {selectedPlan === 'all'
+                      ? (allPrice !== null ? `₹${allPrice}` : '₹200')
+                      : (payPrice !== null ? `₹${payPrice}` : '')} — Secure Checkout
                   </>
                 )}
               </button>

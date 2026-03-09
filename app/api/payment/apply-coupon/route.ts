@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { addPaidEntry, PAID_COOKIE } from '@/lib/payment';
+import { saveCouponAccess } from '@/lib/payment';
+import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,22 +14,19 @@ export async function POST(req: NextRequest) {
     if (!validCode) {
       return NextResponse.json({ error: 'Coupons are not enabled' }, { status: 503 });
     }
-
     if (coupon.trim() !== validCode) {
       return NextResponse.json({ error: 'Invalid coupon code' }, { status: 400 });
     }
 
-    const res = NextResponse.json({ success: true });
+    // Get session ID
+    const sidCookie = req.cookies.get(SESSION_COOKIE)?.value;
+    const sessionId = sidCookie ? verifySessionToken(sidCookie) : null;
+    if (!sessionId) {
+      return NextResponse.json({ error: 'No valid session — please log in again' }, { status: 401 });
+    }
 
-    // Session cookie — no maxAge/expires, browser deletes it when closed
-    const existing = req.cookies.get(PAID_COOKIE)?.value;
-    res.cookies.set(PAID_COOKIE, addPaidEntry(existing, '*'), {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-    });
-
-    return res;
+    await saveCouponAccess(sessionId);
+    return NextResponse.json({ success: true });
   } catch (err) {
     console.error('[apply-coupon]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

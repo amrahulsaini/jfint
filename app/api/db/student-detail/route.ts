@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
-import { isRollNoPaid, PAID_COOKIE } from '@/lib/payment';
+import { isRollAccessible } from '@/lib/payment';
+import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
 
 const ALLOWED_TABLES = ['jecr_2ndyear', 'jecr_1styear'] as const;
 type AllowedTable = typeof ALLOWED_TABLES[number];
 
 export async function GET(req: NextRequest) {
-  // Require payment for this specific roll_no (or wildcard all-access)
-  const paidValue = req.cookies.get(PAID_COOKIE)?.value;
+  // Require payment for this specific roll_no (or a valid all-access plan)
+  const sidCookie = req.cookies.get(SESSION_COOKIE)?.value;
+  const sessionId = sidCookie ? verifySessionToken(sidCookie) : null;
   const rollNoForCheck = (new URL(req.url).searchParams.get('roll_no') || '').trim();
-  if (!isRollNoPaid(paidValue, rollNoForCheck)) {
+
+  if (!sessionId) {
+    return NextResponse.json({ error: 'payment_required' }, { status: 402 });
+  }
+  const accessible = await isRollAccessible(sessionId, rollNoForCheck).catch(() => false);
+  if (!accessible) {
     return NextResponse.json({ error: 'payment_required' }, { status: 402 });
   }
 

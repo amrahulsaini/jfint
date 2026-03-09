@@ -1,13 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { addPaidEntry, PAID_COOKIE } from '@/lib/payment';
+import { saveSinglePayment, saveAllAccessPayment } from '@/lib/payment';
+import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
 
 export async function POST(req: NextRequest) {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, roll_no } = await req.json();
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, roll_no, plan } =
+      await req.json() as {
+        razorpay_order_id: string;
+        razorpay_payment_id: string;
+        razorpay_signature: string;
+        roll_no?: string;
+        plan?: string;
+      };
 
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !roll_no) {
+    const paymentPlan = plan === 'all' ? 'all' : 'single';
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json({ error: 'Missing payment fields' }, { status: 400 });
+    }
+    if (paymentPlan === 'single' && !roll_no) {
+      return NextResponse.json({ error: 'roll_no is required for single plan' }, { status: 400 });
     }
 
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -15,30 +28,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Razorpay not configured' }, { status: 503 });
     }
 
-    // Verify HMAC-SHA256 signature as required by Razorpay
-    const body = `${razorpay_order_id}|${razorpay_payment_id}`;
-    const expectedSig = crypto
-      .createHmac('sha256', keySecret)
-      .update(body)
-      .digest('hex');
-
+    // Verify Razorpay HMAC-SHA256 signature
+    const sigBody = `${razorpay_order_id}|${razorpay_payment_id}`;
+    const expectedSig = crypto.createHmac('sha256', keySecret).update(sigBody).digest('hex');
     const expBuf = Buffer.from(expectedSig, 'hex');
     const gotBuf = Buffer.from(razorpay_signature, 'hex');
-
     if (expBuf.length !== gotBuf.length || !crypto.timingSafeEqual(expBuf, gotBuf)) {
       return NextResponse.json({ error: 'Payment verification failed' }, { status: 400 });
     }
 
-    const res = NextResponse.json({ success: true });
+    // Get session ID from cookie
+    const sidCookie = req.cookies.get(SESSION_COOKIE)?.value;
+    const sessionId = sidCookie ? verifySessionToken(sidCookie) : null;
+    if (!sessionId) {
+      return NextResponse.json({ error: 'No valid session — please log in again' }, { status: 401 });
+    }
 
-    // Session cookie — no maxAge/expires, browser deletes it when closed
-    res.cookies.set(PAID_COOKIE, addPaidEntry(existing, roll_no), {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-    });
+    // Determine amount from env
+    const amountPaise = paymentPlan === 'all'
+      ? parseInt(process.env.ALL_ACCESS_AMOUNT_PAISE || '20000', 10)
+      : parseInt(process.env.PAYMENT_AMOUNT_PAISE || '500', 10);
 
-    return res;
+    // Persist to DB
+    if (paymentPlan === 'all') {
+      await saveAllAccessPayment(sessionId, razorpay_order_id, razorpay_payment_id, amountPaise);
+    } else {
+      await saveSinglePayment(sessionId, roll_no!, razorpay_order_id, razorpay_payment_id, amountPaise);
+    }
+
+    return NextResponse.json({ success: true, plan: paymentPlan });
   } catch (err) {
     console.error('[verify-payment]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
