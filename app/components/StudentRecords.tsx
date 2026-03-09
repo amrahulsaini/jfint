@@ -431,23 +431,19 @@ export default function StudentRecords({
     try {
       const res = await fetch(`/api/db/student-detail?roll_no=${encodeURIComponent(rollNo)}&table=${encodeURIComponent(table)}`);
       if (res.status === 402) {
-        // Fallback: cookie expired between status check and click
+        // Cookie expired server-side — show payment modal, but don't remove from client state
         setShowModal(false);
-        setPledingRoll(rollNo);
         setDetailLoading(false);
+        setPendingRollNo(rollNo);
+        setCoupon('');
+        setCouponError('');
+        setShowPayModal(true);
         return;
       }
       const json = await res.json();
       if (!json.error) setDetail(json);
     } catch { /* noop */ }
     setDetailLoading(false);
-  };
-
-  // Helper used by 402 fallback to avoid circular reference
-  const setPledingRoll = (rollNo: string) => {
-    setPaidRolls(s => { const n = new Set(s); n.delete(rollNo); return n; });
-    setPendingRollNo(rollNo);
-    setShowPayModal(true);
   };
 
   const openDetail = (rollNo: string) => {
