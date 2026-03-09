@@ -38,9 +38,14 @@ export async function POST(req: NextRequest) {
     try { await saveSessionToDB(sessionId, ip, verifiedEmail); } catch (e) { console.error('[verify-otp] DB session save failed', e); }
 
     const res = NextResponse.json({ success: true });
-    // Auth cookie (middleware check — sliding 20 min)
+    const expiryMs = Date.now() + SESSION_MINUTES * 60 * 1000;
+    // Auth cookie — fixed 20-min session, expiry does NOT slide on navigation
     res.cookies.set('jfint_auth', process.env.AUTH_PASSWORD!, {
       httpOnly: true, sameSite: 'lax', maxAge: SESSION_MINUTES * 60, path: '/',
+    });
+    // Non-httpOnly expiry timestamp so the client timer can count down accurately
+    res.cookies.set('jfint_auth_exp', String(expiryMs), {
+      httpOnly: false, sameSite: 'lax', maxAge: SESSION_MINUTES * 60, path: '/',
     });
     // Session ID cookie — browser session cookie (no maxAge), used to key DB payments
     res.cookies.set(SESSION_COOKIE, cookieValue, {

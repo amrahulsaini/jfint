@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const SESSION_MINUTES = 20;
-
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -25,23 +23,9 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Slide the session — refresh cookie on every valid request
-  const expiryMs = Date.now() + SESSION_MINUTES * 60 * 1000;
-  const res = NextResponse.next();
-  res.cookies.set('jfint_auth', expected!, {
-    httpOnly: true,
-    sameSite: 'lax',
-    maxAge: SESSION_MINUTES * 60,
-    path: '/',
-  });
-  // Non-httpOnly expiry hint so the client timer can read the real expiry without a fetch
-  res.cookies.set('jfint_auth_exp', String(expiryMs), {
-    httpOnly: false,
-    sameSite: 'lax',
-    maxAge: SESSION_MINUTES * 60,
-    path: '/',
-  });
-  return res;
+  // Session is fixed — expiry was set at login, do NOT slide it here.
+  // The jfint_auth_exp cookie is already on the browser from login; just let the request through.
+  return NextResponse.next();
 }
 
 export const config = {
