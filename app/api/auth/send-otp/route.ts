@@ -1,45 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  createOtpCookie,
-  generateOtp,
-  readOtpCookie,
-  OTP_TTL_MS,
-  RESEND_COOLDOWN_MS,
-} from '@/lib/otp';
+import { generateOtp } from '@/lib/otp';
 import { sendOtpEmail } from '@/lib/mailer';
-
-const LOGIN_EMAIL = 'rahulsaini.cse28@jecrc.ac.in';
+import {
+  getAdminLoginEmail,
+  getAdminPassState,
+  saveAdminPass,
+  RESEND_COOLDOWN_MS,
+} from '@/lib/login-pass';
 
 export async function POST(req: NextRequest) {
   try {
     // Read JSON body if sent, but this endpoint does not require user input.
     try { await req.json(); } catch { /* no-op */ }
 
-    // Enforce resend cooldown for the fixed login mailbox.
-    const existingCookie = req.cookies.get('jfint_otp_state')?.value;
-    if (existingCookie) {
-      const state = readOtpCookie(existingCookie);
-      if (state && state.email === LOGIN_EMAIL) {
-        const elapsed = Date.now() - state.iss;
-        if (elapsed < RESEND_COOLDOWN_MS) {
-          const wait = Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000);
-          return NextResponse.json({ error: `Please wait ${wait}s before requesting a new code.` }, { status: 429 });
-        }
+    const loginEmail = getAdminLoginEmail();
+    if (!loginEmail) {
+      return NextResponse.json({ error: 'ADMIN_LOGIN_EMAIL is not configured.' }, { status: 500 });
+    }
+
+    // Enforce resend cooldown from DB state.
+    const state = await getAdminPassState(loginEmail);
+    if (state) {
+      const elapsed = Date.now() - state.lastSentAt.getTime();
+      if (elapsed < RESEND_COOLDOWN_MS) {
+        const wait = Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000);
+        return NextResponse.json({ error: `Please wait ${wait}s before requesting a new code.` }, { status: 429 });
       }
     }
 
-    // Generate pass, send email, and store signed state cookie.
-    const otp = generateOtp();
-    await sendOtpEmail(LOGIN_EMAIL, otp);
+    const passcode = generateOtp();
+    await saveAdminPass(loginEmail, passcode);
+    await sendOtpEmail(loginEmail, passcode);
 
-    const res = NextResponse.json({ success: true });
-    res.cookies.set('jfint_otp_state', createOtpCookie(LOGIN_EMAIL, otp), {
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: Math.floor(OTP_TTL_MS / 1000),
-      path: '/',
-    });
-    return res;
+    return NextResponse.json({ success: true });
   } catch (err) {
     console.error('[send-otp]', err);
     return NextResponse.json({ error: 'Failed to send pass. Check your SMTP configuration.' }, { status: 500 });

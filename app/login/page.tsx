@@ -105,7 +105,7 @@ function LoginForm() {
       });
       const data = await res.json();
       if (res.ok) {
-        setInfo('Pass sent to rahulsaini.cse28@jecrc.ac.in');
+        setInfo('Pass sent to admin email.');
         startResend(60);
       } else {
         setError(data.error || 'Failed to generate pass');
@@ -167,7 +167,7 @@ function LoginForm() {
         <div className="bg-white rounded-3xl border border-neutral-200 shadow-xl shadow-neutral-900/5 p-8">
           <div className="mb-6">
             <h2 className="text-lg font-black text-neutral-900">Generate Access Pass</h2>
-            <p className="text-sm text-neutral-400 font-semibold mt-0.5">A 6-digit pass will be sent to rahulsaini.cse28@jecrc.ac.in</p>
+            <p className="text-sm text-neutral-400 font-semibold mt-0.5">A 6-digit pass will be sent to admin email</p>
           </div>
 
           <div className="space-y-4">
