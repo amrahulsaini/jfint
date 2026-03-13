@@ -95,10 +95,7 @@ export default function StudentRecords({
   const [detailLoading, setDetailLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [exportGenerating, setExportGenerating] = useState(false);
-  const [showDobModal, setShowDobModal] = useState(false);
-  const [dobInput, setDobInput] = useState('');
-  const [dobError, setDobError] = useState('');
-  const [dobLoading, setDobLoading] = useState(false);
+  const [pdfExportError, setPdfExportError] = useState('');
 
   // Payment state
   const [allAccess, setAllAccess] = useState(false);          // all-access plan or coupon
@@ -165,7 +162,7 @@ export default function StudentRecords({
 
   const handleSearch = (e: React.FormEvent) => { e.preventDefault(); setPage(1); setSearch(searchInput); };
 
-  const exportStudentPDF = async () => {
+  const exportStudentPDF = async (pdfOpenPassword?: string | null) => {
     if (!detail || exportGenerating) return;
     setExportGenerating(true);
     try {
@@ -173,7 +170,28 @@ export default function StudentRecords({
       const { jsPDF } = await import('jspdf');
       const autoTable = (await import('jspdf-autotable')).default;
 
-      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      const docOptions: {
+        unit: 'mm';
+        format: 'a4';
+        encryption?: {
+          userPassword: string;
+          ownerPassword: string;
+          userPermissions: Array<'print' | 'modify' | 'copy' | 'annot-forms'>;
+        };
+      } = {
+        unit: 'mm',
+        format: 'a4',
+      };
+
+      if (pdfOpenPassword) {
+        docOptions.encryption = {
+          userPassword: pdfOpenPassword,
+          ownerPassword: `${detail.student.roll_no}-${Date.now()}`,
+          userPermissions: ['print'],
+        };
+      }
+
+      const doc = new jsPDF(docOptions);
       const W = doc.internal.pageSize.getWidth();
       const margin = 14;
       let y = 14;
@@ -434,9 +452,8 @@ export default function StudentRecords({
   };
 
   const requestPdfExport = async () => {
-    if (!detail || exportGenerating || dobLoading) return;
-    setDobError('');
-    setDobLoading(true);
+    if (!detail || exportGenerating) return;
+    setPdfExportError('');
     try {
       const res = await fetch('/api/pdf-auth/verify-dob', {
         method: 'POST',
@@ -445,54 +462,13 @@ export default function StudentRecords({
       });
       const data = await res.json();
 
-      if (res.ok && data.allow) {
-        await exportStudentPDF();
-        return;
-      }
-
-      if (data.authRequired) {
-        setDobInput('');
-        setShowDobModal(true);
+      if (res.ok) {
+        await exportStudentPDF(data.protect ? String(data.pdfPassword || '') : null);
       } else {
-        setDobError(data.error || 'Unable to verify access for PDF export.');
+        setPdfExportError(data.error || 'Unable to prepare PDF export.');
       }
     } catch {
-      setDobError('Failed to verify DOB requirement. Please try again.');
-    } finally {
-      setDobLoading(false);
-    }
-  };
-
-  const submitDobForPdf = async () => {
-    if (!detail || exportGenerating || dobLoading) return;
-    setDobError('');
-
-    const cleaned = dobInput.trim();
-    if (!/^\d{8}$/.test(cleaned)) {
-      setDobError('Enter DOB in ddmmyyyy format.');
-      return;
-    }
-
-    setDobLoading(true);
-    try {
-      const res = await fetch('/api/pdf-auth/verify-dob', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rollNo: detail.student.roll_no, dob: cleaned }),
-      });
-      const data = await res.json();
-
-      if (res.ok && data.allow) {
-        setShowDobModal(false);
-        setDobInput('');
-        await exportStudentPDF();
-      } else {
-        setDobError(data.error || 'DOB verification failed.');
-      }
-    } catch {
-      setDobError('Failed to verify DOB. Please try again.');
-    } finally {
-      setDobLoading(false);
+      setPdfExportError('Failed to prepare PDF export. Please try again.');
     }
   };
 
@@ -1095,16 +1071,16 @@ export default function StudentRecords({
                 {detail && (
                   <button
                     onClick={requestPdfExport}
-                    disabled={exportGenerating || dobLoading}
+                    disabled={exportGenerating}
                     className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-400 active:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-extrabold px-2.5 sm:px-3.5 py-2 rounded-xl shadow-md shadow-orange-500/30 hover:shadow-orange-500/50 transition-all duration-200 hover:-translate-y-0.5 min-w-[36px] sm:min-w-[110px] justify-center"
                   >
-                    {exportGenerating || dobLoading ? (
+                    {exportGenerating ? (
                       <>
                         <svg className="w-3.5 h-3.5 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
                         </svg>
-                        <span className="hidden sm:inline">Checking…</span>
+                        <span className="hidden sm:inline">Preparing…</span>
                       </>
                     ) : (
                       <>
@@ -1126,9 +1102,9 @@ export default function StudentRecords({
               </div>
             </div>
 
-            {dobError && (
+            {pdfExportError && (
               <div className="px-4 sm:px-6 pt-3">
-                <p className="text-xs font-bold text-red-500">{dobError}</p>
+                <p className="text-xs font-bold text-red-500">{pdfExportError}</p>
               </div>
             )}
 
@@ -1283,56 +1259,6 @@ export default function StudentRecords({
         </div>
       )}
 
-      {/* ─── DOB Gate Modal For PDF ───────────────────── */}
-      {showDobModal && detail && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setShowDobModal(false); setDobError(''); }} />
-          <div className="relative w-full max-w-sm bg-white border border-neutral-200 rounded-2xl shadow-2xl p-5">
-            <h4 className="text-base font-black text-neutral-900">Verify DOB to Export PDF</h4>
-            <p className="text-xs font-semibold text-neutral-500 mt-1">
-              Enter DOB for roll <span className="font-black text-neutral-700">{detail.student.roll_no}</span> in <span className="font-black">ddmmyyyy</span> format.
-            </p>
-
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={8}
-              value={dobInput}
-              onChange={e => { setDobInput(e.target.value.replace(/\D/g, '').slice(0, 8)); setDobError(''); }}
-              onKeyDown={e => { if (e.key === 'Enter') submitDobForPdf(); }}
-              placeholder="ddmmyyyy"
-              className="mt-4 w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10"
-            />
-
-            {dobError && <p className="text-xs font-bold text-red-500 mt-2">{dobError}</p>}
-
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => { setShowDobModal(false); setDobError(''); }}
-                disabled={dobLoading}
-                className="flex-1 bg-neutral-100 hover:bg-neutral-200 disabled:opacity-60 text-neutral-700 text-sm font-black py-2.5 rounded-xl transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={submitDobForPdf}
-                disabled={dobLoading || dobInput.length !== 8}
-                className="flex-1 bg-orange-500 hover:bg-orange-400 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-black py-2.5 rounded-xl transition-all flex items-center justify-center gap-2"
-              >
-                {dobLoading ? (
-                  <>
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                    </svg>
-                    Verifying...
-                  </>
-                ) : 'Verify & Export'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
