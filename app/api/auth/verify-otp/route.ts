@@ -1,25 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyOtp } from '@/lib/otp';
+import { OTP_TTL_MS, verifyOtp } from '@/lib/otp';
 import { createSessionToken, saveSessionToDB, SESSION_COOKIE } from '@/lib/session';
 
 const SESSION_MINUTES = 20;
+const LOGIN_EMAIL = 'rahulsaini.cse28@jecrc.ac.in';
 
 export async function POST(req: NextRequest) {
   try {
-    const { otp, email } = await req.json();
+    const body = await req.json();
+    const otp = String(body?.passcode || body?.otp || '').trim();
 
     const otpCookie = req.cookies.get('jfint_otp_state')?.value;
     if (!otpCookie) {
-      return NextResponse.json({ error: 'No active OTP session. Please request a code first.' }, { status: 401 });
+      return NextResponse.json({ error: 'No active pass session. Please generate a pass first.' }, { status: 401 });
     }
 
-    const result = verifyOtp(otpCookie, String(otp || '').trim(), String(email || '').trim().toLowerCase());
+    const result = verifyOtp(otpCookie, otp, LOGIN_EMAIL);
 
     if (!result.ok) {
       const res = NextResponse.json({ error: result.error }, { status: 401 });
       if (result.updatedCookie) {
         res.cookies.set('jfint_otp_state', result.updatedCookie, {
-          httpOnly: true, sameSite: 'lax', maxAge: 5 * 60, path: '/',
+          httpOnly: true, sameSite: 'lax', maxAge: Math.floor(OTP_TTL_MS / 1000), path: '/',
         });
       } else {
         res.cookies.set('jfint_otp_state', '', { httpOnly: true, maxAge: 0, path: '/' });
@@ -33,9 +35,7 @@ export async function POST(req: NextRequest) {
       req.headers.get('cf-connecting-ip') ||
       req.headers.get('x-forwarded-for') ||
       '127.0.0.1';
-    // email is validated above (verifyOtp checks it matches the OTP state)
-    const verifiedEmail = String(email || '').trim().toLowerCase();
-    try { await saveSessionToDB(sessionId, ip, verifiedEmail); } catch (e) { console.error('[verify-otp] DB session save failed', e); }
+    try { await saveSessionToDB(sessionId, ip, LOGIN_EMAIL); } catch (e) { console.error('[verify-otp] DB session save failed', e); }
 
     const res = NextResponse.json({ success: true });
     const expiryMs = Date.now() + SESSION_MINUTES * 60 * 1000;
@@ -51,8 +51,7 @@ export async function POST(req: NextRequest) {
     res.cookies.set(SESSION_COOKIE, cookieValue, {
       httpOnly: true, sameSite: 'lax', path: '/',
     });
-    // Clear OTP intermediate cookies
-    res.cookies.set('jfint_pw_verified', '', { httpOnly: true, maxAge: 0, path: '/' });
+    // Clear temporary pass cookie after successful verification.
     res.cookies.set('jfint_otp_state', '', { httpOnly: true, maxAge: 0, path: '/' });
     return res;
   } catch (err) {

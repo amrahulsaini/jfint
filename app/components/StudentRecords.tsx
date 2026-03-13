@@ -518,6 +518,7 @@ export default function StudentRecords({
         order_id: order.orderId,
         name: 'JECRC Foundation Portal',
         description: plan === 'all' ? 'All Students Access — 2 Hours' : 'View Student Result',
+        image: `${window.location.origin}/logo.png`,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         handler: async (response: any) => {
           const verifyRes = await fetch('/api/payment/verify', {

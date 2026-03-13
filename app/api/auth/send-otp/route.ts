@@ -1,37 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  validatePwVerifiedToken,
   createOtpCookie,
   generateOtp,
   readOtpCookie,
+  OTP_TTL_MS,
   RESEND_COOLDOWN_MS,
 } from '@/lib/otp';
 import { sendOtpEmail } from '@/lib/mailer';
 
+const LOGIN_EMAIL = 'rahulsaini.cse28@jecrc.ac.in';
+
 export async function POST(req: NextRequest) {
   try {
-    // 1. Confirm password step was completed
-    const pwCookie = req.cookies.get('jfint_pw_verified')?.value;
-    if (!pwCookie || !validatePwVerifiedToken(pwCookie)) {
-      return NextResponse.json({ error: 'Session expired. Please enter your password again.' }, { status: 401 });
-    }
+    // Read JSON body if sent, but this endpoint does not require user input.
+    try { await req.json(); } catch { /* no-op */ }
 
-    const { email } = await req.json();
-
-    // 2. Validate email domain
-    if (!email || typeof email !== 'string') {
-      return NextResponse.json({ error: 'Email is required.' }, { status: 400 });
-    }
-    const normalised = email.trim().toLowerCase();
-    if (!normalised.endsWith('@jecrc.ac.in')) {
-      return NextResponse.json({ error: 'Only @jecrc.ac.in addresses are allowed.' }, { status: 400 });
-    }
-
-    // 3. Resend cooldown: if an unexpired OTP state exists for this email, enforce 60s gap
+    // Enforce resend cooldown for the fixed login mailbox.
     const existingCookie = req.cookies.get('jfint_otp_state')?.value;
     if (existingCookie) {
       const state = readOtpCookie(existingCookie);
-      if (state && state.email === normalised) {
+      if (state && state.email === LOGIN_EMAIL) {
         const elapsed = Date.now() - state.iss;
         if (elapsed < RESEND_COOLDOWN_MS) {
           const wait = Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000);
@@ -40,20 +28,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 4. Generate OTP, send email, store signed state cookie
+    // Generate pass, send email, and store signed state cookie.
     const otp = generateOtp();
-    await sendOtpEmail(normalised, otp);
+    await sendOtpEmail(LOGIN_EMAIL, otp);
 
     const res = NextResponse.json({ success: true });
-    res.cookies.set('jfint_otp_state', createOtpCookie(normalised, otp), {
+    res.cookies.set('jfint_otp_state', createOtpCookie(LOGIN_EMAIL, otp), {
       httpOnly: true,
       sameSite: 'lax',
-      maxAge: 5 * 60,   // 5 minutes (matches OTP TTL)
+      maxAge: Math.floor(OTP_TTL_MS / 1000),
       path: '/',
     });
     return res;
   } catch (err) {
     console.error('[send-otp]', err);
-    return NextResponse.json({ error: 'Failed to send OTP. Check your SMTP configuration.' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to send pass. Check your SMTP configuration.' }, { status: 500 });
   }
 }

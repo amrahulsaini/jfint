@@ -59,7 +59,7 @@ export interface OtpState {
   iss: number;     // issued at ms (resend cooldown)
 }
 
-export const OTP_TTL_MS = 5 * 60 * 1000;       // OTP valid for 5 min
+export const OTP_TTL_MS = 60 * 60 * 1000;      // Pass valid for 1 hour
 export const RESEND_COOLDOWN_MS = 60 * 1000;    // 60s between resends
 export const MAX_ATTEMPTS = 5;
 

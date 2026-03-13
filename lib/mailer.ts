@@ -20,7 +20,7 @@ function getTransporter() {
 
 export async function sendOtpEmail(to: string, otp: string): Promise<void> {
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
-  const expMins = 5;
+  const expMins = 60;
 
   const html = `
 <!DOCTYPE html>
@@ -45,18 +45,18 @@ export async function sendOtpEmail(to: string, otp: string): Promise<void> {
           <td style="padding:32px;">
             <p style="margin:0 0 8px;font-size:15px;font-weight:700;color:#111827;">Hello,</p>
             <p style="margin:0 0 24px;font-size:14px;color:#6b7280;line-height:1.6;">
-              Use the verification code below to complete your sign-in. This code is valid for <strong style="color:#111827;">${expMins} minutes</strong>.
+              Use the access pass below to complete your sign-in. This pass is valid for <strong style="color:#111827;">${expMins} minutes</strong>.
             </p>
 
             <!-- OTP box -->
             <div style="background:#fff7ed;border:2px solid #fdba74;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px;">
-              <div style="font-size:11px;font-weight:700;color:#f97316;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:12px;">Your verification code</div>
+              <div style="font-size:11px;font-weight:700;color:#f97316;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:12px;">Your access pass</div>
               <div style="font-size:40px;font-weight:900;letter-spacing:12px;color:#111827;font-family:'Courier New',monospace;">${otp}</div>
             </div>
 
             <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;margin-bottom:24px;">
               <p style="margin:0;font-size:12px;color:#92400e;font-weight:600;">
-                ⚠️ Do not share this code with anyone. JECRC Portal will never ask for your OTP via call or chat.
+                Do not share this pass with anyone. JECRC Portal will never ask for it via call or chat.
               </p>
             </div>
 
@@ -84,8 +84,8 @@ export async function sendOtpEmail(to: string, otp: string): Promise<void> {
   await getTransporter().sendMail({
     from,
     to,
-    subject: `${otp} — Your JECRC Portal verification code`,
+    subject: `${otp} - Your JECRC Portal access pass`,
     html,
-    text: `Your JECRC Portal verification code is: ${otp}\n\nThis code expires in ${expMins} minutes. Do not share it with anyone.`,
+    text: `Your JECRC Portal access pass is: ${otp}\n\nThis pass expires in ${expMins} minutes. Do not share it with anyone.`,
   });
 }
