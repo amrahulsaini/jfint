@@ -31,6 +31,7 @@ const BANNERS = [
 export default function Home() {
   const router = useRouter();
   const [view, setView] = useState<View>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [bannerIdx, setBannerIdx] = useState(0);
   const [bannerVisible, setBannerVisible] = useState(true);
   const [fade, setFade] = useState(true);
@@ -167,6 +168,19 @@ export default function Home() {
           </div>
           {/* Session timer + logout */}
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setMobileMenuOpen(v => !v)}
+              className="md:hidden w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-500 flex items-center justify-center transition-all duration-200"
+              aria-label="Toggle navigation menu"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                {mobileMenuOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                )}
+              </svg>
+            </button>
             {view && (
               <button
                 onClick={() => setView(null)}
@@ -198,6 +212,15 @@ export default function Home() {
             </button>
           </div>
         </div>
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-neutral-200 bg-white/95 backdrop-blur-xl">
+            <div className="max-w-7xl mx-auto px-5 py-3 flex flex-col gap-2 text-sm font-bold text-neutral-600">
+              <a href="#portal" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Portal</a>
+              <a href="#about" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">About</a>
+              <a href="/tracking" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Tracking</a>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* ── View Selector / Records ── */}
