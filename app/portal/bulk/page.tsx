@@ -90,6 +90,34 @@ function buildBulkFileName(startRoll: string, endRoll: string): string {
   return `Bulk_${startRoll}_to_${endRoll}_Marks.pdf`;
 }
 
+function decoratePdfPages(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  doc: any,
+  margin: number,
+) {
+  const W = doc.internal.pageSize.getWidth();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pCount: number = (doc as any).getNumberOfPages?.() || 1;
+  for (let pg = 1; pg <= pCount; pg++) {
+    doc.setPage(pg);
+    const pageH = doc.internal.pageSize.getHeight();
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(220, 220, 220);
+    doc.text('www.jecrcfoundation.live', W / 2, pageH / 2, { align: 'center', angle: 45 });
+
+    doc.setDrawColor(229, 231, 235);
+    doc.setLineWidth(0.3);
+    doc.line(margin, pageH - 10, W - margin, pageH - 10);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(209, 213, 219);
+    doc.text('JECRC Foundation, Jaipur  |  Computer-generated report  |  For official use only', W / 2, pageH - 5.5, { align: 'center' });
+    doc.text(`Page ${pg} of ${pCount}`, W - margin, pageH - 5.5, { align: 'right' });
+  }
+}
+
 async function appendStudentToPdf(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   doc: any,
@@ -102,6 +130,7 @@ async function appendStudentToPdf(
   const margin = 14;
   let y = 14;
 
+  // Header bar
   doc.setFillColor(249, 115, 22);
   doc.roundedRect(margin, y, W - margin * 2, 16, 3, 3, 'F');
   doc.setFontSize(7);
@@ -113,9 +142,11 @@ async function appendStudentToPdf(
   doc.text('Internal Marks Report', margin + 4, y + 12);
   doc.setFontSize(7);
   doc.setTextColor(255, 237, 213);
-  doc.text(new Date().toLocaleDateString('en-IN'), W - margin - 4, y + 12, { align: 'right' });
+  const dateStr = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+  doc.text(dateStr, W - margin - 4, y + 12, { align: 'right' });
   y += 22;
 
+  // Photo
   const photoUrl = `/${photoDir}/photo_${detail.student.roll_no}.jpg`;
   let photoLoaded = false;
   try {
@@ -141,26 +172,106 @@ async function appendStudentToPdf(
     doc.text((detail.student.student_name || '?').charAt(0).toUpperCase(), margin + 14, y + 19, { align: 'center' });
   }
 
+  // Student info
   const infoX = margin + 32;
+  const infoMaxW = W - margin - infoX - 2;
+
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
   doc.setTextColor(17, 24, 39);
-  doc.text(detail.student.student_name || '-', infoX, y + 7);
+  const nameLines = doc.splitTextToSize(detail.student.student_name || '-', infoMaxW);
+  doc.text(nameLines[0], infoX, y + 7);
 
   doc.setFontSize(9);
   doc.setTextColor(249, 115, 22);
   doc.text(detail.student.roll_no || '-', infoX, y + 13);
 
-  doc.setFont('helvetica', 'normal');
+  const halfW = (infoMaxW - 4) / 2;
+  let fy = y + 20;
+  (['Father', 'Mother'] as const).forEach((label, idx) => {
+    const fx = idx === 0 ? infoX : infoX + halfW + 4;
+    const val = idx === 0 ? detail.student.father_name : detail.student.mother_name;
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(156, 163, 175);
+    doc.text(label.toUpperCase(), fx, fy);
+    doc.setFontSize(8.5);
+    doc.setTextColor(17, 24, 39);
+    const truncated = doc.splitTextToSize(String(val || '-'), halfW);
+    doc.text(truncated[0], fx, fy + 4.5);
+  });
+
+  fy += 10;
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(156, 163, 175);
+  doc.text('BRANCH', infoX, fy);
   doc.setFontSize(8.5);
   doc.setTextColor(17, 24, 39);
-  doc.text(`Father: ${detail.student.father_name || '-'}`, infoX, y + 20);
-  doc.text(`Mother: ${detail.student.mother_name || '-'}`, infoX, y + 25);
-  doc.text(`Branch: ${detail.student.branch || '-'}`, infoX, y + 30);
-  doc.text(`Year: ${detail.student.year || '-'}`, infoX, y + 35);
+  const branchLines = doc.splitTextToSize(String(detail.student.branch || '-'), infoMaxW);
+  doc.text(branchLines.slice(0, 2) as string[], infoX, fy + 4.5);
+  const branchH = branchLines.length > 1 ? 5 : 0;
 
-  y += 42;
+  fy += 10 + branchH;
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(156, 163, 175);
+  doc.text('YEAR', infoX, fy);
+  doc.setFontSize(8.5);
+  doc.setTextColor(17, 24, 39);
+  doc.text(String(detail.student.year || '-'), infoX, fy + 4.5);
 
+  y += Math.max(38, fy - y + 10);
+
+  // Summary boxes
+  const boxW = (W - margin * 2 - 8) / 3;
+  const summaryItems = [
+    { label: 'Total Papers', val: detail.summary.totalPapers, bg: [249, 250, 251] as [number, number, number], num: [17, 24, 39] as [number, number, number], lbl: [107, 114, 128] as [number, number, number] },
+    { label: 'Marks Filled', val: detail.summary.filled, bg: [240, 253, 244] as [number, number, number], num: [22, 163, 74] as [number, number, number], lbl: [22, 163, 74] as [number, number, number] },
+    { label: 'Pending', val: detail.summary.pending, bg: [255, 247, 237] as [number, number, number], num: [249, 115, 22] as [number, number, number], lbl: [249, 115, 22] as [number, number, number] },
+  ];
+  summaryItems.forEach((item, i) => {
+    const bx = margin + i * (boxW + 4);
+    doc.setFillColor(...item.bg);
+    doc.roundedRect(bx, y, boxW, 16, 2, 2, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(...item.num);
+    doc.text(String(item.val), bx + boxW / 2, y + 8.5, { align: 'center' });
+    doc.setFontSize(6.5);
+    doc.setTextColor(...item.lbl);
+    doc.text(item.label.toUpperCase(), bx + boxW / 2, y + 13.5, { align: 'center' });
+  });
+  y += 22;
+
+  // Marks scheme disclaimer
+  doc.setFillColor(255, 251, 235);
+  doc.roundedRect(margin, y, W - margin * 2, 26, 2, 2, 'F');
+  doc.setDrawColor(253, 230, 138);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(margin, y, W - margin * 2, 26, 2, 2, 'S');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(180, 83, 9);
+  doc.text('[!]  MARKS SCHEME', margin + 4, y + 5);
+  const disc = [
+    '- Mid Term marks are out of 30',
+    '- Sessional marks are out of 60',
+    '- Practical marks are out of 40',
+  ];
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(146, 64, 14);
+  disc.forEach((line, i) => {
+    doc.text(line, margin + 4 + i * 62, y + 12);
+  });
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7);
+  doc.setTextColor(180, 83, 9);
+  doc.text('* FEC paper practical marks are out of 100', margin + 4, y + 21);
+  y += 32;
+
+  // Papers table
   autoTable(doc, {
     startY: y,
     head: [['#', 'Paper Name', 'Type', 'Exam Type', 'Marks Status']],
@@ -169,14 +280,66 @@ async function appendStudentToPdf(
       const isAbsent = mv.toLowerCase() === 'absent';
       const full = getFullMarks(p.paper_type, p.paper_name);
       const marksDisplay = isAbsent ? 'Absent' : (mv && full > 0 ? `${mv} / ${full}` : (mv || '-'));
-      return [String(i + 1), p.paper_name || '-', p.paper_type || '-', p.exam_type || '-', marksDisplay];
+      return [i + 1, p.paper_name, p.paper_type, p.exam_type, marksDisplay];
     }),
     margin: { left: margin, right: margin },
     styles: { fontSize: 8, cellPadding: 3, font: 'helvetica', textColor: [55, 65, 81] },
-    headStyles: { fillColor: [249, 115, 22], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+    headStyles: { fillColor: [249, 115, 22], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5, halign: 'left' },
     alternateRowStyles: { fillColor: [250, 250, 250] },
-    columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 4: { cellWidth: 34, halign: 'center' } },
+    columnStyles: { 0: { cellWidth: 14, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 24 }, 3: { cellWidth: 26 }, 4: { cellWidth: 36, halign: 'center' } },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    didParseCell: (data: any) => {
+      if (data.column.index === 4 && data.section === 'body') {
+        const val = String(data.cell.raw || '').toLowerCase();
+        if (val === 'absent') {
+          data.cell.styles.textColor = [220, 38, 38];
+          data.cell.styles.fontStyle = 'bold';
+        } else if (val.includes('/')) {
+          data.cell.styles.textColor = [22, 163, 74];
+          data.cell.styles.fontStyle = 'bold';
+        } else if (val.includes('not') || val.includes('pending') || val === '-') {
+          data.cell.styles.textColor = [234, 88, 12];
+          data.cell.styles.fontStyle = 'bold';
+        }
+      }
+    },
   });
+
+  // Affiliation disclaimer box
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tableEndY: number = (doc as any).lastAutoTable?.finalY ?? y;
+  const disclaimerH = 34;
+  const pageH0 = doc.internal.pageSize.getHeight();
+  let dy = tableEndY + 8;
+  if (dy + disclaimerH > pageH0 - 18) {
+    doc.addPage();
+    dy = 14;
+  }
+  doc.setFillColor(255, 245, 245);
+  doc.roundedRect(margin, dy, W - margin * 2, disclaimerH, 2, 2, 'F');
+  doc.setDrawColor(220, 38, 38);
+  doc.setLineWidth(0.6);
+  doc.roundedRect(margin, dy, W - margin * 2, disclaimerH, 2, 2, 'S');
+  doc.setFillColor(220, 38, 38);
+  doc.rect(margin, dy, 2.5, disclaimerH, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(220, 38, 38);
+  doc.text('[!] IMPORTANT DISCLAIMER', margin + 6, dy + 6.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(153, 27, 27);
+  const dLine1 = 'This website is NOT affiliated with JECRC Foundation or any associated institution in any manner.';
+  const dLine2 = 'It is an independent project for skill practice, giving students early access to information beyond what universities provide.';
+  const dLine3 = 'For any issues, contact: jecrc@jecrcfoundation.live';
+  doc.text(dLine1, margin + 6, dy + 14);
+  doc.text(dLine2, margin + 6, dy + 20);
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7);
+  doc.setTextColor(185, 28, 28);
+  doc.text(dLine3, margin + 6, dy + 27.5);
 }
 
 export default function BulkPdfPage() {
@@ -258,6 +421,7 @@ export default function BulkPdfPage() {
       }
 
       if (combinedDoc) {
+        decoratePdfPages(combinedDoc, 14);
         combinedDoc.save(buildBulkFileName(range.rolls[0], range.rolls[range.rolls.length - 1]));
       } else {
         setError('No valid student records found in the selected range.');
