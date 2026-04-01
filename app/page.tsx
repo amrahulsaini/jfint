@@ -92,7 +92,7 @@ function AprilFoolReveal({ student, onBack }: { student: StudentRow; onBack: () 
           {/* Cat image */}
           <div className="w-40 h-40 md:w-48 md:h-48 rounded-3xl overflow-hidden mx-auto mb-6 border-4 border-orange-300 shadow-xl" style={{ animation: 'bounceIn 0.8s ease-out forwards' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/april-fool-cat.jpg" alt="April Fool!" className="w-full h-full object-cover" />
+            <img src="/april-fool-cat.png" alt="April Fool!" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 mb-4">
             APRIL FOOL!
