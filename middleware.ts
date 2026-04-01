@@ -3,8 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Always allow: login page, auth API, Next.js internals, static assets
+  // Always allow: home (prank page), login page, auth API, Next.js internals, static assets
   if (
+    pathname === '/' ||
     pathname.startsWith('/login') ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/_next') ||

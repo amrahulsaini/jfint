@@ -63,7 +63,7 @@ function PassInput({ value, onChange }: { value: string; onChange: (v: string) =
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const from = params.get('from') || '/';
+  const from = params.get('from') || '/portal';
 
   const [passcode, setPasscode] = useState('');
   const [error, setError] = useState('');

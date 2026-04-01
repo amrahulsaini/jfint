@@ -10,8 +10,8 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "JECRC Foundation — Student Results",
-  description: "Browse student marks entry status for JECRC Foundation, Jaipur — search, filter by branch, and view paper-wise details.",
+  title: "RTU 3rd Semester Results — B.Tech 2025-26",
+  description: "Check your B.Tech 3rd Semester examination results — Rajasthan Technical University, Kota.",
 };
 
 export const viewport: Viewport = {

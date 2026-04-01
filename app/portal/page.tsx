@@ -1,0 +1,442 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import StudentRecords from "../components/StudentRecords";
+
+const SESSION_SECS = 20 * 60; // 20 minutes — fallback only if cookie missing
+
+type View = '1styear' | '2ndyear' | null;
+
+const VIEWS = {
+  '1styear': { table: 'jecr_1styear', photoDir: '1styearphotos', sem: '1st Sem', year: '1st Year' },
+  '2ndyear': { table: 'jecr_2ndyear', photoDir: 'student_photos', sem: '3rd Sem', year: '2nd Year' },
+};
+
+const BANNERS = [
+  {
+    icon: '⚠️',
+    text: 'All marks displayed are based on facts and are accurate. Do not dig up finding whether they are correct or not — please mind it!',
+    bg: 'bg-amber-500',
+    border: 'border-amber-600',
+  },
+  {
+    icon: '🔒',
+    text: 'This website will soon be made secured. Access will be available only through authorised purchase authentication.',
+    bg: 'bg-neutral-900',
+    border: 'border-neutral-700',
+  },
+];
+
+export default function Home() {
+  const router = useRouter();
+  const [view, setView] = useState<View>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [bannerIdx, setBannerIdx] = useState(0);
+  const [bannerVisible, setBannerVisible] = useState(true);
+  const [fade, setFade] = useState(true);
+  const [remaining, setRemaining] = useState(SESSION_SECS);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Stable ref so the timer interval never needs to be recreated when router changes
+  const routerRef = useRef(router);
+  useEffect(() => { routerRef.current = router; }, [router]);
+
+  /** Read the real session expiry from the non-httpOnly cookie the middleware writes */
+  function readExpiryCookie(): number | null {
+    try {
+      const match = document.cookie.match(/(?:^|;\s*)jfint_auth_exp=([^;]+)/);
+      if (match) return parseInt(match[1], 10);
+    } catch { /* SSR / private mode */ }
+    return null;
+  }
+
+  // Format mm:ss
+  const fmt = (s: number) => {
+    const m = Math.floor(Math.max(0, s) / 60).toString().padStart(2, '0');
+    const sec = (Math.max(0, s) % 60).toString().padStart(2, '0');
+    return `${m}:${sec}`;
+  };
+
+  const doLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    routerRef.current.replace('/login');
+  };
+
+  // Timer: reads expiry from cookie on every tick — always in sync with server
+  useEffect(() => {
+    const tick = () => {
+      const exp = readExpiryCookie();
+      // If cookie is gone (browser cleared it / expired), log out immediately
+      if (exp === null) {
+        if (timerRef.current) clearInterval(timerRef.current);
+        doLogout();
+        return;
+      }
+      const secs = Math.round((exp - Date.now()) / 1000);
+      if (secs <= 0) {
+        if (timerRef.current) clearInterval(timerRef.current);
+        doLogout();
+        return;
+      }
+      setRemaining(secs);
+    };
+
+    tick(); // immediate first read
+    timerRef.current = setInterval(tick, 1000);
+
+    // When user switches back to this tab, immediately re-sync the timer
+    // (browsers throttle setInterval on hidden tabs so the count can drift)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // runs once — doLogout is accessed via routerRef, no deps needed
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setBannerIdx(i => (i + 1) % BANNERS.length);
+        setFade(true);
+      }, 400);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const banner = BANNERS[bannerIdx];
+
+  return (
+    <div className="min-h-screen bg-white text-neutral-900">
+
+      {/* ── Announcement Banner ── */}
+      {bannerVisible && (
+        <div className={`relative ${banner.bg} border-b ${banner.border} transition-all duration-300`}>
+          <div
+            className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4"
+            style={{ opacity: fade ? 1 : 0, transition: 'opacity 0.4s ease' }}
+          >
+            <div className="flex items-center gap-2.5 flex-1 min-w-0">
+              <span className="text-base flex-shrink-0">{banner.icon}</span>
+              <p className="text-white text-xs font-semibold leading-snug truncate sm:whitespace-normal sm:overflow-visible">
+                {banner.text}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 flex-shrink-0">
+              {/* Dot indicators */}
+              <div className="hidden sm:flex items-center gap-1">
+                {BANNERS.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { setFade(false); setTimeout(() => { setBannerIdx(i); setFade(true); }, 200); }}
+                    className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${i === bannerIdx ? 'bg-white scale-125' : 'bg-white/40 hover:bg-white/70'}`}
+                  />
+                ))}
+              </div>
+              <button
+                onClick={() => setBannerVisible(false)}
+                className="w-6 h-6 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/25 text-white/70 hover:text-white transition-all duration-200 text-sm font-bold flex-shrink-0"
+                aria-label="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Navbar ── */}
+      <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur-2xl border-b border-neutral-200">
+        <div className="max-w-7xl mx-auto flex items-center justify-between px-5 md:px-8 h-16">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center font-black text-sm text-white shadow-lg shadow-orange-500/30">
+              J
+            </div>
+            <span className="text-lg font-black tracking-tight text-neutral-900">
+              JECRC<span className="text-orange-500">.</span>
+            </span>
+          </div>
+          <div className="hidden md:flex items-center gap-8 text-[13px] font-bold text-neutral-500">
+            <a href="#portal" className="hover:text-orange-500 transition-colors duration-200">Portal</a>
+            <a href="#about" className="hover:text-orange-500 transition-colors duration-200">About</a>
+            <a href="/tracking" className="hover:text-orange-500 transition-colors duration-200">Tracking</a>
+          </div>
+          {/* Session timer + logout */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setMobileMenuOpen(v => !v)}
+              className="md:hidden w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-500 flex items-center justify-center transition-all duration-200"
+              aria-label="Toggle navigation menu"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                {mobileMenuOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                )}
+              </svg>
+            </button>
+            {view && (
+              <button
+                onClick={() => setView(null)}
+                className="flex items-center gap-1.5 text-xs font-bold text-neutral-400 hover:text-orange-500 transition-colors duration-200 md:hidden"
+              >
+                ← Back
+              </button>
+            )}
+            <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-black tabular-nums ${
+              remaining <= 120
+                ? 'bg-red-50 border-red-300 text-red-600'
+                : remaining <= 300
+                ? 'bg-amber-50 border-amber-300 text-amber-600'
+                : 'bg-neutral-100 border-neutral-200 text-neutral-500'
+            }`}>
+              <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              {fmt(remaining)}
+            </div>
+            <button
+              onClick={doLogout}
+              className="flex items-center gap-1.5 bg-neutral-100 hover:bg-red-50 border border-neutral-200 hover:border-red-300 text-neutral-500 hover:text-red-600 text-xs font-black px-3 py-1.5 rounded-xl transition-all duration-200"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/>
+              </svg>
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+          </div>
+        </div>
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-neutral-200 bg-white/95 backdrop-blur-xl">
+            <div className="max-w-7xl mx-auto px-5 py-3 flex flex-col gap-2 text-sm font-bold text-neutral-600">
+              <a href="#portal" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Portal</a>
+              <a href="#about" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">About</a>
+              <a href="/tracking" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Tracking</a>
+            </div>
+          </div>
+        )}
+      </nav>
+
+      {/* ── View Selector / Records ── */}
+      <section id="portal" className="max-w-7xl mx-auto px-5 md:px-8 pb-16">
+
+        {!view ? (
+          /* ─── Two selection buttons ─── */
+          <div className="flex flex-col items-center gap-4 pt-8 pb-8">
+            <p className="text-sm font-bold text-neutral-400 uppercase tracking-widest mb-2">Select a batch to view</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 w-full max-w-2xl">
+              {(Object.entries(VIEWS) as [keyof typeof VIEWS, typeof VIEWS[keyof typeof VIEWS]][]).map(([key, cfg]) => (
+                <button
+                  key={key}
+                  onClick={() => setView(key)}
+                  className="group relative overflow-hidden bg-white hover:bg-orange-50/50 border border-neutral-200 hover:border-orange-400 rounded-2xl p-7 text-left transition-all duration-300 hover:shadow-xl hover:shadow-orange-500/10 hover:-translate-y-1 active:translate-y-0 shadow-sm"
+                >
+                  <div className="relative">
+                    <div className="w-12 h-12 rounded-xl bg-orange-50 group-hover:bg-orange-100 border border-orange-200 group-hover:border-orange-400 flex items-center justify-center mb-4 transition-all duration-300">
+                      <svg className="w-6 h-6 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+                      </svg>
+                    </div>
+                    <div className="text-[11px] font-black uppercase tracking-[0.15em] text-orange-500/80 mb-1.5">
+                      View Internal Marks
+                    </div>
+                    <div className="text-xl font-black text-neutral-900 group-hover:text-orange-600 transition-colors duration-200">
+                      {cfg.sem} JECRC
+                    </div>
+                    <div className="text-sm font-semibold text-neutral-400 mt-1">{cfg.year} Students</div>
+                    <div className="flex items-center gap-1.5 mt-5 text-xs font-bold text-neutral-300 group-hover:text-orange-500 transition-colors duration-200">
+                      <span>Open Records</span>
+                      <svg className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                      </svg>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* ── Premium Info Disclaimer ── */}
+            <div className="w-full max-w-2xl mt-6 rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-violet-50/60 overflow-hidden shadow-sm">
+              {/* Header */}
+              <div className="flex items-center gap-3 px-5 py-3.5 border-b border-indigo-100 bg-indigo-500/5">
+                <div className="w-8 h-8 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.15em] text-indigo-400">Access Required</div>
+                  <h4 className="text-sm font-extrabold text-indigo-900 leading-none">Premium Student Information</h4>
+                </div>
+                <span className="ml-auto flex-shrink-0 bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full">Premium</span>
+              </div>
+
+              {/* Body */}
+              <div className="px-5 py-4">
+                <p className="text-xs font-semibold text-indigo-700 mb-3 leading-relaxed">
+                  The following sensitive student data is available on request and is <span className="font-extrabold">not publicly listed</span> for privacy reasons:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+                  {[
+                    { icon: '🪪', label: 'Aadhar Number' },
+                    { icon: '📋', label: 'Caste Category' },
+                    { icon: '📊', label: '10th & 12th Percentage' },
+                    { icon: '🏠', label: 'Permanent Address' },
+                    { icon: '📞', label: "Parents' Contact Number" },
+                  ].map(item => (
+                    <div key={item.label} className="flex items-center gap-2.5 bg-white/70 border border-indigo-100 rounded-xl px-3 py-2">
+                      <span className="text-base leading-none">{item.icon}</span>
+                      <span className="text-xs font-bold text-indigo-800">{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-indigo-500/8 border border-indigo-200 rounded-xl px-4 py-3">
+                  <p className="text-xs font-semibold text-indigo-700">
+                    To request access, drop a mail to:
+                  </p>
+                  <a
+                    href="mailto:jecrc@jecrcfoundation.live"
+                    className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-extrabold px-4 py-2 rounded-xl transition-all duration-200 hover:-translate-y-0.5 shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/40 flex-shrink-0"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                    </svg>
+                    jecrc@jecrcfoundation.live
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* ─── Records view with back breadcrumb ─── */
+          <div>
+            {/* Breadcrumb bar */}
+            <div className="flex items-center justify-between py-5 mb-2">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setView(null)}
+                  className="w-9 h-9 rounded-xl bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 hover:border-orange-400 flex items-center justify-center text-neutral-400 hover:text-orange-500 transition-all duration-200"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                  </svg>
+                </button>
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.15em] text-neutral-400">JECRC Foundation</div>
+                  <div className="text-sm font-black text-neutral-900">{VIEWS[view].sem} — {VIEWS[view].year} Internal Marks</div>
+                </div>
+              </div>
+              <div className="hidden sm:flex items-center gap-2">
+                {(Object.entries(VIEWS) as [keyof typeof VIEWS, typeof VIEWS[keyof typeof VIEWS]][]).map(([key, cfg]) => (
+                  <button
+                    key={key}
+                    onClick={() => setView(key)}
+                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all duration-200 ${
+                      view === key
+                        ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30'
+                        : 'bg-white border border-neutral-200 text-neutral-500 hover:border-orange-400 hover:text-orange-500'
+                    }`}
+                  >
+                    {cfg.sem}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Premium info banner */}
+            <div className="mb-4 rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50/60 overflow-hidden">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 px-4 py-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-black uppercase tracking-[0.15em] text-indigo-400">Premium Access</span>
+                    <p className="text-xs font-semibold text-indigo-800 leading-snug">
+                      Aadhar, Caste, 10th/12th %, Address &amp; Parents&apos; contact available on request &mdash;
+                      <span className="flex-shrink-0 hidden sm:inline"> </span>
+                      <span className="text-indigo-500 font-bold">🪪 📋 📊 🏠 📞</span>
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href="mailto:jecrc@jecrcfoundation.live"
+                  className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-extrabold px-3.5 py-2 rounded-xl transition-all duration-200 hover:-translate-y-0.5 shadow-sm flex-shrink-0 whitespace-nowrap"
+                >
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                  </svg>
+                  jecrc@jecrcfoundation.live
+                </a>
+              </div>
+            </div>
+            <StudentRecords table={VIEWS[view].table} photoDir={VIEWS[view].photoDir} />
+          </div>
+        )}
+      </section>
+
+      {/* ── About ── */}
+      <section id="about" className="border-t border-neutral-200 bg-neutral-50">
+        <div className="max-w-3xl mx-auto px-5 py-14 md:py-16">
+          <div className="text-center mb-8">
+            <h2 className="text-xl md:text-2xl font-black text-neutral-900 mb-3">About This Portal</h2>
+            <p className="text-neutral-500 leading-relaxed text-sm max-w-xl mx-auto font-semibold">
+              This portal displays RTU internal marks entry status for students of{" "}
+              <span className="text-neutral-900 font-black">
+                Jaipur Engineering College &amp; Research Centre (JECRC)
+              </span>
+              , giving students early and convenient access to information that universities typically provide late.
+            </p>
+          </div>
+
+          {/* Affiliation Disclaimer */}
+          <div className="bg-red-50 border-2 border-red-400 rounded-2xl p-5 sm:p-7 shadow-md shadow-red-500/10">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-100 border border-red-300 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </div>
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-[0.15em] text-red-500 mb-0.5">Important Disclaimer</div>
+                <h3 className="text-lg font-black text-red-700">No Affiliation Notice</h3>
+              </div>
+            </div>
+            <p className="text-base text-red-800 leading-relaxed font-semibold mb-3">
+              This website is{" "}
+              <span className="font-black text-red-900 underline underline-offset-2">not affiliated with JECRC Foundation</span>{" "}
+              or any associated institution in any manner. It is an independent project developed solely for skill practice and enhancement in web technologies.
+            </p>
+            <p className="text-base text-red-800 leading-relaxed font-semibold mb-4">
+              The portal is built to give students{" "}
+              <span className="font-black text-red-900">early and convenient access to information</span>{" "}
+              beyond what universities typically provide.
+            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-4 border-t border-red-200">
+              <span className="text-sm font-bold text-red-700">If you face any issues, kindly contact:</span>
+              <a href="mailto:jecrc@jecrcfoundation.live" className="inline-flex items-center gap-1.5 text-sm font-extrabold text-red-600 hover:text-red-700 transition-colors underline underline-offset-2">jecrc@jecrcfoundation.live</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Footer ── */}
+      <footer className="border-t border-neutral-200 px-5 py-5 bg-white">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-bold text-neutral-400">
+          <span>&copy; {new Date().getFullYear()} JECRC Foundation</span>
+          <span>
+            Built with <span className="text-orange-500">&hearts;</span> for JECRC
+          </span>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
