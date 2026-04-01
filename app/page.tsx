@@ -89,22 +89,19 @@ function AprilFoolReveal({ student, onBack }: { student: StudentRow; onBack: () 
         style={{ animation: 'bounceIn 0.8s ease-out forwards' }}
       >
         <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-orange-200 shadow-2xl shadow-orange-500/20 p-8 md:p-12">
-          <div
-            className="text-7xl md:text-8xl mb-6"
-            style={{ animation: 'pulse 2s ease-in-out infinite' }}
-          >
-            🎉
+          {/* Cat image */}
+          <div className="w-40 h-40 md:w-48 md:h-48 rounded-3xl overflow-hidden mx-auto mb-6 border-4 border-orange-300 shadow-xl" style={{ animation: 'bounceIn 0.8s ease-out forwards' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/april-fool-cat.jpg" alt="April Fool!" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 mb-4">
             APRIL FOOL!
           </h1>
           <p className="text-lg md:text-xl font-bold text-neutral-600 mb-2">
-            Gotcha, <span className="text-orange-500 font-extrabold">{student.student_name}</span>! 😜
+            Bhai result free mein? 😂
           </p>
           <p className="text-sm font-semibold text-neutral-400 mb-6 leading-relaxed">
-            Did you really think 3rd semester results would be available for free?
-            <br />
-            <span className="text-orange-500">Happy April Fool&apos;s Day! 🤡</span>
+            <span className="text-orange-500 font-extrabold">Happy April Fool&apos;s Day! 🤡🎉</span>
           </p>
 
           <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 mb-6">
@@ -121,7 +118,7 @@ function AprilFoolReveal({ student, onBack }: { student: StudentRow; onBack: () 
               <div className="col-span-2">
                 <p className="text-[10px] font-bold text-neutral-400 uppercase">SGPA</p>
                 <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-pink-500">
-                  April Fool 😂
+                  Bana diya na fool 🤣
                 </p>
               </div>
             </div>
