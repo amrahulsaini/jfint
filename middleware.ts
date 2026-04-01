@@ -3,11 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Always allow: home (prank page), login page, auth API, Next.js internals, static assets
+  // Always allow: home (prank page), login page, auth API, student listing API, Next.js internals, static assets
   if (
     pathname === '/' ||
     pathname.startsWith('/login') ||
     pathname.startsWith('/api/auth') ||
+    pathname === '/api/db/students' ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
     /\.(png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf)$/i.test(pathname)
