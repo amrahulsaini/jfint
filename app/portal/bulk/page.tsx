@@ -236,7 +236,7 @@ export default function BulkPdfPage() {
             } catch {
               msg = res.statusText || msg;
             }
-            setLogs(prev => [{ rollNo, status: 'failed', message: msg }, ...prev].slice(0, 100));
+            setLogs(prev => [{ rollNo, status: 'failed' as const, message: msg }, ...prev].slice(0, 100));
             setProcessed(p => p + 1);
             continue;
           }
@@ -249,10 +249,10 @@ export default function BulkPdfPage() {
           }
 
           await appendStudentToPdf(combinedDoc, detail, VIEWS[view].photoDir, autoTable);
-          setLogs(prev => [{ rollNo, status: 'success', message: 'Added to combined PDF' }, ...prev].slice(0, 100));
+          setLogs(prev => [{ rollNo, status: 'success' as const, message: 'Added to combined PDF' }, ...prev].slice(0, 100));
           setProcessed(p => p + 1);
         } catch {
-          setLogs(prev => [{ rollNo, status: 'failed', message: 'Download failed' }, ...prev].slice(0, 100));
+          setLogs(prev => [{ rollNo, status: 'failed' as const, message: 'Download failed' }, ...prev].slice(0, 100));
           setProcessed(p => p + 1);
         }
       }
