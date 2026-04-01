@@ -86,11 +86,18 @@ async function toDataUrl(blob: Blob): Promise<string> {
   });
 }
 
-async function buildStudentPdfBlob(detail: StudentDetail, photoDir: string): Promise<Blob> {
-  const { jsPDF } = await import('jspdf');
-  const autoTable = (await import('jspdf-autotable')).default;
+function buildBulkFileName(startRoll: string, endRoll: string): string {
+  return `Bulk_${startRoll}_to_${endRoll}_Marks.pdf`;
+}
 
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+async function appendStudentToPdf(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  doc: any,
+  detail: StudentDetail,
+  photoDir: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  autoTable: any,
+) {
   const W = doc.internal.pageSize.getWidth();
   const margin = 14;
   let y = 14;
@@ -170,8 +177,6 @@ async function buildStudentPdfBlob(detail: StudentDetail, photoDir: string): Pro
     alternateRowStyles: { fillColor: [250, 250, 250] },
     columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 4: { cellWidth: 34, halign: 'center' } },
   });
-
-  return doc.output('blob');
 }
 
 export default function BulkPdfPage() {
@@ -209,6 +214,10 @@ export default function BulkPdfPage() {
     setRunning(true);
 
     try {
+      const { jsPDF } = await import('jspdf');
+      const autoTable = (await import('jspdf-autotable')).default;
+      let combinedDoc: InstanceType<typeof jsPDF> | null = null;
+
       for (const rollNo of range.rolls) {
         if (stopRef.current) break;
 
@@ -233,25 +242,25 @@ export default function BulkPdfPage() {
           }
 
           const detail = (await res.json()) as StudentDetail;
-          const blob = await buildStudentPdfBlob(detail, VIEWS[view].photoDir);
+          if (!combinedDoc) {
+            combinedDoc = new jsPDF({ unit: 'mm', format: 'a4' });
+          } else {
+            combinedDoc.addPage();
+          }
 
-          const fileName = `${detail.student.roll_no}_${detail.student.student_name.replace(/\s+/g, '_')}_Marks.pdf`;
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          URL.revokeObjectURL(url);
-
-          setLogs(prev => [{ rollNo, status: 'success', message: 'Downloaded' }, ...prev].slice(0, 100));
+          await appendStudentToPdf(combinedDoc, detail, VIEWS[view].photoDir, autoTable);
+          setLogs(prev => [{ rollNo, status: 'success', message: 'Added to combined PDF' }, ...prev].slice(0, 100));
           setProcessed(p => p + 1);
-          await new Promise(resolve => setTimeout(resolve, 350));
         } catch {
           setLogs(prev => [{ rollNo, status: 'failed', message: 'Download failed' }, ...prev].slice(0, 100));
           setProcessed(p => p + 1);
         }
+      }
+
+      if (combinedDoc) {
+        combinedDoc.save(buildBulkFileName(range.rolls[0], range.rolls[range.rolls.length - 1]));
+      } else {
+        setError('No valid student records found in the selected range.');
       }
     } finally {
       setRunning(false);
@@ -278,9 +287,9 @@ export default function BulkPdfPage() {
 
       <main className="max-w-5xl mx-auto px-5 md:px-8 py-8 md:py-10">
         <div className="bg-white border border-neutral-200 rounded-2xl p-5 md:p-6 shadow-sm">
-          <h1 className="text-xl md:text-2xl font-black text-neutral-900">Download Student PDFs In Sequence</h1>
+          <h1 className="text-xl md:text-2xl font-black text-neutral-900">Generate One Combined PDF</h1>
           <p className="text-sm text-neutral-500 font-medium mt-1">
-            Enter roll range, then download starts from start roll to end roll in increasing order. PDFs are generated without password.
+            Enter roll range and all valid students will be merged into one PDF in increasing roll order. The output PDF has no password.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-5">
@@ -326,7 +335,7 @@ export default function BulkPdfPage() {
                 onClick={startDownload}
                 className="h-11 px-5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-black"
               >
-                Start Bulk Download
+                Generate Combined PDF
               </button>
             ) : (
               <button
@@ -370,7 +379,7 @@ export default function BulkPdfPage() {
                         l.status === 'success' ? 'text-emerald-600' : 'text-red-600'
                       }`}
                     >
-                      {l.status === 'success' ? 'Downloaded' : l.message}
+                      {l.status === 'success' ? 'Added' : l.message}
                     </span>
                   </div>
                 ))}
