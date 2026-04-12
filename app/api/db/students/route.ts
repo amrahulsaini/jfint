@@ -25,6 +25,11 @@ export async function GET(req: Request) {
     const params: (string | number)[] = [];
     const col = (name: string) => isFirstYearMaster ? `fm.\`${name}\`` : `\`${name}\``;
 
+    if (isFirstYearMaster) {
+      // Hard filter for 1st sem: only 25-batch roll numbers.
+      conditions.push("fm.`roll_no` LIKE '25%'");
+    }
+
     if (search) {
       conditions.push(`(${col('student_name')} LIKE ? OR ${col('roll_no')} LIKE ? OR ${col('father_name')} LIKE ?)`);
       params.push(`%${search}%`, `%${search}%`, `%${search}%`);
@@ -54,12 +59,16 @@ export async function GET(req: Request) {
       [rows] = await pool.query(
         `SELECT fm.\`roll_no\`, fm.\`student_name\`, fm.\`father_name\`, fm.\`mother_name\`, fm.\`branch\`,
                 '1st Year' AS \`year\`,
-                COUNT(m.\`paper_name\`) AS paper_count,
-                COALESCE(GROUP_CONCAT(DISTINCT m.\`paper_name\` SEPARATOR ', '), '') AS papers
+                COALESCE(mp.\`paper_count\`, 0) AS paper_count,
+                '' AS papers
          FROM \`1styearmaster\` fm
-         LEFT JOIN \`jecr_1styear\` m ON m.\`roll_no\` = fm.\`roll_no\`
+         LEFT JOIN (
+           SELECT \`roll_no\`, COUNT(*) AS \`paper_count\`
+           FROM \`jecr_1styear\`
+           WHERE \`roll_no\` LIKE '25%'
+           GROUP BY \`roll_no\`
+         ) mp ON mp.\`roll_no\` = fm.\`roll_no\`
          ${where}
-         GROUP BY fm.\`roll_no\`, fm.\`student_name\`, fm.\`father_name\`, fm.\`mother_name\`, fm.\`branch\`
          ORDER BY fm.\`student_name\` ASC
          LIMIT ? OFFSET ?`,
         [...params, limit, offset],
@@ -68,18 +77,18 @@ export async function GET(req: Request) {
       [branches] = await pool.query(
         `SELECT DISTINCT fm.\`branch\`
          FROM \`1styearmaster\` fm
-         WHERE fm.\`branch\` IS NOT NULL AND fm.\`branch\` != ''
+         WHERE fm.\`roll_no\` LIKE '25%'
+           AND fm.\`branch\` IS NOT NULL
+           AND fm.\`branch\` != ''
          ORDER BY fm.\`branch\``,
       );
 
       [stats] = await pool.query(
         `SELECT
-           COUNT(m.\`paper_name\`) AS totalRecords,
-           COUNT(DISTINCT fm.\`branch\`) AS totalBranches,
-           COUNT(DISTINCT m.\`paper_name\`) AS totalPapers,
-           COUNT(DISTINCT fm.\`roll_no\`) AS totalStudents
-         FROM \`1styearmaster\` fm
-         LEFT JOIN \`jecr_1styear\` m ON m.\`roll_no\` = fm.\`roll_no\``,
+           (SELECT COUNT(*) FROM \`jecr_1styear\` WHERE \`roll_no\` LIKE '25%') AS totalRecords,
+           (SELECT COUNT(DISTINCT \`branch\`) FROM \`1styearmaster\` WHERE \`roll_no\` LIKE '25%' AND \`branch\` IS NOT NULL AND \`branch\` != '') AS totalBranches,
+           (SELECT COUNT(DISTINCT \`paper_name\`) FROM \`jecr_1styear\` WHERE \`roll_no\` LIKE '25%') AS totalPapers,
+           (SELECT COUNT(*) FROM \`1styearmaster\` WHERE \`roll_no\` LIKE '25%') AS totalStudents`,
       );
     } else {
       const [countResult] = await pool.query(

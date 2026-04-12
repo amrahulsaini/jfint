@@ -140,6 +140,21 @@ async function findBestProfile(student: StudentIdentity) {
       directRows = directRowsRaw as Record<string, unknown>[];
     }
 
+    // Fallback for normalized roll values containing spaces/dashes in stored fields.
+    if (directRows.length === 0 && rollCompact) {
+      const compact = rollCompact.replace(/-/g, '');
+      const [normalizedRowsRaw] = await pool.query(
+        `SELECT *
+         FROM \`${ALL_INFO_TABLE}\`
+         WHERE REPLACE(REPLACE(REPLACE(TRIM(\`earlier_enrollment_no\`), ' ', ''), '-', ''), '/', '') = ?
+            OR REPLACE(REPLACE(REPLACE(TRIM(\`entrance_exam_roll_no\`), ' ', ''), '-', ''), '/', '') = ?
+         ORDER BY \`updated_at\` DESC
+         LIMIT 5`,
+        [compact, compact],
+      );
+      directRows = normalizedRowsRaw as Record<string, unknown>[];
+    }
+
     if (directRows.length > 0) {
       return {
         profile: toProfilePayload(directRows[0]),
@@ -244,6 +259,10 @@ export async function GET(req: NextRequest) {
 
   if (!rollNo) {
     return NextResponse.json({ error: 'roll_no is required' }, { status: 400 });
+  }
+
+  if (tableName === '1styearmaster' && !/^25/i.test(rollNo)) {
+    return NextResponse.json({ error: 'Student not found', student: null, papers: [] }, { status: 404 });
   }
 
   try {
