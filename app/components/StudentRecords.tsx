@@ -553,6 +553,28 @@ export default function StudentRecords({
       const margin = 12;
       let y = 12;
 
+      // Try to include student photo in the complete profile PDF.
+      let photoDataUrl: string | null = null;
+      let photoFormat: 'JPEG' | 'PNG' = 'JPEG';
+      try {
+        const photoUrl = `/${photoDir}/photo_${detail.student.roll_no}.jpg`;
+        const photoResp = await fetch(photoUrl);
+        if (photoResp.ok) {
+          const blob = await photoResp.blob();
+          photoDataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ''));
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+          if (photoDataUrl.startsWith('data:image/png')) {
+            photoFormat = 'PNG';
+          }
+        }
+      } catch {
+        photoDataUrl = null;
+      }
+
       doc.setFillColor(17, 24, 39);
       doc.roundedRect(margin, y, pageW - margin * 2, 20, 3, 3, 'F');
       doc.setFont('helvetica', 'bold');
@@ -564,6 +586,32 @@ export default function StudentRecords({
       doc.text('Internal Marks + 2528allinfo Data', margin + 4, y + 14);
       doc.text(new Date().toLocaleString('en-IN'), pageW - margin - 4, y + 14, { align: 'right' });
       y += 24;
+
+      // Student photo block
+      const photoW = 24;
+      const photoH = 30;
+      const photoX = pageW - margin - photoW;
+      const photoY = y;
+      if (photoDataUrl) {
+        doc.addImage(photoDataUrl, photoFormat, photoX, photoY, photoW, photoH, undefined, 'FAST');
+        doc.setDrawColor(17, 24, 39);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(photoX, photoY, photoW, photoH, 2, 2, 'S');
+      } else {
+        doc.setFillColor(243, 244, 246);
+        doc.roundedRect(photoX, photoY, photoW, photoH, 2, 2, 'F');
+        doc.setDrawColor(209, 213, 219);
+        doc.roundedRect(photoX, photoY, photoW, photoH, 2, 2, 'S');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(107, 114, 128);
+        doc.text((detail.student.student_name || '?').charAt(0).toUpperCase(), photoX + photoW / 2, photoY + 17, { align: 'center' });
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(55, 65, 81);
+      doc.text('Student Photo', photoX + photoW / 2, photoY + photoH + 4, { align: 'center' });
+      y += 38;
 
       autoTable(doc, {
         startY: y,
