@@ -70,6 +70,56 @@ type ExtractionPayload = {
 
 const SOURCE_FILE = 'forms-1styear/mechanical-engineering.pdf';
 
+const FIELD_GROUPS: Array<{
+  title: string;
+  items: Array<{ key: keyof StudentFields; label: string; wide?: boolean }>;
+}> = [
+  {
+    title: 'Identity',
+    items: [
+      { key: 'applicantName', label: 'Applicant Name', wide: true },
+      { key: 'fatherName', label: 'Father Name' },
+      { key: 'motherName', label: 'Mother Name' },
+      { key: 'gender', label: 'Gender' },
+      { key: 'dateOfBirth', label: 'Date Of Birth' },
+      { key: 'status', label: 'Status' },
+    ],
+  },
+  {
+    title: 'Category And Admission',
+    items: [
+      { key: 'caste', label: 'Caste' },
+      { key: 'categoryIAndII', label: 'Category I And II' },
+      { key: 'categoryIII', label: 'Category III' },
+      { key: 'specializationBranch', label: 'Specialization / Branch', wide: true },
+      { key: 'admissionStatus', label: 'Admission Status' },
+      { key: 'earlierEnrollmentNo', label: 'Earlier Enrollment No' },
+      { key: 'collegeShift', label: 'College Shift' },
+    ],
+  },
+  {
+    title: 'Contact And Address',
+    items: [
+      { key: 'mobileNo', label: 'Mobile No' },
+      { key: 'parentMobileNo', label: 'Parent Mobile No' },
+      { key: 'email', label: 'Email', wide: true },
+      { key: 'permanentAddress', label: 'Permanent Address', wide: true },
+      { key: 'correspondenceAddress', label: 'Correspondence Address', wide: true },
+    ],
+  },
+  {
+    title: 'Exam And Aadhar',
+    items: [
+      { key: 'entranceExamName', label: 'Entrance Exam Name' },
+      { key: 'entranceExamRollNo', label: 'Entrance Exam Roll No' },
+      { key: 'meritSecured', label: 'Merit Secured' },
+      { key: 'hasAadharCard', label: 'Has Aadhar Card' },
+      { key: 'aadharNo', label: 'Aadhar No' },
+      { key: 'educationalQualification', label: 'Educational Qualification', wide: true },
+    ],
+  },
+];
+
 function fmtDate(iso?: string) {
   if (!iso) return '-';
   return new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
@@ -240,27 +290,50 @@ export default function ExtractionsPage() {
                       <p className="text-xs font-semibold text-neutral-400 mt-1">Page {selectedRecord.pageNumber} • {selectedRecord.metadata.branchName || 'Branch not found'}</p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                      <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-3">
-                        <p className="text-[11px] text-neutral-500 font-black uppercase">Father Name</p>
-                        <p className="font-semibold mt-1">{selectedRecord.fields.fatherName || '-'}</p>
+                    <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-3">
+                      <h3 className="text-sm font-black mb-2">Form Metadata</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                        <div className="rounded-lg border border-neutral-800 px-3 py-2">
+                          <p className="text-[11px] text-neutral-500 font-black uppercase">Form Type</p>
+                          <p className="font-semibold mt-1">{selectedRecord.metadata.formType || '-'}</p>
+                        </div>
+                        <div className="rounded-lg border border-neutral-800 px-3 py-2">
+                          <p className="text-[11px] text-neutral-500 font-black uppercase">Session</p>
+                          <p className="font-semibold mt-1">{selectedRecord.metadata.session || '-'}</p>
+                        </div>
+                        <div className="rounded-lg border border-neutral-800 px-3 py-2 md:col-span-2">
+                          <p className="text-[11px] text-neutral-500 font-black uppercase">College</p>
+                          <p className="font-semibold mt-1">{selectedRecord.metadata.college || '-'}</p>
+                        </div>
+                        <div className="rounded-lg border border-neutral-800 px-3 py-2 md:col-span-2">
+                          <p className="text-[11px] text-neutral-500 font-black uppercase">Branch Name</p>
+                          <p className="font-semibold mt-1">{selectedRecord.metadata.branchName || '-'}</p>
+                        </div>
                       </div>
-                      <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-3">
-                        <p className="text-[11px] text-neutral-500 font-black uppercase">Mother Name</p>
-                        <p className="font-semibold mt-1">{selectedRecord.fields.motherName || '-'}</p>
+                    </div>
+
+                    {FIELD_GROUPS.map((group) => (
+                      <div key={group.title} className="rounded-xl border border-neutral-800 bg-neutral-950 p-3">
+                        <h3 className="text-sm font-black mb-2">{group.title}</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                          {group.items.map((item) => (
+                            <div
+                              key={String(item.key)}
+                              className={`rounded-lg border border-neutral-800 px-3 py-2 ${item.wide ? 'md:col-span-2' : ''}`}
+                            >
+                              <p className="text-[11px] text-neutral-500 font-black uppercase">{item.label}</p>
+                              <p className="font-semibold mt-1 break-words">{selectedRecord.fields[item.key] || '-'}</p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-3">
-                        <p className="text-[11px] text-neutral-500 font-black uppercase">Mobile</p>
-                        <p className="font-semibold mt-1">{selectedRecord.fields.mobileNo || '-'}</p>
-                      </div>
-                      <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-3">
-                        <p className="text-[11px] text-neutral-500 font-black uppercase">Email</p>
-                        <p className="font-semibold mt-1 break-all">{selectedRecord.fields.email || '-'}</p>
-                      </div>
-                      <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-3 md:col-span-2">
-                        <p className="text-[11px] text-neutral-500 font-black uppercase">Permanent Address</p>
-                        <p className="font-semibold mt-1">{selectedRecord.fields.permanentAddress || '-'}</p>
-                      </div>
+                    ))}
+
+                    <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-3">
+                      <h3 className="text-sm font-black mb-2">Raw Page Text</h3>
+                      <pre className="text-xs text-neutral-300 bg-neutral-900 border border-neutral-800 rounded-lg p-3 overflow-auto max-h-[220px] whitespace-pre-wrap">
+                        {selectedRecord.rawText || '-'}
+                      </pre>
                     </div>
 
                     <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-3">
