@@ -69,32 +69,76 @@ type ExtractionPayload = {
   records: StudentRecord[];
 };
 
-const FIELD_LABELS: Array<{ key: keyof StudentFields; pattern: string }> = [
-  { key: 'applicantName', pattern: '1\\.\\s*Applicant\\s+Name\\s+in\\s+English' },
-  { key: 'fatherName', pattern: "2\\.\\s*Father'?s\\s+Name\\s+in\\s+English" },
-  { key: 'motherName', pattern: "3\\.\\s*Mother'?s\\s+Name\\s+in\\s+English" },
-  { key: 'gender', pattern: '4\\.\\s*Gender' },
-  { key: 'dateOfBirth', pattern: '5\\.\\s*Date\\s+of\\s+Birth' },
-  { key: 'status', pattern: '6\\.\\s*Status' },
-  { key: 'caste', pattern: '7\\.\\s*Caste' },
-  { key: 'categoryIAndII', pattern: '8\\.\\s*Category\\s*-\\s*I\\s*&\\s*II' },
-  { key: 'categoryIII', pattern: '9\\.\\s*Category\\s*-\\s*III' },
-  { key: 'specializationBranch', pattern: '10\\.\\s*Specialization\\s*\\/\\s*Branch' },
-  { key: 'admissionStatus', pattern: '11\\.\\s*Admission\\s+Status' },
-  { key: 'earlierEnrollmentNo', pattern: '12\\.\\s*Earlier\\s+Enrollment\\s+No' },
-  { key: 'permanentAddress', pattern: '13\\.\\s*Permanent\\s+Address' },
-  { key: 'correspondenceAddress', pattern: '14\\.\\s*Corr\\.?\\s*Address' },
-  { key: 'mobileNo', pattern: '15\\.\\s*Mobile\\s+No' },
-  { key: 'parentMobileNo', pattern: '16\\.\\s*Parent\\s+Mobile\\s+No' },
-  { key: 'entranceExamRollNo', pattern: '17\\.\\s*Entrance\\s+Exam\\s+Roll\\s+No' },
-  { key: 'entranceExamName', pattern: '18\\.\\s*Entrance\\s+Exam\\s+Name' },
-  { key: 'meritSecured', pattern: '19\\.\\s*Merit\\s+Secured' },
-  { key: 'email', pattern: '20\\.\\s*Email' },
-  { key: 'hasAadharCard', pattern: '21\\.\\s*You\\s+have\\s+Aadhar\\s+Card' },
-  { key: 'aadharNo', pattern: '22\\.\\s*A(?:a|d)har\\s+No\\.' },
-  { key: 'educationalQualification', pattern: '23\\.\\s*Educational\\s+Qualification' },
-  { key: 'collegeShift', pattern: '24\\.\\s*College\\s+Shift' },
+type ParsedLine = {
+  y: number;
+  parts: Array<{ x: number; text: string }>;
+  text: string;
+};
+
+type PageTextBundle = {
+  text: string;
+  lines: ParsedLine[];
+};
+
+type FieldDef = {
+  key: keyof StudentFields;
+  index: number;
+  label: string;
+};
+
+const FIELD_DEFS: FieldDef[] = [
+  { key: 'applicantName', index: 1, label: 'Applicant\\s+Name\\s+in\\s+English' },
+  { key: 'fatherName', index: 2, label: "Father'?s\\s+Name\\s+in\\s+English" },
+  { key: 'motherName', index: 3, label: "Mother'?s\\s+Name\\s+in\\s+English" },
+  { key: 'gender', index: 4, label: 'Gender' },
+  { key: 'dateOfBirth', index: 5, label: 'Date\\s+of\\s+Birth' },
+  { key: 'status', index: 6, label: 'Status' },
+  { key: 'caste', index: 7, label: 'Caste' },
+  { key: 'categoryIAndII', index: 8, label: 'Category\\s*-\\s*I\\s*&\\s*II' },
+  { key: 'categoryIII', index: 9, label: 'Category\\s*-\\s*III' },
+  { key: 'specializationBranch', index: 10, label: 'Specialization\\s*\\/\\s*Branch' },
+  { key: 'admissionStatus', index: 11, label: 'Ad+mission\\s+Status' },
+  { key: 'earlierEnrollmentNo', index: 12, label: 'Earlier\\s+Enrollment\\s+No' },
+  { key: 'permanentAddress', index: 13, label: 'Permanent\\s+Address' },
+  { key: 'correspondenceAddress', index: 14, label: '(?:Corr\\.?\\s*Address|Correspondence\\s*Address)' },
+  { key: 'mobileNo', index: 15, label: 'Mobile\\s+No' },
+  { key: 'parentMobileNo', index: 16, label: 'Parent\\s+Mobile\\s+No' },
+  { key: 'entranceExamRollNo', index: 17, label: 'Ent(?:r)?ance\\s+Exam\\s+Roll\\s+No' },
+  { key: 'entranceExamName', index: 18, label: 'Entrance\\s+Exam\\s+Name' },
+  { key: 'meritSecured', index: 19, label: 'Merit\\s+Secured' },
+  { key: 'email', index: 20, label: 'Email' },
+  { key: 'hasAadharCard', index: 21, label: 'You\\s+have\\s+Aadhar\\s+Card' },
+  { key: 'aadharNo', index: 22, label: 'A(?:a|d)har\\s+No\\.?' },
+  { key: 'educationalQualification', index: 23, label: 'Educational\\s+Qualification' },
+  { key: 'collegeShift', index: 24, label: 'College\\s+Shift' },
 ];
+
+const EMPTY_FIELDS: StudentFields = {
+  applicantName: '',
+  fatherName: '',
+  motherName: '',
+  gender: '',
+  dateOfBirth: '',
+  status: '',
+  caste: '',
+  categoryIAndII: '',
+  categoryIII: '',
+  specializationBranch: '',
+  admissionStatus: '',
+  earlierEnrollmentNo: '',
+  permanentAddress: '',
+  correspondenceAddress: '',
+  mobileNo: '',
+  parentMobileNo: '',
+  entranceExamRollNo: '',
+  entranceExamName: '',
+  meritSecured: '',
+  email: '',
+  hasAadharCard: '',
+  aadharNo: '',
+  educationalQualification: '',
+  collegeShift: '',
+};
 
 function normalizeSpaces(value: string): string {
   return value
@@ -138,19 +182,79 @@ function pick(text: string, re: RegExp): string {
   return normalizeSpaces(m?.[1] || '');
 }
 
-function extractFields(text: string): StudentFields {
-  const out = {} as StudentFields;
+function extractNumberedField(text: string, def: FieldDef): string {
+  const nextIndex = def.index + 1;
+  const re = new RegExp(
+    `${def.index}\\.\\s*(?:${def.label})\\s*:\\s*([\\s\\S]*?)(?=(?:\\s+${nextIndex}\\.\\s*[A-Za-z])|(?:\\n\\s*${nextIndex}\\.\\s*[A-Za-z])|(?:\\n\\s*\\d{1,2}\\.\\s*[A-Za-z])|(?:Exam\\s+Roll\\s+No\\.)|(?:I\\s+have\\s+passed\\s+qualifying\\s+Exam)|(?:Declaration\\s+by\\s+the\\s+student)|$)`,
+    'i',
+  );
+  return normalizeSpaces(text.match(re)?.[1] || '');
+}
 
-  for (let i = 0; i < FIELD_LABELS.length; i++) {
-    const cur = FIELD_LABELS[i];
-    const next = FIELD_LABELS[i + 1];
-    const stop = next
-      ? `${next.pattern}\\s*:`
-      : '(?:Exam\\s+Roll\\s+No\\.|I\\s+have\\s+passed\\s+qualifying\\s+Exam|Declaration\\s+by\\s+the\\s+student|$)';
+function lineContainsIndex(line: ParsedLine, index: number): boolean {
+  const re = new RegExp(`(?:^|\\D)${index}\\.`, 'i');
+  return line.parts.some(p => re.test(p.text)) || re.test(line.text);
+}
 
-    const re = new RegExp(`${cur.pattern}\\s*:\\s*([\\s\\S]*?)(?=${stop})`, 'i');
-    out[cur.key] = normalizeSpaces((text.match(re)?.[1] || ''));
+function deriveColumnPivot(lines: ParsedLine[]): number {
+  const pairs: Array<[number, number]> = [[13, 14], [15, 16], [11, 12], [17, 18], [19, 20], [21, 22], [23, 24]];
+
+  for (const [left, right] of pairs) {
+    const line = lines.find(l => lineContainsIndex(l, left) && lineContainsIndex(l, right));
+    if (!line) continue;
+    const part = line.parts.find(p => new RegExp(`(?:^|\\D)${right}\\.`, 'i').test(p.text));
+    if (part) return part.x - 2;
   }
+
+  return 360;
+}
+
+function extractAddressColumns(lines: ParsedLine[]): { permanentAddress: string; correspondenceAddress: string } {
+  const startIdx = lines.findIndex(l => /13\.\s*Permanent\s+Address\s*:/i.test(l.text));
+  if (startIdx < 0) {
+    return { permanentAddress: '', correspondenceAddress: '' };
+  }
+
+  const endIdxRaw = lines.findIndex((l, i) => i > startIdx && /15\.\s*Mobile\s+No\s*:/i.test(l.text));
+  const endIdx = endIdxRaw >= 0 ? endIdxRaw : lines.length;
+  const pivot = deriveColumnPivot(lines);
+
+  const permanent: string[] = [];
+  const correspondence: string[] = [];
+
+  for (let i = startIdx; i < endIdx; i++) {
+    const line = lines[i];
+    let left = normalizeSpaces(line.parts.filter(p => p.x < pivot).map(p => p.text).join(' '));
+    let right = normalizeSpaces(line.parts.filter(p => p.x >= pivot).map(p => p.text).join(' '));
+
+    if (i === startIdx) {
+      left = normalizeSpaces(left.replace(/^.*13\.\s*Permanent\s+Address\s*:\s*/i, ''));
+      right = normalizeSpaces(right.replace(/^.*14\.\s*(?:Corr\.?\s*Address|Correspondence\s*Address)\s*:\s*/i, ''));
+    } else {
+      left = normalizeSpaces(left.replace(/^\d{1,2}\.\s*[^:]*:\s*/i, ''));
+      right = normalizeSpaces(right.replace(/^\d{1,2}\.\s*[^:]*:\s*/i, ''));
+    }
+
+    if (left) permanent.push(left);
+    if (right) correspondence.push(right);
+  }
+
+  return {
+    permanentAddress: normalizeSpaces(permanent.join(' ').replace(/\s+,/g, ',')),
+    correspondenceAddress: normalizeSpaces(correspondence.join(' ').replace(/\s+,/g, ',')),
+  };
+}
+
+function extractFields(text: string, lines: ParsedLine[]): StudentFields {
+  const out: StudentFields = { ...EMPTY_FIELDS };
+
+  for (const def of FIELD_DEFS) {
+    out[def.key] = extractNumberedField(text, def);
+  }
+
+  const addresses = extractAddressColumns(lines);
+  if (addresses.permanentAddress) out.permanentAddress = addresses.permanentAddress;
+  if (addresses.correspondenceAddress) out.correspondenceAddress = addresses.correspondenceAddress;
 
   return out;
 }
@@ -180,8 +284,8 @@ function parseEducationRows(text: string): EducationRow[] {
   return rows;
 }
 
-function parseStudentPage(pageText: string, pageNumber: number): StudentRecord {
-  const normalized = normalizeForParsing(pageText);
+function parseStudentPage(page: PageTextBundle, pageNumber: number): StudentRecord {
+  const normalized = normalizeForParsing(page.text);
 
   const metadata = {
     formType: pick(normalized, /UPDATED\s+ENROLLMENT\s+FORM\s*:\s*([\s\S]*?)(?=SESSION\s*:|COLLEGE\s*:|BRANCH\s+NAME\s*:|1\.)/i),
@@ -193,14 +297,14 @@ function parseStudentPage(pageText: string, pageNumber: number): StudentRecord {
   return {
     pageNumber,
     metadata,
-    fields: extractFields(normalized),
+    fields: extractFields(normalized, page.lines),
     educationRows: parseEducationRows(normalized),
     rawText: normalized,
   };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildPageText(items: any[]): string {
+function buildPageText(items: any[]): PageTextBundle {
   const lines: Array<{ y: number; parts: Array<{ x: number; text: string }> }> = [];
 
   for (const item of items as Array<{ str?: string; transform?: number[] }>) {
@@ -221,13 +325,21 @@ function buildPageText(items: any[]): string {
 
   lines.sort((a, b) => b.y - a.y);
 
-  return lines
-    .map(line => line.parts.sort((a, b) => a.x - b.x).map(p => p.text).join(' ').replace(/\s+/g, ' ').trim())
-    .filter(Boolean)
-    .join('\n');
+  const parsedLines: ParsedLine[] = lines
+    .map(line => {
+      const sortedParts = [...line.parts].sort((a, b) => a.x - b.x);
+      const text = sortedParts.map(p => p.text).join(' ').replace(/\s+/g, ' ').trim();
+      return { y: line.y, parts: sortedParts, text };
+    })
+    .filter(line => Boolean(line.text));
+
+  return {
+    lines: parsedLines,
+    text: parsedLines.map(line => line.text).join('\n'),
+  };
 }
 
-async function extractPageTexts(pdfBuffer: Buffer): Promise<string[]> {
+async function extractPageTexts(pdfBuffer: Buffer): Promise<PageTextBundle[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pdfjs = (await import('pdfjs-dist/legacy/build/pdf.mjs')) as any;
 
@@ -238,7 +350,7 @@ async function extractPageTexts(pdfBuffer: Buffer): Promise<string[]> {
   });
 
   const pdf = await loadingTask.promise;
-  const pages: string[] = [];
+  const pages: PageTextBundle[] = [];
 
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
@@ -257,7 +369,7 @@ async function runExtraction(pdfRelativePath: string): Promise<ExtractionPayload
   const pageTexts = await extractPageTexts(pdfBuffer);
 
   const records = pageTexts
-    .map((txt, idx) => parseStudentPage(txt, idx + 1))
+    .map((page, idx) => parseStudentPage(page, idx + 1))
     .filter(r => Boolean(r.fields.applicantName || r.fields.mobileNo || r.fields.email));
 
   const payload: ExtractionPayload = {
