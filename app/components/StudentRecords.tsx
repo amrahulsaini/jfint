@@ -603,6 +603,10 @@ export default function StudentRecords({
 
   /* ── DB not connected ──────────────────────────────────── */
   if (error && !data) {
+    const connRefused = /ECONNREFUSED/i.test(error);
+    const accessDenied = /ER_ACCESS_DENIED_ERROR|Access denied/i.test(error);
+    const dbMissing = /ER_BAD_DB_ERROR|Unknown database/i.test(error);
+
     return (
       <div className="max-w-7xl mx-auto px-5 md:px-8 py-16 text-center">
         <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-12 max-w-lg mx-auto">
@@ -612,7 +616,25 @@ export default function StudentRecords({
             </svg>
           </div>
           <h3 className="text-lg font-black text-neutral-900 mb-1">Database Not Connected</h3>
-          <p className="text-sm text-neutral-500 font-semibold">Student results will appear once the SQL data is imported.</p>
+          <p className="text-sm text-neutral-500 font-semibold">Unable to load student results right now.</p>
+          <p className="mt-3 text-xs font-mono text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 break-all">
+            {error}
+          </p>
+          {connRefused && (
+            <p className="mt-3 text-xs font-semibold text-neutral-600">
+              Connection refused: check DB server firewall / public access / port mapping.
+            </p>
+          )}
+          {accessDenied && (
+            <p className="mt-3 text-xs font-semibold text-neutral-600">
+              Access denied: verify DB user/password and host permissions.
+            </p>
+          )}
+          {dbMissing && (
+            <p className="mt-3 text-xs font-semibold text-neutral-600">
+              Database not found: verify DB_NAME and import SQL data for this environment.
+            </p>
+          )}
         </div>
       </div>
     );
