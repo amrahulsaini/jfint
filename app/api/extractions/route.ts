@@ -140,6 +140,33 @@ const EMPTY_FIELDS: StudentFields = {
   collegeShift: '',
 };
 
+const FIELD_KEY_BY_INDEX: Record<number, keyof StudentFields> = {
+  1: 'applicantName',
+  2: 'fatherName',
+  3: 'motherName',
+  4: 'gender',
+  5: 'dateOfBirth',
+  6: 'status',
+  7: 'caste',
+  8: 'categoryIAndII',
+  9: 'categoryIII',
+  10: 'specializationBranch',
+  11: 'admissionStatus',
+  12: 'earlierEnrollmentNo',
+  13: 'permanentAddress',
+  14: 'correspondenceAddress',
+  15: 'mobileNo',
+  16: 'parentMobileNo',
+  17: 'entranceExamRollNo',
+  18: 'entranceExamName',
+  19: 'meritSecured',
+  20: 'email',
+  21: 'hasAadharCard',
+  22: 'aadharNo',
+  23: 'educationalQualification',
+  24: 'collegeShift',
+};
+
 function normalizeSpaces(value: string): string {
   return value
     .replace(/\u00a0/g, ' ')
@@ -182,13 +209,37 @@ function pick(text: string, re: RegExp): string {
   return normalizeSpaces(m?.[1] || '');
 }
 
-function extractNumberedField(text: string, def: FieldDef): string {
-  const nextIndex = def.index + 1;
-  const re = new RegExp(
-    `${def.index}\\.\\s*(?:${def.label})\\s*:\\s*([\\s\\S]*?)(?=(?:\\s+${nextIndex}\\.\\s*[A-Za-z])|(?:\\n\\s*${nextIndex}\\.\\s*[A-Za-z])|(?:\\n\\s*\\d{1,2}\\.\\s*[A-Za-z])|(?:Exam\\s+Roll\\s+No\\.)|(?:I\\s+have\\s+passed\\s+qualifying\\s+Exam)|(?:Declaration\\s+by\\s+the\\s+student)|$)`,
-    'i',
-  );
-  return normalizeSpaces(text.match(re)?.[1] || '');
+function extractNumberedBlocks(text: string): Array<{ index: number; label: string; value: string }> {
+  const section = text.split(/Exam\s+Roll\s+No\./i)[0] || text;
+  const marker = /(\d{1,2})\.\s*([A-Za-z&'\/(). -]{1,80}?)\s*:\s*/g;
+
+  const matches: Array<{ index: number; label: string; start: number; valueStart: number }> = [];
+  let m: RegExpExecArray | null;
+
+  while ((m = marker.exec(section)) !== null) {
+    const index = Number(m[1]);
+    if (!Number.isFinite(index) || index < 1 || index > 24) continue;
+    matches.push({
+      index,
+      label: normalizeSpaces(m[2]),
+      start: m.index,
+      valueStart: marker.lastIndex,
+    });
+  }
+
+  const blocks: Array<{ index: number; label: string; value: string }> = [];
+  for (let i = 0; i < matches.length; i++) {
+    const cur = matches[i];
+    const next = matches[i + 1];
+    const valueRaw = section.slice(cur.valueStart, next ? next.start : section.length);
+    blocks.push({
+      index: cur.index,
+      label: cur.label,
+      value: normalizeSpaces(valueRaw),
+    });
+  }
+
+  return blocks;
 }
 
 function lineContainsIndex(line: ParsedLine, index: number): boolean {
@@ -248,8 +299,11 @@ function extractAddressColumns(lines: ParsedLine[]): { permanentAddress: string;
 function extractFields(text: string, lines: ParsedLine[]): StudentFields {
   const out: StudentFields = { ...EMPTY_FIELDS };
 
-  for (const def of FIELD_DEFS) {
-    out[def.key] = extractNumberedField(text, def);
+  const blocks = extractNumberedBlocks(text);
+  for (const block of blocks) {
+    const key = FIELD_KEY_BY_INDEX[block.index];
+    if (!key) continue;
+    out[key] = block.value;
   }
 
   const addresses = extractAddressColumns(lines);

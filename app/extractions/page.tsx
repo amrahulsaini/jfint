@@ -341,13 +341,39 @@ export default function ExtractionsPage() {
                       {selectedRecord.educationRows.length === 0 ? (
                         <p className="text-xs text-neutral-400">No rows parsed.</p>
                       ) : (
-                        <div className="space-y-2 text-xs">
-                          {selectedRecord.educationRows.map((row, idx) => (
-                            <div key={`${row.exam}-${idx}`} className="border border-neutral-800 rounded-lg p-2">
-                              <p className="font-black text-cyan-300">{row.exam}</p>
-                              <p className="mt-1 text-neutral-300">Roll: {row.rollNo} | Board: {row.board} | %: {row.percentage} | Result: {row.result}</p>
-                            </div>
-                          ))}
+                        <div className="overflow-auto rounded-lg border border-neutral-800">
+                          <table className="min-w-[900px] w-full text-xs">
+                            <thead className="bg-neutral-900">
+                              <tr>
+                                <th className="text-left px-3 py-2 font-black text-neutral-400 uppercase tracking-wider">Exam</th>
+                                <th className="text-left px-3 py-2 font-black text-neutral-400 uppercase tracking-wider">Roll No</th>
+                                <th className="text-left px-3 py-2 font-black text-neutral-400 uppercase tracking-wider">Year</th>
+                                <th className="text-left px-3 py-2 font-black text-neutral-400 uppercase tracking-wider">Stream</th>
+                                <th className="text-left px-3 py-2 font-black text-neutral-400 uppercase tracking-wider">Board</th>
+                                <th className="text-left px-3 py-2 font-black text-neutral-400 uppercase tracking-wider">Obt. Marks</th>
+                                <th className="text-left px-3 py-2 font-black text-neutral-400 uppercase tracking-wider">Max. Marks</th>
+                                <th className="text-left px-3 py-2 font-black text-neutral-400 uppercase tracking-wider">Percentage</th>
+                                <th className="text-left px-3 py-2 font-black text-neutral-400 uppercase tracking-wider">CGPA</th>
+                                <th className="text-left px-3 py-2 font-black text-neutral-400 uppercase tracking-wider">Result</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {selectedRecord.educationRows.map((row, idx) => (
+                                <tr key={`${row.exam}-${idx}`} className="border-t border-neutral-800 odd:bg-neutral-950 even:bg-neutral-900/50">
+                                  <td className="px-3 py-2 font-bold text-cyan-300 whitespace-nowrap">{row.exam || '-'}</td>
+                                  <td className="px-3 py-2 text-neutral-200">{row.rollNo || '-'}</td>
+                                  <td className="px-3 py-2 text-neutral-200">{row.year || '-'}</td>
+                                  <td className="px-3 py-2 text-neutral-200">{row.stream || '-'}</td>
+                                  <td className="px-3 py-2 text-neutral-200">{row.board || '-'}</td>
+                                  <td className="px-3 py-2 text-neutral-200">{row.obtainedMarks || '-'}</td>
+                                  <td className="px-3 py-2 text-neutral-200">{row.maxMarks || '-'}</td>
+                                  <td className="px-3 py-2 text-neutral-200">{row.percentage || '-'}</td>
+                                  <td className="px-3 py-2 text-neutral-200">{row.cgpa || '-'}</td>
+                                  <td className="px-3 py-2 text-emerald-300 font-bold">{row.result || '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       )}
                     </div>
