@@ -68,6 +68,35 @@ type ExtractionPayload = {
   error?: string;
 };
 
+type BatchLog = {
+  at: string;
+  level: 'info' | 'warn' | 'error';
+  message: string;
+  file?: string;
+};
+
+type BatchFileSummary = {
+  file: string;
+  outputFile?: string;
+  totalPages: number;
+  totalRecords: number;
+  rowsSaved: number;
+  status: 'ok' | 'failed';
+  error?: string;
+};
+
+type BatchIngestResponse = {
+  table: string;
+  totalFiles: number;
+  filesProcessed: number;
+  totalRecordsExtracted: number;
+  totalRowsSaved: number;
+  files: BatchFileSummary[];
+  logs: BatchLog[];
+  message?: string;
+  error?: string;
+};
+
 const SOURCE_FILE = 'forms-1styear/mechanical-engineering.pdf';
 
 const FIELD_GROUPS: Array<{
@@ -130,6 +159,9 @@ export default function ExtractionsPage() {
   const [loading, setLoading] = useState(true);
   const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState('');
+  const [ingestError, setIngestError] = useState('');
+  const [ingestingAll, setIngestingAll] = useState(false);
+  const [ingestResult, setIngestResult] = useState<BatchIngestResponse | null>(null);
   const [selectedPage, setSelectedPage] = useState<number>(1);
 
   const loadExisting = useCallback(async () => {
@@ -180,6 +212,25 @@ export default function ExtractionsPage() {
     setExtracting(false);
   };
 
+  const runBatchIngest = async () => {
+    setIngestingAll(true);
+    setIngestError('');
+    try {
+      const res = await fetch('/api/extractions/ingest-all', { method: 'POST' });
+      const json = (await res.json()) as BatchIngestResponse;
+      if (!res.ok || json.error) {
+        setIngestError(json.error || 'Batch ingest failed.');
+        setIngestResult(null);
+      } else {
+        setIngestResult(json);
+      }
+    } catch {
+      setIngestError('Batch ingest failed.');
+      setIngestResult(null);
+    }
+    setIngestingAll(false);
+  };
+
   const selectedRecord = useMemo(() => {
     if (!data?.records?.length) return null;
     return data.records.find(r => r.pageNumber === selectedPage) || data.records[0];
@@ -218,12 +269,25 @@ export default function ExtractionsPage() {
             >
               {extracting ? 'Extracting...' : 'Run Extraction'}
             </button>
+            <button
+              onClick={runBatchIngest}
+              className="h-10 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 text-xs font-black disabled:opacity-60"
+              disabled={ingestingAll}
+            >
+              {ingestingAll ? 'Ingesting All...' : 'Trigger All PDFs -> Save DB'}
+            </button>
           </div>
         </div>
 
         {error && (
           <div className="mb-5 rounded-2xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-300">
             {error}
+          </div>
+        )}
+
+        {ingestError && (
+          <div className="mb-5 rounded-2xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-300">
+            {ingestError}
           </div>
         )}
 
@@ -256,6 +320,66 @@ export default function ExtractionsPage() {
               <p>Saved JSON: {data.outputFile}</p>
               <p className="mt-1">Extracted At: {fmtDate(data.extractedAt)}</p>
             </div>
+
+            {ingestResult && (
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-4">
+                <div>
+                  <h2 className="text-sm font-black text-emerald-300">DB Ingest Summary</h2>
+                  <p className="text-xs font-semibold text-emerald-100/80 mt-1">Target Table: {ingestResult.table}</p>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="rounded-xl border border-emerald-500/30 bg-neutral-900/60 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Total Files</p>
+                    <p className="text-xl font-black text-emerald-300 mt-1">{ingestResult.totalFiles}</p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-500/30 bg-neutral-900/60 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Files Processed</p>
+                    <p className="text-xl font-black text-emerald-300 mt-1">{ingestResult.filesProcessed}</p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-500/30 bg-neutral-900/60 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Extracted Records</p>
+                    <p className="text-xl font-black text-emerald-300 mt-1">{ingestResult.totalRecordsExtracted}</p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-500/30 bg-neutral-900/60 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Rows Saved</p>
+                    <p className="text-xl font-black text-emerald-300 mt-1">{ingestResult.totalRowsSaved}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-emerald-500/30 bg-neutral-900/60 p-3">
+                  <h3 className="text-xs font-black text-neutral-100 mb-2">File Results</h3>
+                  <div className="space-y-2 text-xs">
+                    {ingestResult.files.map((f) => (
+                      <div key={f.file} className="rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-2 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-black text-cyan-300 truncate">{f.file}</p>
+                          <p className="text-neutral-400 mt-0.5">pages: {f.totalPages} • records: {f.totalRecords} • saved: {f.rowsSaved}</p>
+                          {f.error && <p className="text-red-300 mt-1">{f.error}</p>}
+                        </div>
+                        <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded ${f.status === 'ok' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}`}>
+                          {f.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-emerald-500/30 bg-neutral-900/60 p-3">
+                  <h3 className="text-xs font-black text-neutral-100 mb-2">Ingest Logs</h3>
+                  <div className="max-h-[280px] overflow-auto space-y-2 text-xs">
+                    {ingestResult.logs.map((log, idx) => (
+                      <div key={`${log.at}-${idx}`} className="rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-2">
+                        <p className="font-semibold text-neutral-400">{fmtDate(log.at)}</p>
+                        <p className={`${log.level === 'error' ? 'text-red-300' : log.level === 'warn' ? 'text-amber-300' : 'text-emerald-300'} font-bold mt-0.5`}>
+                          {log.file ? `[${log.file}] ` : ''}{log.message}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
               <div className="xl:col-span-2 rounded-2xl border border-neutral-800 bg-neutral-900 p-3 max-h-[520px] overflow-auto">
