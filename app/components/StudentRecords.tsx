@@ -172,7 +172,7 @@ export default function StudentRecords({
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState('');
 
-  const isRollPaid = (rollNo: string) => allAccess || paidRolls.has(rollNo);
+  const isRollPaid = (rollNo: string) => table === '1styearmaster' || allAccess || paidRolls.has(rollNo);
 
   const LIMIT = 20;
 
@@ -538,33 +538,194 @@ export default function StudentRecords({
     }
   };
 
-  const exportCompleteInfo = () => {
-    if (!detail || profileExporting) return;
+  const exportCompleteInfo = async () => {
+    if (!detail || profileExporting || !detail.profile) return;
     setProfileExporting(true);
     try {
-      const payload = {
-        exportedAt: new Date().toISOString(),
-        student: detail.student,
-        summary: detail.summary,
-        internalMarks: detail.papers,
-        allInfoProfile: detail.profile || null,
-        profileMatch: detail.profileMatch || null,
-      };
+      const { jsPDF } = await import('jspdf');
+      const autoTable = (await import('jspdf-autotable')).default;
 
-      const blob = new Blob([JSON.stringify(payload, null, 2)], {
-        type: 'application/json;charset=utf-8',
+      const profile = detail.profile;
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      const pageW = doc.internal.pageSize.getWidth();
+      const margin = 12;
+      let y = 12;
+
+      doc.setFillColor(17, 24, 39);
+      doc.roundedRect(margin, y, pageW - margin * 2, 20, 3, 3, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(255, 255, 255);
+      doc.text('Complete Student Profile', margin + 4, y + 8);
+      doc.setFontSize(8);
+      doc.setTextColor(203, 213, 225);
+      doc.text('Internal Marks + 2528allinfo Data', margin + 4, y + 14);
+      doc.text(new Date().toLocaleString('en-IN'), pageW - margin - 4, y + 14, { align: 'right' });
+      y += 24;
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Student Snapshot', 'Value']],
+        body: [
+          ['Name', valueOrDash(detail.student.student_name)],
+          ['Roll Number', valueOrDash(detail.student.roll_no)],
+          ['Father Name', valueOrDash(detail.student.father_name)],
+          ['Mother Name', valueOrDash(detail.student.mother_name)],
+          ['Branch', valueOrDash(detail.student.branch)],
+          ['Year', valueOrDash(detail.student.year)],
+          ['Total Papers', String(detail.summary.totalPapers)],
+          ['Marks Filled', String(detail.summary.filled)],
+          ['Pending', String(detail.summary.pending)],
+        ],
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2.6, textColor: [31, 41, 55] },
+        headStyles: { fillColor: [249, 115, 22], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+        columnStyles: { 0: { cellWidth: 48, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
       });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${detail.student.roll_no}_${detail.student.student_name.replace(/\s+/g, '_')}_Complete_Info.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+
+      const tableState = doc as unknown as { lastAutoTable?: { finalY: number } };
+      y = (tableState.lastAutoTable?.finalY ?? y) + 4;
+
+      const profileRows: Array<[string, string]> = [
+        ['Applicant Name', valueOrDash(profile.applicant_name)],
+        ['Gender', valueOrDash(profile.gender)],
+        ['Date of Birth', valueOrDash(profile.dob)],
+        ['Student Status', valueOrDash(profile.student_status)],
+        ['Caste', valueOrDash(profile.caste)],
+        ['Category I/II', valueOrDash(profile.category_i_ii)],
+        ['Category III', valueOrDash(profile.category_iii)],
+        ['Specialization Branch', valueOrDash(profile.specialization_branch)],
+        ['Admission Status', valueOrDash(profile.admission_status)],
+        ['Earlier Enrollment No', valueOrDash(profile.earlier_enrollment_no)],
+        ['Mobile Number', valueOrDash(profile.mobile_no)],
+        ['Parent Mobile Number', valueOrDash(profile.parent_mobile_no)],
+        ['Entrance Exam Roll No', valueOrDash(profile.entrance_exam_roll_no)],
+        ['Entrance Exam Name', valueOrDash(profile.entrance_exam_name)],
+        ['Merit Secured', valueOrDash(profile.merit_secured)],
+        ['Email', valueOrDash(profile.email)],
+        ['Has Aadhar Card', valueOrDash(profile.has_aadhar_card)],
+        ['Aadhar Number', valueOrDash(profile.aadhar_no)],
+        ['Educational Qualification', valueOrDash(profile.educational_qualification)],
+        ['College Shift', valueOrDash(profile.college_shift)],
+      ];
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Complete Profile Fields', 'Value']],
+        body: profileRows,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2.4, textColor: [31, 41, 55] },
+        headStyles: { fillColor: [31, 41, 55], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+        columnStyles: { 0: { cellWidth: 52, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
+        alternateRowStyles: { fillColor: [249, 250, 251] },
+      });
+
+      y = (tableState.lastAutoTable?.finalY ?? y) + 4;
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Address Type', 'Address']],
+        body: [
+          ['Permanent Address', valueOrDash(profile.permanent_address)],
+          ['Correspondence Address', valueOrDash(profile.correspondence_address)],
+        ],
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2.6, textColor: [31, 41, 55], valign: 'top' },
+        headStyles: { fillColor: [2, 132, 199], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+        columnStyles: { 0: { cellWidth: 42, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
+      });
+
+      y = (tableState.lastAutoTable?.finalY ?? y) + 4;
+
+      const eduBody = profile.education_rows?.length
+        ? profile.education_rows.map((r) => [
+            valueOrDash(r.exam),
+            valueOrDash(r.rollNo),
+            valueOrDash(r.year),
+            valueOrDash(r.stream),
+            valueOrDash(r.board),
+            valueOrDash(r.obtainedMarks),
+            valueOrDash(r.maxMarks),
+            valueOrDash(r.percentage),
+            valueOrDash(r.cgpa),
+            valueOrDash(r.result),
+          ])
+        : [['\u2014', '\u2014', '\u2014', '\u2014', '\u2014', '\u2014', '\u2014', '\u2014', '\u2014', 'No rows found']];
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Exam', 'Roll', 'Year', 'Stream', 'Board', 'Obt.', 'Max', '%', 'CGPA', 'Result']],
+        body: eduBody,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 7, cellPadding: 2, textColor: [31, 41, 55] },
+        headStyles: { fillColor: [5, 150, 105], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7 },
+      });
+
+      y = (tableState.lastAutoTable?.finalY ?? y) + 4;
+
+      autoTable(doc, {
+        startY: y,
+        head: [['#', 'Paper Name', 'Type', 'Exam Type', 'Marks']],
+        body: detail.papers.map((p, idx) => {
+          const marks = String(p.marks_status || '').trim();
+          const isAbsent = marks.toLowerCase() === 'absent';
+          const isNumeric = !isAbsent && marks !== '' && !isNaN(Number(marks));
+          const full = getFullMarks(p.paper_type, p.paper_name);
+          const display = isAbsent ? 'Absent' : isNumeric && full > 0 ? `${marks}/${full}` : (marks || '\u2014');
+          return [
+            String(idx + 1),
+            valueOrDash(p.paper_name),
+            valueOrDash(p.paper_type),
+            valueOrDash(p.exam_type),
+            display,
+          ];
+        }),
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 7.5, cellPadding: 2.2, textColor: [31, 41, 55] },
+        headStyles: { fillColor: [249, 115, 22], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+        columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 4: { cellWidth: 22, halign: 'center' } },
+      });
+
+      y = (tableState.lastAutoTable?.finalY ?? y) + 4;
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Extraction Metadata', 'Value']],
+        body: [
+          ['Source File', valueOrDash(profile.source_file)],
+          ['Page Number', valueOrDash(profile.page_number)],
+          ['Form Type', valueOrDash(profile.form_type)],
+          ['Session', valueOrDash(profile.session)],
+          ['College', valueOrDash(profile.college)],
+          ['Branch Name', valueOrDash(profile.branch_name)],
+          ['Extracted At', valueOrDash(profile.extracted_at)],
+          ['Match Confidence', valueOrDash(detail.profileMatch?.confidence || '')],
+          ['Match Strategy', valueOrDash(detail.profileMatch?.strategy || '')],
+        ],
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2.4, textColor: [31, 41, 55] },
+        headStyles: { fillColor: [75, 85, 99], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+        columnStyles: { 0: { cellWidth: 45, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
+      });
+
+      const pageCount = doc.getNumberOfPages();
+      for (let p = 1; p <= pageCount; p++) {
+        doc.setPage(p);
+        const pageH = doc.internal.pageSize.getHeight();
+        doc.setDrawColor(229, 231, 235);
+        doc.setLineWidth(0.3);
+        doc.line(margin, pageH - 10, pageW - margin, pageH - 10);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(156, 163, 175);
+        doc.text('JECRC Foundation • Complete profile export', margin, pageH - 5.5);
+        doc.text(`Page ${p} of ${pageCount}`, pageW - margin, pageH - 5.5, { align: 'right' });
+      }
+
+      doc.save(`${detail.student.roll_no}_${detail.student.student_name.replace(/\s+/g, '_')}_Complete_Profile.pdf`);
     } catch (err) {
-      console.error('Complete info export failed', err);
-      alert('Complete info export failed. Please try again.');
+      console.error('Complete info PDF export failed', err);
+      alert('Complete info PDF export failed. Please try again.');
     } finally {
       setProfileExporting(false);
     }
@@ -872,8 +1033,7 @@ export default function StudentRecords({
           {data?.rows.map((row) => (
             <div
               key={row.roll_no}
-              onClick={() => openDetail(row.roll_no)}
-              className="group relative bg-white hover:bg-orange-50/30 border border-neutral-200 hover:border-orange-400 rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:shadow-xl hover:shadow-orange-500/10 hover:-translate-y-1 active:translate-y-0 overflow-hidden"
+              className="group relative bg-white hover:bg-orange-50/30 border border-neutral-200 hover:border-orange-400 rounded-2xl p-5 transition-all duration-300 hover:shadow-xl hover:shadow-orange-500/10 hover:-translate-y-1 overflow-hidden"
             >
               {/* Top accent on hover */}
               <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-orange-400/0 to-transparent group-hover:via-orange-400 transition-all duration-300 rounded-t-2xl" />
@@ -927,22 +1087,23 @@ export default function StudentRecords({
                 </div>
               </div>
 
-              {/* View arrow / lock */}
-              <div className="mt-4 pt-3 border-t border-neutral-100 flex items-center justify-between">
-                <span className="text-[11px] font-black text-neutral-300 uppercase tracking-wider group-hover:text-orange-500 transition-colors duration-200">
+              {/* Card action button */}
+              <div className="mt-4 pt-3 border-t border-neutral-100">
+                <button
+                  onClick={() => openDetail(row.roll_no)}
+                  className={`w-full rounded-xl px-3 py-2.5 text-xs font-black transition-all duration-200 flex items-center justify-center gap-1.5 ${
+                    isRollPaid(row.roll_no)
+                      ? 'bg-orange-500 hover:bg-orange-400 text-white shadow-md shadow-orange-500/30'
+                      : 'bg-neutral-900 hover:bg-neutral-700 text-white'
+                  }`}
+                >
                   {isRollPaid(row.roll_no)
-                    ? (table === '1styearmaster' ? 'Internal Marks + Profile' : 'View Internal Marks')
-                    : 'Unlock to View'}
-                </span>
-                {isRollPaid(row.roll_no) ? (
-                  <svg className="w-4 h-4 text-neutral-300 group-hover:text-orange-500 group-hover:translate-x-1 transition-all duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    ? (table === '1styearmaster' ? 'Open Internal + Complete Info' : 'View Internal Marks')
+                    : 'Unlock & View'}
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/>
                   </svg>
-                ) : (
-                  <svg className="w-4 h-4 text-neutral-300 group-hover:text-orange-500 transition-colors duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
-                  </svg>
-                )}
+                </button>
               </div>
             </div>
           ))}
@@ -1221,7 +1382,7 @@ export default function StudentRecords({
                       onClick={exportCompleteInfo}
                       disabled={profileExporting || !detail.profile}
                       className="flex items-center gap-1.5 bg-neutral-900 hover:bg-neutral-700 active:bg-black disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-extrabold px-2.5 sm:px-3.5 py-2 rounded-xl shadow-md shadow-neutral-900/20 transition-all duration-200 hover:-translate-y-0.5 min-w-[36px] sm:min-w-[132px] justify-center"
-                      title={detail.profile ? 'Download complete marks + profile JSON' : 'No matched profile found in 2528allinfo'}
+                      title={detail.profile ? 'Download complete student profile PDF' : 'No matched profile found in 2528allinfo'}
                     >
                       {profileExporting ? (
                         <>
@@ -1236,7 +1397,7 @@ export default function StudentRecords({
                           <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5v-9m0 9l-3-3m3 3l3-3M4.5 19.5h15" />
                           </svg>
-                          <span className="hidden sm:inline">Export Complete Info</span>
+                          <span className="hidden sm:inline">Export Complete PDF</span>
                         </>
                       )}
                     </button>
@@ -1574,10 +1735,6 @@ export default function StudentRecords({
                             </div>
                           </div>
 
-                          <details className="border border-neutral-200 rounded-xl p-4 bg-white">
-                            <summary className="cursor-pointer text-xs font-black uppercase tracking-widest text-neutral-500">Raw Extracted Text</summary>
-                            <pre className="mt-3 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-neutral-600 font-mono max-h-64 overflow-auto">{valueOrDash(detail.profile.raw_text)}</pre>
-                          </details>
                         </div>
                       )}
                     </>

@@ -194,28 +194,29 @@ async function findBestProfile(student: StudentIdentity) {
 }
 
 export async function GET(req: NextRequest) {
-  // Require payment for this specific roll_no (or a valid all-access plan)
-  const sidCookie = req.cookies.get(SESSION_COOKIE)?.value;
-  const sessionId = sidCookie ? verifySessionToken(sidCookie) : null;
-  const rollNoForCheck = (new URL(req.url).searchParams.get('roll_no') || '').trim();
-
-  if (!sessionId) {
-    return NextResponse.json({ error: 'payment_required' }, { status: 402 });
-  }
-  // Also pass email so prior-session payments (same email) are recognised
-  const { getSessionEmail } = await import('@/lib/session');
-  const email = await getSessionEmail(sessionId).catch(() => null);
-  const accessible = await isRollAccessible(sessionId, rollNoForCheck, email).catch(() => false);
-  if (!accessible) {
-    return NextResponse.json({ error: 'payment_required' }, { status: 402 });
-  }
-
   const { searchParams } = new URL(req.url);
   const rollNo = (searchParams.get('roll_no') || '').trim();
   const rawTable = (searchParams.get('table') || 'jecr_2ndyear').trim();
   const tableName: AllowedTable = ALLOWED_TABLES.includes(rawTable as AllowedTable)
     ? rawTable as AllowedTable
     : 'jecr_2ndyear';
+
+  // Keep 1st-sem complete-profile view open without payment unlock.
+  if (tableName !== '1styearmaster') {
+    const sidCookie = req.cookies.get(SESSION_COOKIE)?.value;
+    const sessionId = sidCookie ? verifySessionToken(sidCookie) : null;
+    if (!sessionId) {
+      return NextResponse.json({ error: 'payment_required' }, { status: 402 });
+    }
+
+    // Also pass email so prior-session payments (same email) are recognised.
+    const { getSessionEmail } = await import('@/lib/session');
+    const email = await getSessionEmail(sessionId).catch(() => null);
+    const accessible = await isRollAccessible(sessionId, rollNo, email).catch(() => false);
+    if (!accessible) {
+      return NextResponse.json({ error: 'payment_required' }, { status: 402 });
+    }
+  }
 
   if (!rollNo) {
     return NextResponse.json({ error: 'roll_no is required' }, { status: 400 });
