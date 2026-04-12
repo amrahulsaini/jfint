@@ -5,13 +5,26 @@ let _transport: nodemailer.Transporter | null = null;
 
 function getTransporter() {
   if (!_transport) {
+    const host = String(process.env.SMTP_HOST || 'smtp.gmail.com').trim();
+    const port = Number(process.env.SMTP_PORT || 587);
+    const secure = String(process.env.SMTP_SECURE || '').trim().toLowerCase() === 'true' || port === 465;
+
+    const user = String(process.env.SMTP_USER || '').trim();
+    let pass = String(process.env.SMTP_PASS || '').trim();
+    // Gmail app password is often copied with spaces like "abcd efgh ...".
+    if (host.includes('gmail.com')) pass = pass.replace(/\s+/g, '');
+
+    if (!user || !pass) {
+      throw new Error('SMTP_USER or SMTP_PASS is missing.');
+    }
+
     _transport = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false, // STARTTLS
+      host,
+      port,
+      secure,
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user,
+        pass,
       },
     });
   }
