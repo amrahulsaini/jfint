@@ -58,6 +58,7 @@ interface StudentDetail {
     score: number;
     candidates: number;
   } | null;
+  profileLoaded?: boolean;
 }
 
 interface ProfileEducationRow {
@@ -156,6 +157,7 @@ export default function StudentRecords({
   const [activeDetailTab, setActiveDetailTab] = useState<'marks' | 'profile'>('marks');
   const [exportGenerating, setExportGenerating] = useState(false);
   const [profileExporting, setProfileExporting] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [pdfExportError, setPdfExportError] = useState('');
 
   // Payment state
@@ -735,10 +737,18 @@ export default function StudentRecords({
     setShowModal(true);
     setActiveDetailTab('marks');
     setProfileExporting(false);
+    setProfileLoading(false);
     setDetailLoading(true);
     setDetail(null);
     try {
-      const res = await fetch(`/api/db/student-detail?roll_no=${encodeURIComponent(rollNo)}&table=${encodeURIComponent(table)}`);
+      const p = new URLSearchParams({
+        roll_no: rollNo,
+        table,
+      });
+      if (table === '1styearmaster') {
+        p.set('include_profile', '0');
+      }
+      const res = await fetch(`/api/db/student-detail?${p.toString()}`);
       if (res.status === 402) {
         // Cookie expired server-side — show payment modal, but don't remove from client state
         setShowModal(false);
@@ -750,10 +760,54 @@ export default function StudentRecords({
         return;
       }
       const json = await res.json();
-      if (!json.error) setDetail(json);
+      if (!json.error) {
+        setDetail({ ...json, profileLoaded: Boolean(json.profileLoaded) });
+      }
     } catch { /* noop */ }
     setDetailLoading(false);
   };
+
+  useEffect(() => {
+    if (!showModal || table !== '1styearmaster' || activeDetailTab !== 'profile') return;
+    if (!detail?.student?.roll_no || detail.profileLoaded || profileLoading) return;
+
+    let cancelled = false;
+    const loadProfile = async () => {
+      setProfileLoading(true);
+      try {
+        const p = new URLSearchParams({
+          roll_no: detail.student.roll_no,
+          table,
+          include_profile: '1',
+        });
+        const res = await fetch(`/api/db/student-detail?${p.toString()}`);
+        const json = await res.json();
+        if (!cancelled) {
+          if (!json.error) {
+            setDetail(prev => prev ? {
+              ...prev,
+              profile: json.profile ?? null,
+              profileMatch: json.profileMatch ?? null,
+              profileLoaded: true,
+            } : prev);
+          } else {
+            setDetail(prev => prev ? { ...prev, profileLoaded: true } : prev);
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setDetail(prev => prev ? { ...prev, profileLoaded: true } : prev);
+        }
+      } finally {
+        if (!cancelled) setProfileLoading(false);
+      }
+    };
+
+    loadProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, [showModal, table, activeDetailTab, detail?.student?.roll_no, detail?.profileLoaded, profileLoading]);
 
   const openDetail = (rollNo: string) => {
     if (!isRollPaid(rollNo)) {
@@ -1599,7 +1653,13 @@ export default function StudentRecords({
                     </>
                   ) : (
                     <>
-                      {!detail.profile ? (
+                      {profileLoading || !detail.profileLoaded ? (
+                        <div className="border border-neutral-200 bg-neutral-50 rounded-2xl p-6 text-center">
+                          <div className="w-7 h-7 border-2 border-neutral-300 border-t-neutral-800 rounded-full animate-spin mx-auto mb-3" />
+                          <div className="text-sm font-extrabold text-neutral-700">Loading complete profile…</div>
+                          <div className="text-xs font-semibold text-neutral-500 mt-1">Fetching data from 2528allinfo for this student.</div>
+                        </div>
+                      ) : !detail.profile ? (
                         <div className="border border-neutral-200 bg-neutral-50 rounded-2xl p-6 text-center">
                           <div className="text-sm font-extrabold text-neutral-700">No matched record found in 2528allinfo.</div>
                           <div className="text-xs font-semibold text-neutral-500 mt-1">Run extraction ingest for missing branches, then reopen this student.</div>

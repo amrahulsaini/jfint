@@ -114,19 +114,32 @@ function scoreCandidate(row: Record<string, unknown>, student: StudentIdentity):
 
 async function findBestProfile(student: StudentIdentity) {
   const pool = getPool();
+  const rollNo = String(student.roll_no || '').trim();
+  const rollCompact = rollNo.replace(/\s+/g, '');
+  const rollCandidates = Array.from(new Set([rollNo, rollCompact].filter(Boolean)));
+  const nameA = String(student.student_name || '').trim();
+  const nameB = nameA.replace(/\s+/g, ' ');
+  const fatherA = String(student.father_name || '').trim();
+  const fatherB = fatherA.replace(/\s+/g, ' ');
+  const applicantCandidates = Array.from(new Set([nameA, nameB].filter(Boolean)));
+  const fatherCandidates = Array.from(new Set([fatherA, fatherB].filter(Boolean)));
 
   try {
-    const [directRowsRaw] = await pool.query(
-      `SELECT *
-       FROM \`${ALL_INFO_TABLE}\`
-       WHERE TRIM(\`earlier_enrollment_no\`) = ?
-          OR TRIM(\`entrance_exam_roll_no\`) = ?
-       ORDER BY \`updated_at\` DESC
-       LIMIT 5`,
-      [student.roll_no, student.roll_no],
-    );
+    let directRows: Record<string, unknown>[] = [];
+    if (rollCandidates.length > 0) {
+      const placeholders = rollCandidates.map(() => '?').join(', ');
+      const [directRowsRaw] = await pool.query(
+        `SELECT *
+         FROM \`${ALL_INFO_TABLE}\`
+         WHERE \`earlier_enrollment_no\` IN (${placeholders})
+            OR \`entrance_exam_roll_no\` IN (${placeholders})
+         ORDER BY \`updated_at\` DESC
+         LIMIT 5`,
+        [...rollCandidates, ...rollCandidates],
+      );
+      directRows = directRowsRaw as Record<string, unknown>[];
+    }
 
-    const directRows = directRowsRaw as Record<string, unknown>[];
     if (directRows.length > 0) {
       return {
         profile: toProfilePayload(directRows[0]),
@@ -139,14 +152,24 @@ async function findBestProfile(student: StudentIdentity) {
       };
     }
 
+    if (applicantCandidates.length === 0 && fatherCandidates.length === 0) {
+      return { profile: null, profileMatch: null };
+    }
+
+    const applicantWhere = applicantCandidates.length > 0
+      ? `\`applicant_name\` IN (${applicantCandidates.map(() => '?').join(', ')})`
+      : '';
+    const fatherWhere = fatherCandidates.length > 0
+      ? `\`father_name\` IN (${fatherCandidates.map(() => '?').join(', ')})`
+      : '';
+    const whereClauses = [applicantWhere, fatherWhere].filter(Boolean).join(' OR ');
     const [nameRowsRaw] = await pool.query(
       `SELECT *
        FROM \`${ALL_INFO_TABLE}\`
-       WHERE UPPER(REPLACE(\`applicant_name\`, ' ', '')) = UPPER(REPLACE(?, ' ', ''))
-          OR UPPER(REPLACE(\`father_name\`, ' ', '')) = UPPER(REPLACE(?, ' ', ''))
+       WHERE ${whereClauses}
        ORDER BY \`updated_at\` DESC
        LIMIT 30`,
-      [student.student_name, student.father_name],
+      [...applicantCandidates, ...fatherCandidates],
     );
 
     const nameRows = nameRowsRaw as Record<string, unknown>[];
@@ -196,6 +219,7 @@ async function findBestProfile(student: StudentIdentity) {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const rollNo = (searchParams.get('roll_no') || '').trim();
+  const includeProfile = ['1', 'true', 'yes'].includes((searchParams.get('include_profile') || '').toLowerCase());
   const rawTable = (searchParams.get('table') || 'jecr_2ndyear').trim();
   const tableName: AllowedTable = ALLOWED_TABLES.includes(rawTable as AllowedTable)
     ? rawTable as AllowedTable
@@ -275,7 +299,13 @@ export async function GET(req: NextRequest) {
         }).length,
       };
 
-      const { profile, profileMatch } = await findBestProfile(student);
+      let profile: ReturnType<typeof toProfilePayload> | null = null;
+      let profileMatch: ProfileMatchMeta | null = null;
+      if (includeProfile) {
+        const matched = await findBestProfile(student);
+        profile = matched.profile;
+        profileMatch = matched.profileMatch;
+      }
 
       return NextResponse.json({
         student,
@@ -283,6 +313,7 @@ export async function GET(req: NextRequest) {
         summary,
         profile,
         profileMatch,
+        profileLoaded: includeProfile,
       });
     }
 
@@ -331,7 +362,7 @@ export async function GET(req: NextRequest) {
       }).length,
     };
 
-    return NextResponse.json({ student, papers, summary });
+    return NextResponse.json({ student, papers, summary, profileLoaded: false });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Database error';
     return NextResponse.json({ error: message }, { status: 500 });
