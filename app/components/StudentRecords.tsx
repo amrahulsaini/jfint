@@ -51,6 +51,65 @@ interface StudentDetail {
   };
   papers: PaperDetail[];
   summary: { totalPapers: number; filled: number; pending: number };
+  profile?: StudentProfile | null;
+  profileMatch?: {
+    confidence: 'high' | 'medium' | 'low';
+    strategy: string;
+    score: number;
+    candidates: number;
+  } | null;
+}
+
+interface ProfileEducationRow {
+  exam?: string;
+  rollNo?: string;
+  year?: string;
+  stream?: string;
+  board?: string;
+  obtainedMarks?: string;
+  maxMarks?: string;
+  percentage?: string;
+  cgpa?: string;
+  result?: string;
+}
+
+interface StudentProfile {
+  id: number | null;
+  source_file: string;
+  page_number: number;
+  form_type: string;
+  session: string;
+  college: string;
+  branch_name: string;
+  applicant_name: string;
+  father_name: string;
+  mother_name: string;
+  gender: string;
+  dob: string;
+  student_status: string;
+  caste: string;
+  category_i_ii: string;
+  category_iii: string;
+  specialization_branch: string;
+  admission_status: string;
+  earlier_enrollment_no: string;
+  permanent_address: string;
+  correspondence_address: string;
+  mobile_no: string;
+  parent_mobile_no: string;
+  entrance_exam_roll_no: string;
+  entrance_exam_name: string;
+  merit_secured: string;
+  email: string;
+  has_aadhar_card: string;
+  aadhar_no: string;
+  educational_qualification: string;
+  college_shift: string;
+  education_rows: ProfileEducationRow[];
+  raw_text: string;
+  extracted_at: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /* ── helpers ────────────────────────────────────────────── */
@@ -94,7 +153,9 @@ export default function StudentRecords({
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [activeDetailTab, setActiveDetailTab] = useState<'marks' | 'profile'>('marks');
   const [exportGenerating, setExportGenerating] = useState(false);
+  const [profileExporting, setProfileExporting] = useState(false);
   const [pdfExportError, setPdfExportError] = useState('');
 
   // Payment state
@@ -161,6 +222,11 @@ export default function StudentRecords({
   }, []);
 
   const handleSearch = (e: React.FormEvent) => { e.preventDefault(); setPage(1); setSearch(searchInput); };
+
+  const valueOrDash = (value?: string | number | null) => {
+    const text = String(value ?? '').trim();
+    return text || '\u2014';
+  };
 
   const exportStudentPDF = async (pdfOpenPassword?: string | null) => {
     if (!detail || exportGenerating) return;
@@ -472,8 +538,42 @@ export default function StudentRecords({
     }
   };
 
+  const exportCompleteInfo = () => {
+    if (!detail || profileExporting) return;
+    setProfileExporting(true);
+    try {
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        student: detail.student,
+        summary: detail.summary,
+        internalMarks: detail.papers,
+        allInfoProfile: detail.profile || null,
+        profileMatch: detail.profileMatch || null,
+      };
+
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: 'application/json;charset=utf-8',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${detail.student.roll_no}_${detail.student.student_name.replace(/\s+/g, '_')}_Complete_Info.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Complete info export failed', err);
+      alert('Complete info export failed. Please try again.');
+    } finally {
+      setProfileExporting(false);
+    }
+  };
+
   const openDetailDirect = async (rollNo: string) => {
     setShowModal(true);
+    setActiveDetailTab('marks');
+    setProfileExporting(false);
     setDetailLoading(true);
     setDetail(null);
     try {
@@ -830,7 +930,9 @@ export default function StudentRecords({
               {/* View arrow / lock */}
               <div className="mt-4 pt-3 border-t border-neutral-100 flex items-center justify-between">
                 <span className="text-[11px] font-black text-neutral-300 uppercase tracking-wider group-hover:text-orange-500 transition-colors duration-200">
-                  {isRollPaid(row.roll_no) ? 'View Details' : 'Unlock to View'}
+                  {isRollPaid(row.roll_no)
+                    ? (table === '1styearmaster' ? 'Internal Marks + Profile' : 'View Internal Marks')
+                    : 'Unlock to View'}
                 </span>
                 {isRollPaid(row.roll_no) ? (
                   <svg className="w-4 h-4 text-neutral-300 group-hover:text-orange-500 group-hover:translate-x-1 transition-all duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -987,8 +1089,8 @@ export default function StudentRecords({
               {/* Selected plan features */}
               <ul className="text-left space-y-1.5 mb-5">
                 {(selectedPlan === 'single' ? [
-                  'View marks for this student',
-                  'Export result to PDF',
+                  'View internal marks for this student',
+                  'Access complete profile (1st sem)',
                   'Access valid until browser closes',
                 ] : [
                   'Unlimited student results for 2 hours',
@@ -1076,7 +1178,7 @@ export default function StudentRecords({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)} />
 
-          <div className="relative bg-white rounded-2xl sm:rounded-3xl w-full max-w-2xl max-h-[92vh] sm:max-h-[90vh] overflow-hidden shadow-2xl shadow-black/20 border border-neutral-200">
+          <div className={`relative bg-white rounded-2xl sm:rounded-3xl w-full ${activeDetailTab === 'profile' ? 'max-w-5xl' : 'max-w-2xl'} max-h-[92vh] sm:max-h-[90vh] overflow-hidden shadow-2xl shadow-black/20 border border-neutral-200`}>
 
             {/* Header */}
             <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100 bg-gradient-to-r from-orange-50 to-white">
@@ -1091,28 +1193,54 @@ export default function StudentRecords({
               </div>
               <div className="flex items-center gap-2">
                 {detail && (
-                  <button
-                    onClick={requestPdfExport}
-                    disabled={exportGenerating}
-                    className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-400 active:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-extrabold px-2.5 sm:px-3.5 py-2 rounded-xl shadow-md shadow-orange-500/30 hover:shadow-orange-500/50 transition-all duration-200 hover:-translate-y-0.5 min-w-[36px] sm:min-w-[110px] justify-center"
-                  >
-                    {exportGenerating ? (
-                      <>
-                        <svg className="w-3.5 h-3.5 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                        </svg>
-                        <span className="hidden sm:inline">Preparing…</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                        </svg>
-                        <span className="hidden sm:inline">Export PDF</span>
-                      </>
-                    )}
-                  </button>
+                  <>
+                    <button
+                      onClick={requestPdfExport}
+                      disabled={exportGenerating}
+                      className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-400 active:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-extrabold px-2.5 sm:px-3.5 py-2 rounded-xl shadow-md shadow-orange-500/30 hover:shadow-orange-500/50 transition-all duration-200 hover:-translate-y-0.5 min-w-[36px] sm:min-w-[132px] justify-center"
+                    >
+                      {exportGenerating ? (
+                        <>
+                          <svg className="w-3.5 h-3.5 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                          </svg>
+                          <span className="hidden sm:inline">Preparing…</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                          </svg>
+                          <span className="hidden sm:inline">Export Internal PDF</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={exportCompleteInfo}
+                      disabled={profileExporting || !detail.profile}
+                      className="flex items-center gap-1.5 bg-neutral-900 hover:bg-neutral-700 active:bg-black disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-extrabold px-2.5 sm:px-3.5 py-2 rounded-xl shadow-md shadow-neutral-900/20 transition-all duration-200 hover:-translate-y-0.5 min-w-[36px] sm:min-w-[132px] justify-center"
+                      title={detail.profile ? 'Download complete marks + profile JSON' : 'No matched profile found in 2528allinfo'}
+                    >
+                      {profileExporting ? (
+                        <>
+                          <svg className="w-3.5 h-3.5 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                          </svg>
+                          <span className="hidden sm:inline">Preparing…</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5v-9m0 9l-3-3m3 3l3-3M4.5 19.5h15" />
+                          </svg>
+                          <span className="hidden sm:inline">Export Complete Info</span>
+                        </>
+                      )}
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={() => setShowModal(false)}
@@ -1183,96 +1311,277 @@ export default function StudentRecords({
                     </div>
                   </div>
 
-                  {/* Summary */}
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                    <div className="bg-neutral-50 border border-neutral-200 rounded-xl sm:rounded-2xl px-2 sm:px-4 py-3 sm:py-3.5 text-center">
-                      <div className="text-2xl sm:text-3xl font-extrabold text-neutral-900">{detail.summary.totalPapers}</div>
-                      <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-neutral-400 mt-1">Total Papers</div>
-                    </div>
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl sm:rounded-2xl px-2 sm:px-4 py-3 sm:py-3.5 text-center">
-                      <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600">{detail.summary.filled}</div>
-                      <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-emerald-500 mt-1">Marks Filled</div>
-                    </div>
-                    <div className="bg-orange-50 border border-orange-200 rounded-xl sm:rounded-2xl px-2 sm:px-4 py-3 sm:py-3.5 text-center">
-                      <div className="text-2xl sm:text-3xl font-extrabold text-orange-600">{detail.summary.pending}</div>
-                      <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-orange-400 mt-1">Pending</div>
-                    </div>
+                  {/* Highlighted mode switch */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setActiveDetailTab('marks')}
+                      className={`rounded-xl px-4 py-2.5 text-left border transition-all duration-200 ${
+                        activeDetailTab === 'marks'
+                          ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/30'
+                          : 'bg-white text-neutral-600 border-neutral-200 hover:border-orange-300'
+                      }`}
+                    >
+                      <div className={`text-[10px] font-black uppercase tracking-widest ${activeDetailTab === 'marks' ? 'text-orange-100' : 'text-neutral-400'}`}>
+                        Highlighted View
+                      </div>
+                      <div className="text-sm font-extrabold">Internal Marks</div>
+                    </button>
+                    {(table === '1styearmaster' || detail.profile) && (
+                      <button
+                        onClick={() => setActiveDetailTab('profile')}
+                        className={`rounded-xl px-4 py-2.5 text-left border transition-all duration-200 ${
+                          activeDetailTab === 'profile'
+                            ? 'bg-neutral-900 text-white border-neutral-900 shadow-lg shadow-neutral-900/20'
+                            : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400'
+                        }`}
+                      >
+                        <div className={`text-[10px] font-black uppercase tracking-widest ${activeDetailTab === 'profile' ? 'text-neutral-300' : 'text-neutral-400'}`}>
+                          2528allinfo
+                        </div>
+                        <div className="text-sm font-extrabold">Complete User Profile</div>
+                      </button>
+                    )}
                   </div>
 
-                  {/* Disclaimer */}
-                  <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
-                    <div className="flex items-center gap-2 mb-2.5">
-                      <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                      </svg>
-                      <span className="text-xs font-extrabold uppercase tracking-widest text-amber-700">Marks Scheme</span>
-                    </div>
-                    <ul className="space-y-1.5">
-                      {[
-                        { label: 'Mid Term', max: '/ 30', color: 'text-blue-600', bg: 'bg-blue-100' },
-                        { label: 'Sessional', max: '/ 60', color: 'text-emerald-600', bg: 'bg-emerald-100' },
-                        { label: 'Practical (regular)', max: '/ 40', color: 'text-purple-600', bg: 'bg-purple-100' },
-                        { label: 'Practical (FEC papers)', max: '/ 100', color: 'text-orange-600', bg: 'bg-orange-100' },
-                      ].map(item => (
-                        <li key={item.label} className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
-                            <span className="text-xs font-semibold text-amber-800">{item.label}</span>
-                          </div>
-                          <span className={`${item.color} ${item.bg} text-xs font-extrabold px-2.5 py-0.5 rounded-lg flex-shrink-0 tabular-nums`}>{item.max}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                  {activeDetailTab === 'marks' ? (
+                    <>
+                      {/* Summary */}
+                      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                        <div className="bg-neutral-50 border border-neutral-200 rounded-xl sm:rounded-2xl px-2 sm:px-4 py-3 sm:py-3.5 text-center">
+                          <div className="text-2xl sm:text-3xl font-extrabold text-neutral-900">{detail.summary.totalPapers}</div>
+                          <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-neutral-400 mt-1">Total Papers</div>
+                        </div>
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl sm:rounded-2xl px-2 sm:px-4 py-3 sm:py-3.5 text-center">
+                          <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600">{detail.summary.filled}</div>
+                          <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-emerald-500 mt-1">Marks Filled</div>
+                        </div>
+                        <div className="bg-orange-50 border border-orange-200 rounded-xl sm:rounded-2xl px-2 sm:px-4 py-3 sm:py-3.5 text-center">
+                          <div className="text-2xl sm:text-3xl font-extrabold text-orange-600">{detail.summary.pending}</div>
+                          <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-orange-400 mt-1">Pending</div>
+                        </div>
+                      </div>
 
-                  {/* Papers table */}
-                  <div className="border border-neutral-200 rounded-2xl overflow-hidden">
-                    <div className="px-5 py-3 border-b border-neutral-100 bg-gradient-to-r from-neutral-50 to-white flex items-center justify-between">
-                      <h5 className="text-xs font-extrabold text-neutral-500 uppercase tracking-widest">Paper-wise Marks</h5>
-                      <span className="text-xs font-bold text-neutral-400">{detail.papers.length} papers</span>
-                    </div>
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-neutral-50 border-b border-neutral-200">
-                          <th className="px-3 py-2.5 text-left text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest w-7">#</th>
-                          <th className="px-3 py-2.5 text-left text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest">Paper</th>
-                          <th className="px-3 py-2.5 text-right text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest whitespace-nowrap">Marks</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {detail.papers.map((p, i) => {
-                          const mv = (p.marks_status || '').trim();
-                          const isAbsent = mv.toLowerCase() === 'absent';
-                          const isNumeric = !isAbsent && mv !== '' && !isNaN(Number(mv));
-                          const full = getFullMarks(p.paper_type, p.paper_name);
-                          return (
-                            <tr key={i} className="border-b border-neutral-100 last:border-b-0 hover:bg-orange-50/40 transition-colors duration-150">
-                              <td className="px-3 py-3 text-neutral-400 font-bold text-xs align-top pt-3.5">{i + 1}</td>
-                              <td className="px-3 py-3">
-                                <div className="text-neutral-800 text-xs font-semibold leading-snug">{p.paper_name}</div>
-                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                  <span className="inline-block bg-neutral-100 border border-neutral-200 rounded-md px-1.5 py-0.5 text-[10px] text-neutral-500 font-bold">{p.paper_type}</span>
-                                  {p.exam_type && <span className="inline-block bg-neutral-50 border border-neutral-200 rounded-md px-1.5 py-0.5 text-[10px] text-neutral-400 font-semibold">{p.exam_type}</span>}
-                                </div>
-                              </td>
-                              <td className="px-3 py-3 text-right align-top pt-3.5">
-                                {isAbsent ? (
-                                  <span className="text-red-600 font-extrabold text-xs">Absent</span>
-                                ) : isNumeric && full > 0 ? (
-                                  <span className="font-extrabold text-xs tabular-nums">
-                                    <span className="text-neutral-900">{mv}</span>
-                                    <span className="text-neutral-400 font-bold">/{full}</span>
-                                  </span>
-                                ) : (
-                                  <span className="text-neutral-400 text-xs font-semibold">{mv || '—'}</span>
-                                )}
-                              </td>
+                      {/* Disclaimer */}
+                      <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
+                        <div className="flex items-center gap-2 mb-2.5">
+                          <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                          </svg>
+                          <span className="text-xs font-extrabold uppercase tracking-widest text-amber-700">Marks Scheme</span>
+                        </div>
+                        <ul className="space-y-1.5">
+                          {[
+                            { label: 'Mid Term', max: '/ 30', color: 'text-blue-600', bg: 'bg-blue-100' },
+                            { label: 'Sessional', max: '/ 60', color: 'text-emerald-600', bg: 'bg-emerald-100' },
+                            { label: 'Practical (regular)', max: '/ 40', color: 'text-purple-600', bg: 'bg-purple-100' },
+                            { label: 'Practical (FEC papers)', max: '/ 100', color: 'text-orange-600', bg: 'bg-orange-100' },
+                          ].map(item => (
+                            <li key={item.label} className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+                                <span className="text-xs font-semibold text-amber-800">{item.label}</span>
+                              </div>
+                              <span className={`${item.color} ${item.bg} text-xs font-extrabold px-2.5 py-0.5 rounded-lg flex-shrink-0 tabular-nums`}>{item.max}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Papers table */}
+                      <div className="border border-neutral-200 rounded-2xl overflow-hidden">
+                        <div className="px-5 py-3 border-b border-neutral-100 bg-gradient-to-r from-neutral-50 to-white flex items-center justify-between">
+                          <h5 className="text-xs font-extrabold text-neutral-500 uppercase tracking-widest">Paper-wise Internal Marks</h5>
+                          <span className="text-xs font-bold text-neutral-400">{detail.papers.length} papers</span>
+                        </div>
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-neutral-50 border-b border-neutral-200">
+                              <th className="px-3 py-2.5 text-left text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest w-7">#</th>
+                              <th className="px-3 py-2.5 text-left text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest">Paper</th>
+                              <th className="px-3 py-2.5 text-right text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest whitespace-nowrap">Marks</th>
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                          </thead>
+                          <tbody>
+                            {detail.papers.map((p, i) => {
+                              const mv = (p.marks_status || '').trim();
+                              const isAbsent = mv.toLowerCase() === 'absent';
+                              const isNumeric = !isAbsent && mv !== '' && !isNaN(Number(mv));
+                              const full = getFullMarks(p.paper_type, p.paper_name);
+                              return (
+                                <tr key={i} className="border-b border-neutral-100 last:border-b-0 hover:bg-orange-50/40 transition-colors duration-150">
+                                  <td className="px-3 py-3 text-neutral-400 font-bold text-xs align-top pt-3.5">{i + 1}</td>
+                                  <td className="px-3 py-3">
+                                    <div className="text-neutral-800 text-xs font-semibold leading-snug">{p.paper_name}</div>
+                                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                      <span className="inline-block bg-neutral-100 border border-neutral-200 rounded-md px-1.5 py-0.5 text-[10px] text-neutral-500 font-bold">{p.paper_type}</span>
+                                      {p.exam_type && <span className="inline-block bg-neutral-50 border border-neutral-200 rounded-md px-1.5 py-0.5 text-[10px] text-neutral-400 font-semibold">{p.exam_type}</span>}
+                                    </div>
+                                  </td>
+                                  <td className="px-3 py-3 text-right align-top pt-3.5">
+                                    {isAbsent ? (
+                                      <span className="text-red-600 font-extrabold text-xs">Absent</span>
+                                    ) : isNumeric && full > 0 ? (
+                                      <span className="font-extrabold text-xs tabular-nums">
+                                        <span className="text-neutral-900">{mv}</span>
+                                        <span className="text-neutral-400 font-bold">/{full}</span>
+                                      </span>
+                                    ) : (
+                                      <span className="text-neutral-400 text-xs font-semibold">{mv || '—'}</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {!detail.profile ? (
+                        <div className="border border-neutral-200 bg-neutral-50 rounded-2xl p-6 text-center">
+                          <div className="text-sm font-extrabold text-neutral-700">No matched record found in 2528allinfo.</div>
+                          <div className="text-xs font-semibold text-neutral-500 mt-1">Run extraction ingest for missing branches, then reopen this student.</div>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 rounded-2xl p-4 text-white border border-neutral-700 shadow-xl shadow-neutral-900/20">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-300">2528allinfo Profile</div>
+                                <h5 className="text-lg font-extrabold mt-1">{valueOrDash(detail.profile.applicant_name)}</h5>
+                                <p className="text-xs font-semibold text-neutral-300 mt-1">{valueOrDash(detail.profile.email)} · {valueOrDash(detail.profile.mobile_no)}</p>
+                              </div>
+                              {detail.profileMatch && (
+                                <span className={`text-[10px] px-2.5 py-1 rounded-full font-black uppercase tracking-wider border ${
+                                  detail.profileMatch.confidence === 'high'
+                                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
+                                    : detail.profileMatch.confidence === 'medium'
+                                      ? 'bg-amber-500/20 text-amber-300 border-amber-400/40'
+                                      : 'bg-orange-500/20 text-orange-300 border-orange-400/40'
+                                }`}>
+                                  Match {detail.profileMatch.confidence}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {[
+                              { l: 'Applicant Name', v: detail.profile.applicant_name },
+                              { l: 'Father Name', v: detail.profile.father_name },
+                              { l: 'Mother Name', v: detail.profile.mother_name },
+                              { l: 'Gender', v: detail.profile.gender },
+                              { l: 'DOB', v: detail.profile.dob },
+                              { l: 'Student Status', v: detail.profile.student_status },
+                              { l: 'Caste', v: detail.profile.caste },
+                              { l: 'Category I/II', v: detail.profile.category_i_ii },
+                              { l: 'Category III', v: detail.profile.category_iii },
+                              { l: 'Specialization Branch', v: detail.profile.specialization_branch },
+                              { l: 'Admission Status', v: detail.profile.admission_status },
+                              { l: 'Earlier Enrollment No', v: detail.profile.earlier_enrollment_no },
+                              { l: 'Mobile No', v: detail.profile.mobile_no },
+                              { l: 'Parent Mobile No', v: detail.profile.parent_mobile_no },
+                              { l: 'Entrance Exam Roll No', v: detail.profile.entrance_exam_roll_no },
+                              { l: 'Entrance Exam Name', v: detail.profile.entrance_exam_name },
+                              { l: 'Merit Secured', v: detail.profile.merit_secured },
+                              { l: 'Email', v: detail.profile.email },
+                              { l: 'Has Aadhar Card', v: detail.profile.has_aadhar_card },
+                              { l: 'Aadhar No', v: detail.profile.aadhar_no },
+                              { l: 'Educational Qualification', v: detail.profile.educational_qualification },
+                              { l: 'College Shift', v: detail.profile.college_shift },
+                            ].map(item => (
+                              <div key={item.l} className="bg-white border border-neutral-200 rounded-xl p-3.5">
+                                <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">{item.l}</div>
+                                <div className="text-sm font-bold text-neutral-800 mt-1 break-words">{valueOrDash(item.v)}</div>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="border border-orange-200 bg-orange-50 rounded-xl p-4">
+                              <div className="text-[10px] font-black uppercase tracking-widest text-orange-500">Permanent Address</div>
+                              <p className="text-sm font-semibold text-orange-900 mt-2 leading-relaxed break-words">{valueOrDash(detail.profile.permanent_address)}</p>
+                            </div>
+                            <div className="border border-sky-200 bg-sky-50 rounded-xl p-4">
+                              <div className="text-[10px] font-black uppercase tracking-widest text-sky-600">Correspondence Address</div>
+                              <p className="text-sm font-semibold text-sky-900 mt-2 leading-relaxed break-words">{valueOrDash(detail.profile.correspondence_address)}</p>
+                            </div>
+                          </div>
+
+                          <div className="border border-neutral-200 rounded-2xl overflow-hidden">
+                            <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between gap-2">
+                              <h5 className="text-xs font-extrabold uppercase tracking-widest text-neutral-500">Education Details</h5>
+                              <span className="text-xs font-bold text-neutral-400">{detail.profile.education_rows?.length || 0} rows</span>
+                            </div>
+                            {detail.profile.education_rows && detail.profile.education_rows.length > 0 ? (
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-xs min-w-[700px]">
+                                  <thead>
+                                    <tr className="bg-neutral-50 border-b border-neutral-200">
+                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">Exam</th>
+                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">Roll</th>
+                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">Year</th>
+                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">Stream</th>
+                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">Board</th>
+                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">Obt.</th>
+                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">Max</th>
+                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">%</th>
+                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">CGPA</th>
+                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">Result</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {detail.profile.education_rows.map((row, idx) => (
+                                      <tr key={idx} className="border-b border-neutral-100 last:border-b-0">
+                                        <td className="px-3 py-2 font-semibold text-neutral-700">{valueOrDash(row.exam)}</td>
+                                        <td className="px-3 py-2 text-neutral-600">{valueOrDash(row.rollNo)}</td>
+                                        <td className="px-3 py-2 text-neutral-600">{valueOrDash(row.year)}</td>
+                                        <td className="px-3 py-2 text-neutral-600">{valueOrDash(row.stream)}</td>
+                                        <td className="px-3 py-2 text-neutral-600">{valueOrDash(row.board)}</td>
+                                        <td className="px-3 py-2 text-neutral-600">{valueOrDash(row.obtainedMarks)}</td>
+                                        <td className="px-3 py-2 text-neutral-600">{valueOrDash(row.maxMarks)}</td>
+                                        <td className="px-3 py-2 text-neutral-600">{valueOrDash(row.percentage)}</td>
+                                        <td className="px-3 py-2 text-neutral-600">{valueOrDash(row.cgpa)}</td>
+                                        <td className="px-3 py-2 text-neutral-600">{valueOrDash(row.result)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <div className="px-4 py-4 text-sm text-neutral-500 font-semibold">Education rows were not detected in this extracted form.</div>
+                            )}
+                          </div>
+
+                          <div className="border border-neutral-200 rounded-xl p-4 bg-neutral-50">
+                            <div className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2">Extraction Metadata</div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                              {[
+                                { l: 'Source File', v: detail.profile.source_file },
+                                { l: 'Page Number', v: detail.profile.page_number },
+                                { l: 'Form Type', v: detail.profile.form_type },
+                                { l: 'Session', v: detail.profile.session },
+                                { l: 'College', v: detail.profile.college },
+                                { l: 'Branch Name', v: detail.profile.branch_name },
+                                { l: 'Extracted At', v: detail.profile.extracted_at },
+                              ].map(item => (
+                                <div key={item.l} className="rounded-lg border border-neutral-200 bg-white p-2.5">
+                                  <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">{item.l}</div>
+                                  <div className="font-semibold text-neutral-700 mt-1 break-words">{valueOrDash(item.v)}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <details className="border border-neutral-200 rounded-xl p-4 bg-white">
+                            <summary className="cursor-pointer text-xs font-black uppercase tracking-widest text-neutral-500">Raw Extracted Text</summary>
+                            <pre className="mt-3 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-neutral-600 font-mono max-h-64 overflow-auto">{valueOrDash(detail.profile.raw_text)}</pre>
+                          </details>
+                        </div>
+                      )}
+                    </>
+                  )}
 
                 </div>
               )}

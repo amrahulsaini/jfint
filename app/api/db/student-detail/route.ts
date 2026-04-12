@@ -5,6 +5,193 @@ import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
 
 const ALLOWED_TABLES = ['jecr_2ndyear', '1styearmaster'] as const;
 type AllowedTable = typeof ALLOWED_TABLES[number];
+const ALL_INFO_TABLE = '2528allinfo';
+
+type StudentIdentity = {
+  roll_no: string;
+  student_name: string;
+  father_name: string;
+  mother_name: string;
+  branch: string;
+  year: string;
+};
+
+type ProfileMatchMeta = {
+  confidence: 'high' | 'medium' | 'low';
+  strategy: string;
+  score: number;
+  candidates: number;
+};
+
+function normalizeCompact(value: unknown): string {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function toIso(value: unknown): string {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const dt = new Date(raw);
+  if (Number.isNaN(dt.getTime())) return raw;
+  return dt.toISOString();
+}
+
+function parseEducationRows(raw: unknown): Record<string, unknown>[] {
+  if (!raw) return [];
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function toProfilePayload(row: Record<string, unknown>) {
+  return {
+    id: row.id ?? null,
+    source_file: String(row.source_file || ''),
+    page_number: Number(row.page_number || 0),
+    form_type: String(row.form_type || ''),
+    session: String(row.session || ''),
+    college: String(row.college || ''),
+    branch_name: String(row.branch_name || ''),
+    applicant_name: String(row.applicant_name || ''),
+    father_name: String(row.father_name || ''),
+    mother_name: String(row.mother_name || ''),
+    gender: String(row.gender || ''),
+    dob: String(row.dob || ''),
+    student_status: String(row.student_status || ''),
+    caste: String(row.caste || ''),
+    category_i_ii: String(row.category_i_ii || ''),
+    category_iii: String(row.category_iii || ''),
+    specialization_branch: String(row.specialization_branch || ''),
+    admission_status: String(row.admission_status || ''),
+    earlier_enrollment_no: String(row.earlier_enrollment_no || ''),
+    permanent_address: String(row.permanent_address || ''),
+    correspondence_address: String(row.correspondence_address || ''),
+    mobile_no: String(row.mobile_no || ''),
+    parent_mobile_no: String(row.parent_mobile_no || ''),
+    entrance_exam_roll_no: String(row.entrance_exam_roll_no || ''),
+    entrance_exam_name: String(row.entrance_exam_name || ''),
+    merit_secured: String(row.merit_secured || ''),
+    email: String(row.email || ''),
+    has_aadhar_card: String(row.has_aadhar_card || ''),
+    aadhar_no: String(row.aadhar_no || ''),
+    educational_qualification: String(row.educational_qualification || ''),
+    college_shift: String(row.college_shift || ''),
+    education_rows: parseEducationRows(row.education_rows_json),
+    raw_text: String(row.raw_text || ''),
+    extracted_at: toIso(row.extracted_at),
+    created_at: toIso(row.created_at),
+    updated_at: toIso(row.updated_at),
+  };
+}
+
+function scoreCandidate(row: Record<string, unknown>, student: StudentIdentity): number {
+  const roll = normalizeCompact(student.roll_no);
+  const studentName = normalizeCompact(student.student_name);
+  const fatherName = normalizeCompact(student.father_name);
+  const motherName = normalizeCompact(student.mother_name);
+  const branch = normalizeCompact(student.branch);
+
+  const earlier = normalizeCompact(row.earlier_enrollment_no);
+  const entrance = normalizeCompact(row.entrance_exam_roll_no);
+  const applicant = normalizeCompact(row.applicant_name);
+  const father = normalizeCompact(row.father_name);
+  const mother = normalizeCompact(row.mother_name);
+  const branchName = normalizeCompact(row.branch_name || row.specialization_branch);
+
+  let score = 0;
+  if (roll && (earlier === roll || entrance === roll)) score += 140;
+  if (studentName && applicant === studentName) score += 80;
+  if (fatherName && father === fatherName) score += 45;
+  if (motherName && mother === motherName) score += 25;
+  if (branch && branchName && (branchName.includes(branch) || branch.includes(branchName))) score += 20;
+
+  return score;
+}
+
+async function findBestProfile(student: StudentIdentity) {
+  const pool = getPool();
+
+  try {
+    const [directRowsRaw] = await pool.query(
+      `SELECT *
+       FROM \`${ALL_INFO_TABLE}\`
+       WHERE TRIM(\`earlier_enrollment_no\`) = ?
+          OR TRIM(\`entrance_exam_roll_no\`) = ?
+       ORDER BY \`updated_at\` DESC
+       LIMIT 5`,
+      [student.roll_no, student.roll_no],
+    );
+
+    const directRows = directRowsRaw as Record<string, unknown>[];
+    if (directRows.length > 0) {
+      return {
+        profile: toProfilePayload(directRows[0]),
+        profileMatch: {
+          confidence: 'high' as const,
+          strategy: 'roll-match',
+          score: 200,
+          candidates: directRows.length,
+        },
+      };
+    }
+
+    const [nameRowsRaw] = await pool.query(
+      `SELECT *
+       FROM \`${ALL_INFO_TABLE}\`
+       WHERE UPPER(REPLACE(\`applicant_name\`, ' ', '')) = UPPER(REPLACE(?, ' ', ''))
+          OR UPPER(REPLACE(\`father_name\`, ' ', '')) = UPPER(REPLACE(?, ' ', ''))
+       ORDER BY \`updated_at\` DESC
+       LIMIT 30`,
+      [student.student_name, student.father_name],
+    );
+
+    const nameRows = nameRowsRaw as Record<string, unknown>[];
+    if (nameRows.length === 0) {
+      return { profile: null, profileMatch: null };
+    }
+
+    let best = nameRows[0];
+    let bestScore = scoreCandidate(best, student);
+
+    for (let i = 1; i < nameRows.length; i++) {
+      const score = scoreCandidate(nameRows[i], student);
+      if (score > bestScore) {
+        best = nameRows[i];
+        bestScore = score;
+      }
+    }
+
+    if (bestScore < 70) {
+      return { profile: null, profileMatch: null };
+    }
+
+    const confidence: ProfileMatchMeta['confidence'] = bestScore >= 150
+      ? 'high'
+      : bestScore >= 110
+        ? 'medium'
+        : 'low';
+
+    return {
+      profile: toProfilePayload(best),
+      profileMatch: {
+        confidence,
+        strategy: 'name-father-branch-score',
+        score: bestScore,
+        candidates: nameRows.length,
+      },
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err || '');
+    if (/ER_NO_SUCH_TABLE|doesn't exist/i.test(msg)) {
+      return { profile: null, profileMatch: null };
+    }
+    throw err;
+  }
+}
 
 export async function GET(req: NextRequest) {
   // Require payment for this specific roll_no (or a valid all-access plan)
@@ -59,12 +246,12 @@ export async function GET(req: NextRequest) {
       const records = rows as Record<string, unknown>[];
       const firstMaster = master[0];
 
-      const student = {
-        roll_no: firstMaster.roll_no,
-        student_name: firstMaster.student_name,
-        father_name: firstMaster.father_name,
-        mother_name: firstMaster.mother_name,
-        branch: firstMaster.branch,
+      const student: StudentIdentity = {
+        roll_no: String(firstMaster.roll_no || ''),
+        student_name: String(firstMaster.student_name || ''),
+        father_name: String(firstMaster.father_name || ''),
+        mother_name: String(firstMaster.mother_name || ''),
+        branch: String(firstMaster.branch || ''),
         year: '1st Year',
       };
 
@@ -87,7 +274,15 @@ export async function GET(req: NextRequest) {
         }).length,
       };
 
-      return NextResponse.json({ student, papers, summary });
+      const { profile, profileMatch } = await findBestProfile(student);
+
+      return NextResponse.json({
+        student,
+        papers,
+        summary,
+        profile,
+        profileMatch,
+      });
     }
 
     // Get all records for this roll number (all papers, marks, etc.)
