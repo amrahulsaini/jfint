@@ -9,7 +9,7 @@ const SESSION_SECS = 20 * 60; // 20 minutes — fallback only if cookie missing
 type View = '1styear' | '2ndyear' | null;
 
 const VIEWS = {
-  '1styear': { table: 'jecr_1styear', photoDir: '1styearphotos', sem: '1st Sem', year: '1st Year' },
+  '1styear': { table: '1styearmaster', photoDir: '1styearphotos', sem: '1st Sem', year: '1st Year' },
   '2ndyear': { table: 'jecr_2ndyear', photoDir: 'student_photos', sem: '3rd Sem', year: '2nd Year' },
 };
 

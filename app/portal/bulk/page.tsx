@@ -34,7 +34,7 @@ type BulkLog = {
 };
 
 const VIEWS: Record<ViewKey, { table: string; photoDir: string; label: string }> = {
-  '1styear': { table: 'jecr_1styear', photoDir: '1styearphotos', label: '1st Year' },
+  '1styear': { table: '1styearmaster', photoDir: '1styearphotos', label: '1st Year' },
   '2ndyear': { table: 'jecr_2ndyear', photoDir: 'student_photos', label: '2nd Year' },
 };
 

@@ -3,7 +3,7 @@ import { getPool } from '@/lib/db';
 import { isRollAccessible } from '@/lib/payment';
 import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
 
-const ALLOWED_TABLES = ['jecr_2ndyear', 'jecr_1styear'] as const;
+const ALLOWED_TABLES = ['jecr_2ndyear', '1styearmaster'] as const;
 type AllowedTable = typeof ALLOWED_TABLES[number];
 
 export async function GET(req: NextRequest) {
