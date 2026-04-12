@@ -5,14 +5,8 @@ const ALLOWED_TABLES = ['jecr_2ndyear', '1styearmaster'] as const;
 type AllowedTable = typeof ALLOWED_TABLES[number];
 
 const FIRST_YEAR_COMM_TABLE = '2528firstyear_comm';
-const COMM_SYNC_INTERVAL_MS = 5 * 60 * 1000;
-
-let lastCommSyncAt = 0;
 
 async function ensureFirstYearCommunicationTable(pool: ReturnType<typeof getPool>) {
-  const now = Date.now();
-  if (now - lastCommSyncAt < COMM_SYNC_INTERVAL_MS) return;
-
   await pool.query(
     `CREATE TABLE IF NOT EXISTS \`${FIRST_YEAR_COMM_TABLE}\` (
       roll_no VARCHAR(64) NOT NULL,
@@ -38,6 +32,22 @@ async function ensureFirstYearCommunicationTable(pool: ReturnType<typeof getPool
       KEY idx_email (email)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
   );
+
+  // Keep requests fast: if communication table is already populated for 25-batch,
+  // skip expensive resync work on normal list reads.
+  const [commCountRows] = await pool.query(
+    `SELECT COUNT(*) AS total FROM \`${FIRST_YEAR_COMM_TABLE}\``,
+  );
+  const commCount = Number((commCountRows as Array<{ total: number }>)[0]?.total || 0);
+
+  const [masterCountRows] = await pool.query(
+    `SELECT COUNT(*) AS total FROM \`1styearmaster\` WHERE \`roll_no\` LIKE '25%'`,
+  );
+  const masterCount = Number((masterCountRows as Array<{ total: number }>)[0]?.total || 0);
+
+  if (commCount > 0 && commCount >= masterCount) {
+    return;
+  }
 
   const normalizedFmRoll = `REPLACE(REPLACE(REPLACE(TRIM(fm.\`roll_no\`), ' ', ''), '-', ''), '/', '')`;
   const rollMatchExpr = `(
@@ -85,8 +95,6 @@ async function ensureFirstYearCommunicationTable(pool: ReturnType<typeof getPool
       source_profile_id = VALUES(source_profile_id),
       synced_at = VALUES(synced_at)`,
   );
-
-  lastCommSyncAt = now;
 }
 
 export async function GET(req: Request) {
