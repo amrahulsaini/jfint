@@ -37,6 +37,59 @@ export async function GET(req: NextRequest) {
   try {
     const pool = getPool();
 
+    if (tableName === '1styearmaster') {
+      // Student list is controlled by 1styearmaster, but paper details come from jecr_1styear.
+      const [masterRows] = await pool.query(
+        `SELECT \`roll_no\`, \`student_name\`, \`father_name\`, \`mother_name\`, \`branch\`
+         FROM \`1styearmaster\`
+         WHERE \`roll_no\` = ?
+         LIMIT 1`,
+        [rollNo],
+      );
+
+      const master = masterRows as Record<string, unknown>[];
+      if (master.length === 0) {
+        return NextResponse.json({ error: 'Student not found', student: null, papers: [] }, { status: 404 });
+      }
+
+      const [rows] = await pool.query(
+        `SELECT * FROM \`jecr_1styear\` WHERE \`roll_no\` = ? ORDER BY \`paper_name\` ASC`,
+        [rollNo],
+      );
+      const records = rows as Record<string, unknown>[];
+      const firstMaster = master[0];
+
+      const student = {
+        roll_no: firstMaster.roll_no,
+        student_name: firstMaster.student_name,
+        father_name: firstMaster.father_name,
+        mother_name: firstMaster.mother_name,
+        branch: firstMaster.branch,
+        year: '1st Year',
+      };
+
+      const papers = records.map(r => ({
+        paper_name:   String(r.paper_name || ''),
+        paper_type:   String(r.paper_type || ''),
+        exam_type:    String(r.exam_type || ''),
+        marks_status: String(r.marks_status || ''),
+      }));
+
+      const summary = {
+        totalPapers: papers.length,
+        filled: papers.filter(p => {
+          const s = String(p.marks_status || '').trim().toLowerCase();
+          return s !== '' && !s.includes('not filled') && !s.includes('pending');
+        }).length,
+        pending: papers.filter(p => {
+          const s = String(p.marks_status || '').trim().toLowerCase();
+          return s === '' || s.includes('not filled') || s.includes('pending');
+        }).length,
+      };
+
+      return NextResponse.json({ student, papers, summary });
+    }
+
     // Get all records for this roll number (all papers, marks, etc.)
     const [rows] = await pool.query(
       `SELECT * FROM \`${tableName}\` WHERE \`roll_no\` = ? ORDER BY \`paper_name\` ASC`,
@@ -57,7 +110,7 @@ export async function GET(req: NextRequest) {
       father_name:  first.father_name,
       mother_name:  first.mother_name,
       branch:       first.branch,
-      year:         first.year,
+      year:         first.year || '1st Year',
     };
 
     // Build papers list
