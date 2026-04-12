@@ -165,6 +165,7 @@ export default function Home() {
             <a href="#portal" className="hover:text-orange-500 transition-colors duration-200">Portal</a>
             <a href="#about" className="hover:text-orange-500 transition-colors duration-200">About</a>
             <a href="/portal/bulk" className="hover:text-orange-500 transition-colors duration-200">Bulk PDF</a>
+            <a href="/extractions" className="hover:text-orange-500 transition-colors duration-200">Extractions</a>
             <a href="/tracking" className="hover:text-orange-500 transition-colors duration-200">Tracking</a>
           </div>
           {/* Session timer + logout */}
@@ -219,6 +220,7 @@ export default function Home() {
               <a href="#portal" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Portal</a>
               <a href="#about" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">About</a>
               <a href="/portal/bulk" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Bulk PDF</a>
+              <a href="/extractions" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Extractions</a>
               <a href="/tracking" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Tracking</a>
             </div>
           </div>
