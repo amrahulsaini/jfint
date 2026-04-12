@@ -6,6 +6,7 @@ import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
 const ALLOWED_TABLES = ['jecr_2ndyear', '1styearmaster'] as const;
 type AllowedTable = typeof ALLOWED_TABLES[number];
 const ALL_INFO_TABLE = '2528allinfo';
+const FIRST_YEAR_COMM_TABLE = '2528firstyear_comm';
 
 type StudentIdentity = {
   roll_no: string;
@@ -114,6 +115,43 @@ function scoreCandidate(row: Record<string, unknown>, student: StudentIdentity):
 
 async function findBestProfile(student: StudentIdentity) {
   const pool = getPool();
+
+  // Fast path: if precomputed communication table has an exact mapped profile id, use it.
+  try {
+    const [commRowsRaw] = await pool.query(
+      `SELECT \`source_profile_id\`
+       FROM \`${FIRST_YEAR_COMM_TABLE}\`
+       WHERE \`roll_no\` = ?
+       LIMIT 1`,
+      [student.roll_no],
+    );
+    const commRows = commRowsRaw as Array<{ source_profile_id: number | null }>;
+    const sourceProfileId = Number(commRows[0]?.source_profile_id || 0);
+    if (sourceProfileId > 0) {
+      const [profileRowsRaw] = await pool.query(
+        `SELECT * FROM \`${ALL_INFO_TABLE}\` WHERE \`id\` = ? LIMIT 1`,
+        [sourceProfileId],
+      );
+      const profileRows = profileRowsRaw as Record<string, unknown>[];
+      if (profileRows.length > 0) {
+        return {
+          profile: toProfilePayload(profileRows[0]),
+          profileMatch: {
+            confidence: 'high' as const,
+            strategy: 'comm-table-source-id',
+            score: 220,
+            candidates: 1,
+          },
+        };
+      }
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err || '');
+    if (!/ER_NO_SUCH_TABLE|doesn't exist/i.test(msg)) {
+      throw err;
+    }
+  }
+
   const rollNo = String(student.roll_no || '').trim();
   const rollCompact = rollNo.replace(/\s+/g, '');
   const rollCandidates = Array.from(new Set([rollNo, rollCompact].filter(Boolean)));

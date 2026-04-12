@@ -29,6 +29,7 @@ interface ApiResponse {
   limit: number;
   totalPages: number;
   branches: string[];
+  genders?: string[];
   stats: Stats;
   error?: string;
 }
@@ -150,6 +151,7 @@ export default function StudentRecords({
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [branch, setBranch] = useState('');
+  const [gender, setGender] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -184,6 +186,7 @@ export default function StudentRecords({
       const p = new URLSearchParams({ page: String(page), limit: String(LIMIT), table });
       if (search) p.set('search', search);
       if (branch) p.set('branch', branch);
+      if (gender && table === '1styearmaster') p.set('gender', gender);
       const res = await fetch(`/api/db/students?${p}`);
       const json: ApiResponse = await res.json();
       if (json.error) { setError(json.error); setData(null); }
@@ -193,12 +196,12 @@ export default function StudentRecords({
       setData(null);
     }
     setLoading(false);
-  }, [page, search, branch, table]);
+  }, [page, search, branch, gender, table]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // Reset page/filters when table switches
-  useEffect(() => { setPage(1); setSearch(''); setSearchInput(''); setBranch(''); }, [table]);
+  useEffect(() => { setPage(1); setSearch(''); setSearchInput(''); setBranch(''); setGender(''); }, [table]);
 
   // Check paid status + price on mount
   useEffect(() => {
@@ -1079,23 +1082,41 @@ export default function StudentRecords({
               Search
             </button>
           </form>
-          <div className="relative">
-            <select
-              value={branch}
-              onChange={e => { setBranch(e.target.value); setPage(1); }}
-              className="appearance-none bg-white border border-neutral-200 rounded-xl pl-4 pr-9 py-2.5 text-sm font-bold text-neutral-700 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10 transition-all duration-200 cursor-pointer w-full sm:min-w-[160px]"
-            >
-              <option value="" className="bg-white text-neutral-900">All Branches</option>
-              {data?.branches.map(b => <option key={b} value={b} className="bg-white text-neutral-900">{b}</option>)}
-            </select>
-            <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/>
-            </svg>
+          <div className="flex gap-2">
+            <div className="relative">
+              <select
+                value={branch}
+                onChange={e => { setBranch(e.target.value); setPage(1); }}
+                className="appearance-none bg-white border border-neutral-200 rounded-xl pl-4 pr-9 py-2.5 text-sm font-bold text-neutral-700 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10 transition-all duration-200 cursor-pointer w-full sm:min-w-[160px]"
+              >
+                <option value="" className="bg-white text-neutral-900">All Branches</option>
+                {data?.branches.map(b => <option key={b} value={b} className="bg-white text-neutral-900">{b}</option>)}
+              </select>
+              <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </div>
+
+            {table === '1styearmaster' && (
+              <div className="relative">
+                <select
+                  value={gender}
+                  onChange={e => { setGender(e.target.value); setPage(1); }}
+                  className="appearance-none bg-white border border-neutral-200 rounded-xl pl-4 pr-9 py-2.5 text-sm font-bold text-neutral-700 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10 transition-all duration-200 cursor-pointer w-full sm:min-w-[130px]"
+                >
+                  <option value="" className="bg-white text-neutral-900">All Genders</option>
+                  {(data?.genders || []).map(g => <option key={g} value={g} className="bg-white text-neutral-900">{g}</option>)}
+                </select>
+                <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Active filter chips */}
-        {(search || branch) && (
+        {(search || branch || gender) && (
           <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-neutral-200">
             {search && (
               <span className="inline-flex items-center gap-1.5 bg-orange-500/10 border border-orange-500/20 rounded-full px-3 py-1 text-xs font-black text-orange-400">
@@ -1109,7 +1130,13 @@ export default function StudentRecords({
                 <button onClick={() => { setBranch(''); setPage(1); }} className="hover:text-white transition-colors">×</button>
               </span>
             )}
-            <button onClick={() => { setSearch(''); setSearchInput(''); setBranch(''); setPage(1); }} className="text-xs font-bold text-neutral-400 hover:text-orange-500 transition-colors">
+            {gender && (
+              <span className="inline-flex items-center gap-1.5 bg-sky-100 border border-sky-200 rounded-full px-3 py-1 text-xs font-black text-sky-700">
+                {gender}
+                <button onClick={() => { setGender(''); setPage(1); }} className="hover:text-sky-900 transition-colors">×</button>
+              </span>
+            )}
+            <button onClick={() => { setSearch(''); setSearchInput(''); setBranch(''); setGender(''); setPage(1); }} className="text-xs font-bold text-neutral-400 hover:text-orange-500 transition-colors">
               Clear all
             </button>
           </div>
