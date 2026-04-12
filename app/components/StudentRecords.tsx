@@ -817,9 +817,11 @@ export default function StudentRecords({
 
   useEffect(() => {
     if (!showModal || table !== '1styearmaster' || activeDetailTab !== 'profile') return;
-    if (!detail?.student?.roll_no || detail.profileLoaded || profileLoading) return;
+    if (!detail?.student?.roll_no || detail.profileLoaded) return;
 
-    let cancelled = false;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 10000);
+
     const loadProfile = async () => {
       setProfileLoading(true);
       try {
@@ -828,34 +830,43 @@ export default function StudentRecords({
           table,
           include_profile: '1',
         });
-        const res = await fetch(`/api/db/student-detail?${p.toString()}`);
-        const json = await res.json();
-        if (!cancelled) {
-          if (!json.error) {
-            setDetail(prev => prev ? {
-              ...prev,
-              profile: json.profile ?? null,
-              profileMatch: json.profileMatch ?? null,
-              profileLoaded: true,
-            } : prev);
-          } else {
-            setDetail(prev => prev ? { ...prev, profileLoaded: true } : prev);
-          }
+        const res = await fetch(`/api/db/student-detail?${p.toString()}`, {
+          signal: controller.signal,
+        });
+
+        let json: { error?: string; profile?: StudentProfile | null; profileMatch?: StudentDetail['profileMatch'] } | null = null;
+        try {
+          json = await res.json();
+        } catch {
+          json = { error: 'invalid_response' };
         }
-      } catch {
-        if (!cancelled) {
+
+        const parsed = json ?? { error: 'invalid_response' };
+
+        if (!parsed.error) {
+          setDetail(prev => prev ? {
+            ...prev,
+            profile: parsed.profile ?? null,
+            profileMatch: parsed.profileMatch ?? null,
+            profileLoaded: true,
+          } : prev);
+        } else {
           setDetail(prev => prev ? { ...prev, profileLoaded: true } : prev);
         }
+      } catch {
+        setDetail(prev => prev ? { ...prev, profileLoaded: true } : prev);
       } finally {
-        if (!cancelled) setProfileLoading(false);
+        window.clearTimeout(timeoutId);
+        setProfileLoading(false);
       }
     };
 
     loadProfile();
     return () => {
-      cancelled = true;
+      window.clearTimeout(timeoutId);
+      controller.abort();
     };
-  }, [showModal, table, activeDetailTab, detail?.student?.roll_no, detail?.profileLoaded, profileLoading]);
+  }, [showModal, table, activeDetailTab, detail?.student?.roll_no, detail?.profileLoaded]);
 
   const openDetail = (rollNo: string) => {
     if (!isRollPaid(rollNo)) {
