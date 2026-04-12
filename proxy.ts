@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Always allow: home (prank page), login page, auth API, student listing API, Next.js internals, static assets
+  // Always allow: home redirect, login page, auth API, student listing API, Next.js internals, static assets
   if (
     pathname === '/' ||
     pathname.startsWith('/login') ||
