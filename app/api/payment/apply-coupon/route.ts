@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { saveCouponAccess } from '@/lib/payment';
-import { verifySessionToken, SESSION_COOKIE, getSessionEmail } from '@/lib/session';
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,15 +16,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid coupon code' }, { status: 400 });
     }
 
-    // Get session ID
-    const sidCookie = req.cookies.get(SESSION_COOKIE)?.value;
-    const sessionId = sidCookie ? verifySessionToken(sidCookie) : null;
-    if (!sessionId) {
-      return NextResponse.json({ error: 'No valid session — please log in again' }, { status: 401 });
-    }
-
-    const email = await getSessionEmail(sessionId).catch(() => null);
-    await saveCouponAccess(sessionId, email);
+    // Coupon is valid — client will handle unlocking the pending student
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('[apply-coupon]', err);

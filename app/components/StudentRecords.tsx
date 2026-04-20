@@ -897,12 +897,12 @@ export default function StudentRecords({
       });
       const data = await res.json();
       if (data.success) {
-        setAllAccess(true);
         setShowPayModal(false);
         setCouponLoading(false);
         if (pendingRollNo) {
           const roll = pendingRollNo;
           const tab = pendingTab;
+          setPaidRolls(s => new Set([...s, roll]));
           setPendingRollNo(null);
           openDetailDirect(roll, tab);
         }
