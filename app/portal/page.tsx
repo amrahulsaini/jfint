@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import StudentRecords from "../components/StudentRecords";
+import DisclaimerModal from "../components/DisclaimerModal";
 
-const SESSION_SECS = 20 * 60; // 20 minutes — fallback only if cookie missing
 
 type View = '1styear' | '2ndyear' | null;
 
@@ -29,74 +28,169 @@ const BANNERS = [
 ];
 
 export default function Home() {
-  const router = useRouter();
   const [view, setView] = useState<View>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [bannerIdx, setBannerIdx] = useState(0);
   const [bannerVisible, setBannerVisible] = useState(true);
   const [fade, setFade] = useState(true);
-  const [remaining, setRemaining] = useState(SESSION_SECS);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Stable ref so the timer interval never needs to be recreated when router changes
-  const routerRef = useRef(router);
-  useEffect(() => { routerRef.current = router; }, [router]);
 
-  /** Read the real session expiry from the non-httpOnly cookie the middleware writes */
-  function readExpiryCookie(): number | null {
-    try {
-      const match = document.cookie.match(/(?:^|;\s*)jfint_auth_exp=([^;]+)/);
-      if (match) return parseInt(match[1], 10);
-    } catch { /* SSR / private mode */ }
-    return null;
-  }
+  // Email verification modal
+  const [verifyChecked, setVerifyChecked] = useState(false);
+  const [showVerify, setShowVerify] = useState(false);
+  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
+  const [verifyStep, setVerifyStep] = useState<'email' | 'otp'>('email');
+  const [verifyEmail, setVerifyEmail] = useState('');
+  const [verifyOtp, setVerifyOtp] = useState(['', '', '', '', '', '']);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyError, setVerifyError] = useState('');
+  const [verifyCooldown, setVerifyCooldown] = useState(0);
+  const [verifyShake, setVerifyShake] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Format mm:ss
-  const fmt = (s: number) => {
-    const m = Math.floor(Math.max(0, s) / 60).toString().padStart(2, '0');
-    const sec = (Math.max(0, s) % 60).toString().padStart(2, '0');
-    return `${m}:${sec}`;
-  };
-
-  const doLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    routerRef.current.replace('/login');
-  };
-
-  // Timer: reads expiry from cookie on every tick — always in sync with server
+  // Check if already verified on mount
   useEffect(() => {
+    fetch('/api/auth/check-verified')
+      .then(r => r.json())
+      .then(d => {
+        setVerifyChecked(true);
+        if (d.verified) {
+          setVerifiedEmail(d.email || null);
+        } else {
+          setShowVerify(true);
+        }
+      })
+      .catch(() => { setVerifyChecked(true); setShowVerify(true); });
+  }, []);
+
+  const startCooldown = useCallback((secs = 60) => {
+    setVerifyCooldown(secs);
+    if (cooldownRef.current) clearInterval(cooldownRef.current);
+    cooldownRef.current = setInterval(() => {
+      setVerifyCooldown(c => {
+        if (c <= 1) { if (cooldownRef.current) clearInterval(cooldownRef.current); return 0; }
+        return c - 1;
+      });
+    }, 1000);
+  }, []);
+
+  const triggerShake = () => {
+    setVerifyShake(true);
+    setTimeout(() => setVerifyShake(false), 600);
+  };
+
+  const handleSendOtp = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const email = verifyEmail.trim().toLowerCase();
+    if (!email.endsWith('@jecrc.ac.in')) {
+      setVerifyError('Only @jecrc.ac.in emails are allowed.');
+      triggerShake();
+      return;
+    }
+    setVerifyLoading(true);
+    setVerifyError('');
+    try {
+      const res = await fetch('/api/auth/student-send-otp', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setVerifyStep('otp');
+        startCooldown(60);
+        setTimeout(() => otpRefs.current[0]?.focus(), 100);
+      } else {
+        setVerifyError(data.error || 'Failed to send OTP.');
+        triggerShake();
+        const m = data.error?.match(/wait (\d+)s/);
+        if (m) startCooldown(parseInt(m[1]));
+      }
+    } catch { setVerifyError('Network error.'); triggerShake(); }
+    finally { setVerifyLoading(false); }
+  };
+
+  const handleOtpChange = (idx: number, val: string) => {
+    if (!/^\d*$/.test(val)) return;
+    const next = [...verifyOtp]; next[idx] = val.slice(-1); setVerifyOtp(next);
+    setVerifyError('');
+    if (val && idx < 5) otpRefs.current[idx + 1]?.focus();
+    if (val && idx === 5 && next.every(d => d)) handleVerifyOtp(next.join(''));
+  };
+
+  const handleOtpKeyDown = (idx: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !verifyOtp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus();
+    if (e.key === 'Enter' && verifyOtp.every(d => d)) handleVerifyOtp(verifyOtp.join(''));
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (pasted.length === 6) {
+      setVerifyOtp(pasted.split(''));
+      otpRefs.current[5]?.focus();
+      setTimeout(() => handleVerifyOtp(pasted), 50);
+    }
+  };
+
+  const handleVerifyOtp = async (code?: string) => {
+    const finalOtp = code ?? verifyOtp.join('');
+    if (finalOtp.length !== 6) return;
+    setVerifyLoading(true); setVerifyError('');
+    try {
+      const res = await fetch('/api/auth/student-verify-otp', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: verifyEmail.trim().toLowerCase(), otp: finalOtp }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowVerify(false);
+        setVerifiedEmail(verifyEmail.trim().toLowerCase());
+      } else {
+        setVerifyError(data.error || 'Incorrect OTP.');
+        setVerifyOtp(['', '', '', '', '', '']);
+        otpRefs.current[0]?.focus();
+        triggerShake();
+      }
+    } catch { setVerifyError('Network error.'); triggerShake(); }
+    finally { setVerifyLoading(false); }
+  };
+
+  useEffect(() => {
+    return () => { if (cooldownRef.current) clearInterval(cooldownRef.current); };
+  }, []);
+
+  const handleLogout = async () => {
+    setLogoutLoading(true);
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      setVerifiedEmail(null);
+      setShowVerify(true);
+      setVerifyStep('email');
+      setVerifyEmail('');
+      setVerifyOtp(['', '', '', '', '', '']);
+      setVerifyError('');
+    } catch { /* ignore */ }
+    setLogoutLoading(false);
+  };
+
+  // Countdown timer for results announcement
+  const [countdown, setCountdown] = useState<{hours:string,minutes:string,seconds:string}|null>(null);
+  useEffect(() => {
+    const target = new Date('2026-04-21T00:00:00').getTime();
     const tick = () => {
-      const exp = readExpiryCookie();
-      // If cookie is gone (browser cleared it / expired), log out immediately
-      if (exp === null) {
-        if (timerRef.current) clearInterval(timerRef.current);
-        doLogout();
-        return;
-      }
-      const secs = Math.round((exp - Date.now()) / 1000);
-      if (secs <= 0) {
-        if (timerRef.current) clearInterval(timerRef.current);
-        doLogout();
-        return;
-      }
-      setRemaining(secs);
+      const diff = target - Date.now();
+      if (diff <= 0) { setCountdown({hours:'00',minutes:'00',seconds:'00'}); return; }
+      setCountdown({
+        hours: Math.floor(diff/(1000*60*60)).toString().padStart(2,'0'),
+        minutes: Math.floor((diff%(1000*60*60))/(1000*60)).toString().padStart(2,'0'),
+        seconds: Math.floor((diff%(1000*60))/1000).toString().padStart(2,'0'),
+      });
     };
-
-    tick(); // immediate first read
-    timerRef.current = setInterval(tick, 1000);
-
-    // When user switches back to this tab, immediately re-sync the timer
-    // (browsers throttle setInterval on hidden tabs so the count can drift)
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') tick();
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // runs once — doLogout is accessed via routerRef, no deps needed
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -113,6 +207,141 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white text-neutral-900">
+      <DisclaimerModal />
+
+      {/* ── Email Verification Modal Overlay ── */}
+      {verifyChecked && showVerify && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{backdropFilter:'blur(12px)', backgroundColor:'rgba(255,255,255,0.5)'}}>
+          <div
+            className={`bg-white border border-neutral-200/80 rounded-3xl shadow-2xl shadow-neutral-900/15 w-full max-w-sm overflow-hidden transition-all ${
+              verifyShake ? 'animate-[shake_0.5s_ease-in-out]' : ''
+            }`}
+            style={verifyShake ? {animation:'shake 0.5s ease-in-out'} : {}}
+          >
+            <div className="h-1 bg-gradient-to-r from-orange-400 via-orange-500 to-amber-400" />
+            <div className="p-7">
+              {/* Logo */}
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center font-black text-white text-sm shadow-lg shadow-orange-500/30">J</div>
+                <div>
+                  <span className="text-base font-black tracking-tight text-neutral-900">JECRC<span className="text-orange-500">.</span></span>
+                  <p className="text-[10px] font-bold text-neutral-400 -mt-0.5 uppercase tracking-wider">1st Sem & 3rd Sem Results Portal</p>
+                </div>
+              </div>
+
+              {/* Results Announcement Countdown */}
+              {countdown && (
+                <div className="mb-5 bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-2xl p-4 overflow-hidden">
+                  <div className="flex items-center gap-2 mb-2">
+                    <svg className="w-4 h-4 text-orange-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-orange-600">Results Announcement</span>
+                  </div>
+                  <p className="text-xs text-neutral-600 font-medium leading-relaxed mb-3">
+                    The results of the <span className="font-bold text-neutral-900">1st</span> and <span className="font-bold text-neutral-900">3rd Semester</span> are likely to be announced on our website in:
+                  </p>
+                  <div className="flex justify-center gap-2">
+                    <div className="flex flex-col items-center">
+                      <div className="w-12 h-12 bg-white border border-orange-200 rounded-xl shadow-sm flex items-center justify-center text-lg font-black text-orange-600 tabular-nums">{countdown.hours}</div>
+                      <div className="text-[8px] font-black text-orange-400 uppercase tracking-wider mt-1">Hours</div>
+                    </div>
+                    <div className="text-lg font-black text-orange-300 self-start mt-3">:</div>
+                    <div className="flex flex-col items-center">
+                      <div className="w-12 h-12 bg-white border border-orange-200 rounded-xl shadow-sm flex items-center justify-center text-lg font-black text-orange-600 tabular-nums">{countdown.minutes}</div>
+                      <div className="text-[8px] font-black text-orange-400 uppercase tracking-wider mt-1">Min</div>
+                    </div>
+                    <div className="text-lg font-black text-orange-300 self-start mt-3">:</div>
+                    <div className="flex flex-col items-center">
+                      <div className="w-12 h-12 bg-white border border-orange-200 rounded-xl shadow-sm flex items-center justify-center text-lg font-black text-orange-600 tabular-nums">{countdown.seconds}</div>
+                      <div className="text-[8px] font-black text-orange-400 uppercase tracking-wider mt-1">Sec</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {verifyStep === 'email' ? (
+                <form onSubmit={handleSendOtp}>
+                  <h2 className="text-xl font-black text-neutral-900 mb-1">Verify your identity</h2>
+                  <p className="text-xs text-neutral-500 font-medium mb-5 leading-relaxed">Enter your college email. Only <span className="text-orange-500 font-bold">@jecrc.ac.in</span> is accepted.</p>
+                  <label className="block text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1.5">College Email</label>
+                  <input
+                    type="email" value={verifyEmail}
+                    onChange={e => { setVerifyEmail(e.target.value); setVerifyError(''); }}
+                    placeholder="yourname@jecrc.ac.in" autoFocus autoComplete="email"
+                    className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 bg-neutral-50 focus:bg-white focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 outline-none text-sm font-semibold text-neutral-900 placeholder-neutral-400 transition-all mb-4"
+                  />
+                  {verifyError && (
+                    <div className="mb-4 flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+                      <svg className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9.303 3.376c.866 1.5-.217 3.374-1.948 3.374H2.645c-1.73 0-2.813-1.874-1.948-3.374L10.051 3.378c.866-1.5 3.032-1.5 3.898 0L21.303 16.126z"/></svg>
+                      <p className="text-[11px] font-semibold text-red-600">{verifyError}</p>
+                    </div>
+                  )}
+                  <button type="submit" disabled={verifyLoading || !verifyEmail}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white font-black text-sm shadow-lg shadow-orange-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {verifyLoading ? (
+                      <><span className="flex gap-1">
+                        <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{animationDelay:'0ms'}} />
+                        <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{animationDelay:'150ms'}} />
+                        <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{animationDelay:'300ms'}} />
+                      </span> Sending…</>
+                    ) : 'Send OTP →'}
+                  </button>
+                </form>
+              ) : (
+                <div>
+                  <button onClick={() => { setVerifyStep('email'); setVerifyOtp(['','','','','','']); setVerifyError(''); }}
+                    className="flex items-center gap-1 text-xs font-bold text-neutral-400 hover:text-orange-500 transition-colors mb-4">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                    Change email
+                  </button>
+                  <h2 className="text-xl font-black text-neutral-900 mb-1">Enter OTP</h2>
+                  <p className="text-xs text-neutral-500 font-medium mb-5">Code sent to <span className="text-orange-500 font-bold">{verifyEmail}</span></p>
+                  <div className="flex gap-2 sm:gap-3 justify-center mb-4 max-w-[280px] mx-auto" onPaste={handleOtpPaste}>
+                    {verifyOtp.map((digit, idx) => (
+                      <input key={idx}
+                        ref={el => { otpRefs.current[idx] = el; }}
+                        type="text" inputMode="numeric" maxLength={1} value={digit}
+                        onChange={e => handleOtpChange(idx, e.target.value)}
+                        onKeyDown={e => handleOtpKeyDown(idx, e)}
+                        className={`w-10 h-11 sm:w-11 sm:h-12 text-center text-base sm:text-lg font-black rounded-xl border-2 outline-none transition-all duration-200 ${
+                          digit ? 'border-orange-400 bg-orange-50 text-orange-600 shadow-sm shadow-orange-200' : 'border-neutral-200 bg-neutral-50 text-neutral-900 focus:border-orange-400 focus:bg-white focus:shadow-sm focus:shadow-orange-200'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  {verifyError && (
+                    <div className="mb-3 flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+                      <svg className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9.303 3.376c.866 1.5-.217 3.374-1.948 3.374H2.645c-1.73 0-2.813-1.874-1.948-3.374L10.051 3.378c.866-1.5 3.032-1.5 3.898 0L21.303 16.126z"/></svg>
+                      <p className="text-[11px] font-semibold text-red-600">{verifyError}</p>
+                    </div>
+                  )}
+                  <button onClick={() => handleVerifyOtp()} disabled={verifyLoading || verifyOtp.some(d => !d)}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white font-black text-sm shadow-lg shadow-orange-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mb-3"
+                  >
+                    {verifyLoading ? (
+                      <><span className="flex gap-1">
+                        <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{animationDelay:'0ms'}} />
+                        <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{animationDelay:'150ms'}} />
+                        <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{animationDelay:'300ms'}} />
+                      </span> Verifying…</>
+                    ) : 'Verify & Continue'}
+                  </button>
+                  <div className="text-center">
+                    {verifyCooldown > 0 ? (
+                      <p className="text-[11px] text-neutral-400 font-semibold">Resend in <span className="text-orange-500 font-black tabular-nums">{verifyCooldown}s</span></p>
+                    ) : (
+                      <button onClick={() => handleSendOtp()} disabled={verifyLoading} className="text-[11px] font-bold text-orange-500 hover:text-orange-600 transition-colors disabled:opacity-50">Didn't receive it? Resend OTP</button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          <style>{`@keyframes shake{0%,100%{transform:translateX(0)}15%{transform:translateX(-7px)}30%{transform:translateX(7px)}45%{transform:translateX(-5px)}60%{transform:translateX(5px)}75%{transform:translateX(-3px)}90%{transform:translateX(3px)}}`}</style>
+        </div>
+      )}
 
       {/* ── Announcement Banner ── */}
       {bannerVisible && (
@@ -170,6 +399,23 @@ export default function Home() {
           </div>
           {/* Session timer + logout */}
           <div className="flex items-center gap-2">
+            {verifiedEmail && (
+              <>
+                <span className="hidden sm:inline text-xs font-semibold text-neutral-400 truncate max-w-[160px]" title={verifiedEmail}>
+                  {verifiedEmail}
+                </span>
+                <button
+                  onClick={handleLogout}
+                  disabled={logoutLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-red-50 border border-neutral-200 hover:border-red-300 text-neutral-500 hover:text-red-500 text-xs font-bold transition-all duration-200 disabled:opacity-50"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+                  </svg>
+                  <span className="hidden sm:inline">Logout</span>
+                </button>
+              </>
+            )}
             <button
               onClick={() => setMobileMenuOpen(v => !v)}
               className="md:hidden w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-500 flex items-center justify-center transition-all duration-200"
@@ -191,27 +437,6 @@ export default function Home() {
                 ← Back
               </button>
             )}
-            <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-black tabular-nums ${
-              remaining <= 120
-                ? 'bg-red-50 border-red-300 text-red-600'
-                : remaining <= 300
-                ? 'bg-amber-50 border-amber-300 text-amber-600'
-                : 'bg-neutral-100 border-neutral-200 text-neutral-500'
-            }`}>
-              <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-              {fmt(remaining)}
-            </div>
-            <button
-              onClick={doLogout}
-              className="flex items-center gap-1.5 bg-neutral-100 hover:bg-red-50 border border-neutral-200 hover:border-red-300 text-neutral-500 hover:text-red-600 text-xs font-black px-3 py-1.5 rounded-xl transition-all duration-200"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/>
-              </svg>
-              <span className="hidden sm:inline">Logout</span>
-            </button>
           </div>
         </div>
         {mobileMenuOpen && (
@@ -248,7 +473,7 @@ export default function Home() {
                       </svg>
                     </div>
                     <div className="text-[11px] font-black uppercase tracking-[0.15em] text-orange-500/80 mb-1.5">
-                      View Internal Marks
+                      View Results & Complete Info
                     </div>
                     <div className="text-xl font-black text-neutral-900 group-hover:text-orange-600 transition-colors duration-200">
                       {cfg.sem} JECRC

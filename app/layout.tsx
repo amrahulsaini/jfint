@@ -10,8 +10,8 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "RTU 3rd Semester Results — B.Tech 2025-26",
-  description: "Check your B.Tech 3rd Semester examination results — Rajasthan Technical University, Kota.",
+  title: "JECRC 1st Sem & 3rd Sem Results — Complete Info Portal",
+  description: "Check your B.Tech 1st & 3rd semester results, internal marks, and complete student info — JECRC Foundation.",
 };
 
 export const viewport: Viewport = {

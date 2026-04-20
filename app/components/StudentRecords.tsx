@@ -13,6 +13,7 @@ interface StudentRow {
   year: string;
   paper_count: number;
   papers: string;
+  gender?: string;
 }
 
 interface Stats {
@@ -176,7 +177,7 @@ export default function StudentRecords({
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState('');
 
-  const isRollPaid = (rollNo: string) => table === '1styearmaster' || allAccess || paidRolls.has(rollNo);
+  const isRollPaid = (rollNo: string) => allAccess || paidRolls.has(rollNo);
 
   const LIMIT = 20;
 
@@ -784,9 +785,9 @@ export default function StudentRecords({
     }
   };
 
-  const openDetailDirect = async (rollNo: string) => {
+  const openDetailDirect = async (rollNo: string, tab: 'marks' | 'profile' = 'marks') => {
     setShowModal(true);
-    setActiveDetailTab('marks');
+    setActiveDetailTab(tab);
     setProfileExporting(false);
     setProfileLoading(false);
     setDetailLoading(true);
@@ -871,7 +872,7 @@ export default function StudentRecords({
     };
   }, [showModal, table, activeDetailTab, detail?.student?.roll_no, detail?.profileLoaded]);
 
-  const openDetail = (rollNo: string) => {
+  const openDetail = (rollNo: string, tab: 'marks' | 'profile' = 'marks') => {
     if (!isRollPaid(rollNo)) {
       setPendingRollNo(rollNo);
       setCoupon('');
@@ -879,7 +880,7 @@ export default function StudentRecords({
       setShowPayModal(true);
       return;
     }
-    openDetailDirect(rollNo);
+    openDetailDirect(rollNo, tab);
   };
 
   const applyCoupon = async () => {
@@ -900,7 +901,7 @@ export default function StudentRecords({
         if (pendingRollNo) {
           const roll = pendingRollNo;
           setPendingRollNo(null);
-          openDetailDirect(roll);
+          openDetailDirect(roll, 'marks');
         }
       } else {
         setCouponError(data.error || 'Invalid coupon');
@@ -1145,20 +1146,13 @@ export default function StudentRecords({
 
       {/* ─── Card Grid ───────────────────────────────────── */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="bg-white border border-neutral-200 rounded-2xl p-5 animate-pulse">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-16 h-16 rounded-2xl bg-neutral-200" />
-                <div className="flex-1">
-                  <div className="h-4 bg-neutral-200 rounded-full w-3/4 mb-2" />
-                  <div className="h-3 bg-neutral-200 rounded-full w-1/2" />
-                </div>
-              </div>
-              <div className="h-3 bg-neutral-200 rounded-full w-full mb-2" />
-              <div className="h-3 bg-neutral-200 rounded-full w-2/3" />
-            </div>
-          ))}
+        <div className="flex flex-col items-center justify-center py-24">
+          <div className="flex items-center gap-1.5 mb-4">
+            <span className="w-3 h-3 rounded-full bg-orange-400 animate-bounce" style={{animationDelay:'0ms', animationDuration:'0.6s'}} />
+            <span className="w-3 h-3 rounded-full bg-orange-500 animate-bounce" style={{animationDelay:'150ms', animationDuration:'0.6s'}} />
+            <span className="w-3 h-3 rounded-full bg-orange-600 animate-bounce" style={{animationDelay:'300ms', animationDuration:'0.6s'}} />
+          </div>
+          <p className="text-sm font-bold text-neutral-400">Loading students…</p>
         </div>
       ) : data?.rows.length === 0 ? (
         <div className="text-center py-20">
@@ -1213,6 +1207,12 @@ export default function StudentRecords({
                   <span className="text-neutral-400 font-bold">Father</span>
                   <span className="text-neutral-700 font-bold truncate ml-2 text-right max-w-[60%]">{row.father_name}</span>
                 </div>
+                {table === '1styearmaster' && row.gender && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-neutral-400 font-bold">Gender</span>
+                    <span className="text-neutral-700 font-bold truncate ml-2 text-right">{row.gender}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-neutral-400 font-bold">Branch</span>
                   <span className="bg-neutral-100 border border-neutral-200 text-neutral-600 rounded-lg px-2 py-0.5 text-[11px] font-black">
@@ -1228,9 +1228,9 @@ export default function StudentRecords({
               </div>
 
               {/* Card action button */}
-              <div className="mt-4 pt-3 border-t border-neutral-100">
+              <div className="mt-4 pt-3 border-t border-neutral-100 flex flex-col gap-2">
                 <button
-                  onClick={() => openDetail(row.roll_no)}
+                  onClick={() => openDetail(row.roll_no, 'marks')}
                   className={`w-full rounded-xl px-3 py-2.5 text-xs font-black transition-all duration-200 flex items-center justify-center gap-1.5 ${
                     isRollPaid(row.roll_no)
                       ? 'bg-orange-500 hover:bg-orange-400 text-white shadow-md shadow-orange-500/30'
@@ -1238,12 +1238,25 @@ export default function StudentRecords({
                   }`}
                 >
                   {isRollPaid(row.roll_no)
-                    ? (table === '1styearmaster' ? 'Open Internal + Complete Info' : 'View Internal Marks')
+                    ? 'View Internal Marks'
                     : 'Unlock & View'}
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/>
                   </svg>
                 </button>
+
+                {table === '1styearmaster' && isRollPaid(row.roll_no) && (
+                  <button
+                    onClick={() => openDetail(row.roll_no, 'profile')}
+                    className="w-full rounded-xl px-3 py-2.5 text-xs font-black transition-all duration-200 flex items-center justify-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 shadow-sm"
+                  >
+                    View Complete Info
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -1488,7 +1501,7 @@ export default function StudentRecords({
                   J
                 </div>
                 <div>
-                  <div className="text-[10px] font-bold text-orange-500 uppercase tracking-[0.15em]">JECRC Foundation</div>
+                  <div className="text-[10px] font-bold text-orange-500 uppercase tracking-[0.15em]">JECRC Results Portal</div>
                   <h3 className="text-sm font-extrabold text-neutral-900 leading-none">Student Details</h3>
                 </div>
               </div>

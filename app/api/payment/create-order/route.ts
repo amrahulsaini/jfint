@@ -19,8 +19,8 @@ function getRazorpay() {
  * plan=all    : ALL_ACCESS_AMOUNT_PAISE (default 20000 = ₹200, valid 2 hours)
  */
 export async function GET(_req: NextRequest) {
-  const singlePaise = parseInt(process.env.PAYMENT_AMOUNT_PAISE || '500', 10);
-  const allPaise = parseInt(process.env.ALL_ACCESS_AMOUNT_PAISE || '20000', 10);
+  const singlePaise = parseInt(process.env.PAYMENT_AMOUNT_PAISE || '1000', 10);
+  const allPaise = parseInt(process.env.ALL_ACCESS_AMOUNT_PAISE || '1000', 10);
   return NextResponse.json({
     single: { amountPaise: singlePaise, amountRupees: singlePaise / 100 },
     all:    { amountPaise: allPaise,    amountRupees: allPaise / 100, durationHours: 2 },
@@ -46,8 +46,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({})) as { plan?: string };
     const plan = body.plan === 'all' ? 'all' : 'single';
     const amountPaise = plan === 'all'
-      ? parseInt(process.env.ALL_ACCESS_AMOUNT_PAISE || '20000', 10)
-      : parseInt(process.env.PAYMENT_AMOUNT_PAISE || '500', 10);
+      ? parseInt(process.env.ALL_ACCESS_AMOUNT_PAISE || '1000', 10)
+      : parseInt(process.env.PAYMENT_AMOUNT_PAISE || '1000', 10);
 
     const order = await getRazorpay().orders.create({
       amount: amountPaise,
