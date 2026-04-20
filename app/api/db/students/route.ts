@@ -72,7 +72,7 @@ export async function GET(req: Request) {
       const cached = getCachedMeta(metaKey);
 
       // ── Fire count + rows queries in PARALLEL (don't wait sequentially) ──
-      const countPromise = pool.query<[{ total: number }[], unknown]>(
+      const countPromise = pool.query(
         `SELECT COUNT(*) AS total FROM \`${FIRST_YEAR_COMM_TABLE}\` fc ${where}`,
         params,
       );
