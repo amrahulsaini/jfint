@@ -177,7 +177,7 @@ export default function Home() {
   // Countdown timer for results announcement
   const [countdown, setCountdown] = useState<{hours:string,minutes:string,seconds:string}|null>(null);
   useEffect(() => {
-    const target = new Date('2026-04-21T00:00:00').getTime();
+    const target = new Date('2026-04-24T00:00:00').getTime();
     const tick = () => {
       const diff = target - Date.now();
       if (diff <= 0) { setCountdown({hours:'00',minutes:'00',seconds:'00'}); return; }
