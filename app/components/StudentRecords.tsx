@@ -177,7 +177,7 @@ export default function StudentRecords({
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState('');
 
-  const isRollPaid = (rollNo: string) => true;
+  const isRollPaid = (rollNo: string) => allAccess || paidRolls.has(rollNo);
 
   const LIMIT = 20;
 
@@ -1060,6 +1060,23 @@ export default function StudentRecords({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ─── 1st Sem Highlight Banner ──────────────────────── */}
+      {table === '1styearmaster' && (
+        <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-2xl p-4 mb-6 shadow-sm flex items-start sm:items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-orange-900 mb-0.5">Unlock Complete Info for just ₹10</h3>
+            <p className="text-xs font-semibold text-orange-700">
+              Get access to Internal Marks PLUS detailed student profile including <span className="font-black underline decoration-orange-300">Aadhar Number</span>, <span className="font-black underline decoration-orange-300">Parents' Mobile Numbers</span>, <span className="font-black underline decoration-orange-300">Caste</span>, <span className="font-black underline decoration-orange-300">Home & Living Address</span>, and <span className="font-black underline decoration-orange-300">10th & 12th Percentage</span>.
+            </p>
+          </div>
         </div>
       )}
 
