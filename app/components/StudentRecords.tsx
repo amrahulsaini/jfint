@@ -169,6 +169,7 @@ export default function StudentRecords({
   const [paidRolls, setPaidRolls] = useState<Set<string>>(new Set()); // per-roll single plan
   const [showPayModal, setShowPayModal] = useState(false);
   const [pendingRollNo, setPendingRollNo] = useState<string | null>(null);
+  const [pendingTab, setPendingTab] = useState<'marks' | 'profile'>('marks');
   const [payLoading, setPayLoading] = useState(false);
   const [payPrice, setPayPrice] = useState<number | null>(null);     // single plan price
   const [allPrice, setAllPrice] = useState<number | null>(null);     // all-access plan price
@@ -875,6 +876,7 @@ export default function StudentRecords({
   const openDetail = (rollNo: string, tab: 'marks' | 'profile' = 'marks') => {
     if (!isRollPaid(rollNo)) {
       setPendingRollNo(rollNo);
+      setPendingTab(tab);
       setCoupon('');
       setCouponError('');
       setShowPayModal(true);
@@ -900,8 +902,9 @@ export default function StudentRecords({
         setCouponLoading(false);
         if (pendingRollNo) {
           const roll = pendingRollNo;
+          const tab = pendingTab;
           setPendingRollNo(null);
-          openDetailDirect(roll, 'marks');
+          openDetailDirect(roll, tab);
         }
       } else {
         setCouponError(data.error || 'Invalid coupon');
@@ -913,8 +916,8 @@ export default function StudentRecords({
     }
   };
 
-  const initiatePayment = async (plan: 'single' | 'all' = selectedPlan) => {
-    if (!pendingRollNo && plan === 'single') return;
+  const initiatePayment = async () => {
+    if (!pendingRollNo) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (typeof (window as any).Razorpay === 'undefined') {
       alert('Payment gateway is still loading. Please wait a moment and try again.');
@@ -925,12 +928,13 @@ export default function StudentRecords({
       const orderRes = await fetch('/api/payment/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan: 'single' }),
       });
       const order = await orderRes.json();
       if (order.error) { alert(order.error); setPayLoading(false); return; }
 
       const rollForPayment = pendingRollNo;
+      const tabForPayment = pendingTab;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rz = new (window as any).Razorpay({
         key: order.keyId,
@@ -938,7 +942,7 @@ export default function StudentRecords({
         currency: order.currency,
         order_id: order.orderId,
         name: 'JECRC Foundation Portal',
-        description: plan === 'all' ? 'All Students Access — 2 Hours' : 'View Student Result',
+        description: tabForPayment === 'profile' ? 'View Complete Student Info' : 'View Internal Marks',
         image: `${window.location.origin}/logo.png`,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         handler: async (response: any) => {
@@ -950,20 +954,16 @@ export default function StudentRecords({
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
               roll_no: rollForPayment,
-              plan,
+              plan: 'single',
             }),
           });
           const data = await verifyRes.json();
           if (data.success) {
-            if (plan === 'all') {
-              setAllAccess(true);
-            } else {
-              setPaidRolls(s => new Set([...s, rollForPayment!]));
-            }
+            setPaidRolls(s => new Set([...s, rollForPayment!]));
             setShowPayModal(false);
             setPayLoading(false);
             setPendingRollNo(null);
-            if (rollForPayment) openDetailDirect(rollForPayment);
+            if (rollForPayment) openDetailDirect(rollForPayment, tabForPayment);
           } else {
             alert('Payment verification failed. Please contact support.');
             setPayLoading(false);
@@ -1244,8 +1244,9 @@ export default function StudentRecords({
                 </div>
               </div>
 
-              {/* Card action button */}
+              {/* Card action buttons */}
               <div className="mt-4 pt-3 border-t border-neutral-100 flex flex-col gap-2">
+                {/* Internal Marks button — always visible */}
                 <button
                   onClick={() => openDetail(row.roll_no, 'marks')}
                   className={`w-full rounded-xl px-3 py-2.5 text-xs font-black transition-all duration-200 flex items-center justify-center gap-1.5 ${
@@ -1254,20 +1255,37 @@ export default function StudentRecords({
                       : 'bg-neutral-900 hover:bg-neutral-700 text-white'
                   }`}
                 >
+                  {!isRollPaid(row.roll_no) && (
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                    </svg>
+                  )}
                   {isRollPaid(row.roll_no)
                     ? 'View Internal Marks'
-                    : 'Unlock & View'}
+                    : 'Internal Marks — ₹10'}
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/>
                   </svg>
                 </button>
 
-                {table === '1styearmaster' && isRollPaid(row.roll_no) && (
+                {/* Complete Info button — only on 1st sem */}
+                {table === '1styearmaster' && (
                   <button
                     onClick={() => openDetail(row.roll_no, 'profile')}
-                    className="w-full rounded-xl px-3 py-2.5 text-xs font-black transition-all duration-200 flex items-center justify-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 shadow-sm"
+                    className={`w-full rounded-xl px-3 py-2.5 text-xs font-black transition-all duration-200 flex items-center justify-center gap-1.5 ${
+                      isRollPaid(row.roll_no)
+                        ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 shadow-sm'
+                        : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-500/30'
+                    }`}
                   >
-                    View Complete Info
+                    {!isRollPaid(row.roll_no) && (
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                      </svg>
+                    )}
+                    {isRollPaid(row.roll_no)
+                      ? 'View Complete Info'
+                      : 'Complete Info — ₹10'}
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -1354,79 +1372,46 @@ export default function StudentRecords({
 
             <div className="p-7 text-center">
               {/* Lock icon */}
-              <div className="w-16 h-16 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center mx-auto mb-5">
-                <svg className="w-8 h-8 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
-                </svg>
+              <div className={`w-16 h-16 rounded-2xl border flex items-center justify-center mx-auto mb-5 ${
+                pendingTab === 'profile' ? 'bg-indigo-50 border-indigo-100' : 'bg-orange-50 border-orange-100'
+              }`}>
+                {pendingTab === 'profile' ? (
+                  <svg className="w-8 h-8 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-8 h-8 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+                  </svg>
+                )}
               </div>
 
-              <h2 className="text-xl font-black text-neutral-900 mb-1">Choose a Plan</h2>
-              <p className="text-sm text-neutral-500 font-semibold mb-5">Select how you want to access student results</p>
+              <h2 className="text-xl font-black text-neutral-900 mb-1">
+                {pendingTab === 'profile' ? 'Unlock Complete Info' : 'Unlock Internal Marks'}
+              </h2>
+              <p className="text-sm text-neutral-500 font-semibold mb-2">
+                {pendingRollNo && <span className="text-orange-500 font-mono">{pendingRollNo}</span>}
+              </p>
 
-              {/* Plan selector cards */}
-              <div className="grid grid-cols-2 gap-3 mb-5">
-                {/* Single plan */}
-                <button
-                  onClick={() => setSelectedPlan('single')}
-                  className={`relative rounded-2xl border-2 p-4 text-left transition-all duration-200 ${
-                    selectedPlan === 'single'
-                      ? 'border-orange-500 bg-orange-50'
-                      : 'border-neutral-200 bg-white hover:border-neutral-300'
-                  }`}
-                >
-                  {selectedPlan === 'single' && (
-                    <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
-                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
-                      </svg>
-                    </div>
-                  )}
-                  <div className="text-xs font-black text-neutral-500 uppercase tracking-wider mb-1">Single</div>
-                  <div className="text-2xl font-black text-orange-500">
-                    {payPrice !== null ? `₹${payPrice}` : '…'}
-                  </div>
-                  <div className="text-xs text-neutral-500 font-semibold mt-1">Per student result</div>
-                  <div className="text-[10px] text-neutral-400 font-medium mt-0.5">Valid until browser closes</div>
-                </button>
-
-                {/* All-access plan */}
-                <button
-                  onClick={() => setSelectedPlan('all')}
-                  className={`relative rounded-2xl border-2 p-4 text-left transition-all duration-200 ${
-                    selectedPlan === 'all'
-                      ? 'border-orange-500 bg-orange-50'
-                      : 'border-neutral-200 bg-white hover:border-neutral-300'
-                  }`}
-                >
-                  {selectedPlan === 'all' && (
-                    <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
-                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
-                      </svg>
-                    </div>
-                  )}
-                  <div className="absolute -top-2.5 left-3">
-                    <span className="bg-orange-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">Best Value</span>
-                  </div>
-                  <div className="text-xs font-black text-neutral-500 uppercase tracking-wider mb-1 mt-1">All Access</div>
-                  <div className="text-2xl font-black text-orange-500">
-                    {allPrice !== null ? `₹${allPrice}` : '₹200'}
-                  </div>
-                  <div className="text-xs text-neutral-500 font-semibold mt-1">Unlimited students</div>
-                  <div className="text-[10px] text-neutral-400 font-medium mt-0.5">Valid for 2 hours</div>
-                </button>
+              {/* Price badge */}
+              <div className="inline-flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-2xl px-5 py-3 mb-5">
+                <span className="text-3xl font-black text-orange-500">₹10</span>
+                <span className="text-xs font-bold text-neutral-500 text-left leading-tight">only<br/>per student</span>
               </div>
 
-              {/* Selected plan features */}
+              {/* What you get */}
               <ul className="text-left space-y-1.5 mb-5">
-                {(selectedPlan === 'single' ? [
-                  'View internal marks for this student',
-                  'Access complete profile (1st sem)',
-                  'Access valid until browser closes',
+                {(pendingTab === 'profile' ? [
+                  'Aadhar Number',
+                  'Parents\' Mobile Numbers',
+                  'Caste & Category',
+                  'Home & Living Address',
+                  '10th & 12th Percentage',
+                  'Complete student profile data',
                 ] : [
-                  'Unlimited student results for 2 hours',
-                  'Export any result to PDF',
-                  'Access all batches seamlessly',
+                  'View all internal marks',
+                  'Mid-term, Sessional & Practical marks',
+                  'Export marks to PDF',
                 ]).map((f: string) => (
                   <li key={f} className="flex items-center gap-2 text-sm text-neutral-600 font-semibold">
                     <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -1438,9 +1423,13 @@ export default function StudentRecords({
               </ul>
 
               <button
-                onClick={() => initiatePayment(selectedPlan)}
+                onClick={() => initiatePayment()}
                 disabled={payLoading || couponLoading}
-                className="w-full bg-orange-500 hover:bg-orange-400 active:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black py-3.5 rounded-2xl text-base shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 transition-all duration-200 hover:-translate-y-0.5 flex items-center justify-center gap-2"
+                className={`w-full font-black py-3.5 rounded-2xl text-base shadow-lg transition-all duration-200 hover:-translate-y-0.5 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${
+                  pendingTab === 'profile'
+                    ? 'bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white shadow-indigo-500/30 hover:shadow-indigo-500/50'
+                    : 'bg-orange-500 hover:bg-orange-400 active:bg-orange-600 text-white shadow-orange-500/30 hover:shadow-orange-500/50'
+                }`}
               >
                 {payLoading ? (
                   <>
@@ -1455,9 +1444,7 @@ export default function StudentRecords({
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"/>
                     </svg>
-                    Pay {selectedPlan === 'all'
-                      ? (allPrice !== null ? `₹${allPrice}` : '₹200')
-                      : (payPrice !== null ? `₹${payPrice}` : '')} — Secure Checkout
+                    Pay ₹10 — Secure Checkout
                   </>
                 )}
               </button>
