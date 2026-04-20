@@ -9,8 +9,8 @@ export default function DisclaimerModal() {
   useEffect(() => {
     setIsOpen(true);
     
-    // Target date: April 21, 2026, 00:00:00 Local time
-    const target = new Date('2026-04-21T00:00:00').getTime();
+    // Target date: April 24, 2026, 00:00:00 Local time
+    const target = new Date('2026-04-24T00:00:00').getTime();
     
     const updateTimer = () => {
       const now = Date.now();
