@@ -177,7 +177,7 @@ export default function StudentRecords({
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState('');
 
-  const isRollPaid = (rollNo: string) => allAccess || paidRolls.has(rollNo);
+  const isRollPaid = (rollNo: string) => true;
 
   const LIMIT = 20;
 

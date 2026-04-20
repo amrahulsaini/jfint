@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
-import { isRollAccessible } from '@/lib/payment';
 import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
 
 const ALLOWED_TABLES = ['jecr_2ndyear', '1styearmaster'] as const;
@@ -278,22 +277,6 @@ export async function GET(req: NextRequest) {
     ? rawTable as AllowedTable
     : 'jecr_2ndyear';
 
-  // Keep 1st-sem complete-profile view open without payment unlock.
-  if (tableName !== '1styearmaster') {
-    const sidCookie = req.cookies.get(SESSION_COOKIE)?.value;
-    const sessionId = sidCookie ? verifySessionToken(sidCookie) : null;
-    if (!sessionId) {
-      return NextResponse.json({ error: 'payment_required' }, { status: 402 });
-    }
-
-    // Also pass email so prior-session payments (same email) are recognised.
-    const { getSessionEmail } = await import('@/lib/session');
-    const email = await getSessionEmail(sessionId).catch(() => null);
-    const accessible = await isRollAccessible(sessionId, rollNo, email).catch(() => false);
-    if (!accessible) {
-      return NextResponse.json({ error: 'payment_required' }, { status: 402 });
-    }
-  }
 
   if (!rollNo) {
     return NextResponse.json({ error: 'roll_no is required' }, { status: 400 });
