@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
+import { cacheGetJson, cacheSetJson, stableCacheHash } from '@/lib/cache';
 
 const RTU_URL =
   'https://rtu.sumsraj.com/Monitoring/Examination/ACD_Track_PaperMarksEntry_RTU.aspx';
+const RTU_VIEW_CACHE_TTL_SECONDS = 25;
 
 const BROWSER_HEADERS = (cookie: string) => ({
   Cookie: cookie,
@@ -27,6 +29,14 @@ export async function POST(req: NextRequest) {
 
   const { cookie, ...formFields } = body;
   if (!cookie) return NextResponse.json({ error: 'cookie required' }, { status: 400 });
+
+  const cacheKey = `rtu:view:v1:${stableCacheHash({ cookie, formFields })}`;
+  const cached = await cacheGetJson<Record<string, unknown>>(cacheKey);
+  if (cached) {
+    const hit = NextResponse.json(cached);
+    hit.headers.set('X-Cache', 'HIT');
+    return hit;
+  }
 
   // ─── Use chained ViewState from last cascade step ──────────────────────
   // The page sends the VS it accumulated through Session→EC→Degree→DC chain.
@@ -129,7 +139,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (!gridHtml) {
-      return NextResponse.json({ rows: [], columns: [], message: msg || 'No data returned.', newViewState: newVS });
+      const payload = { rows: [], columns: [], message: msg || 'No data returned.', newViewState: newVS };
+      await cacheSetJson(cacheKey, payload, RTU_VIEW_CACHE_TTL_SECONDS);
+      const miss = NextResponse.json(payload);
+      miss.headers.set('X-Cache', 'MISS');
+      return miss;
     }
 
     // ── Parse grid HTML into rows ─────────────────────────────────────────
@@ -154,7 +168,11 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    return NextResponse.json({ rows, columns, message: msg, newViewState: newVS });
+    const payload = { rows, columns, message: msg, newViewState: newVS };
+    await cacheSetJson(cacheKey, payload, RTU_VIEW_CACHE_TTL_SECONDS);
+    const miss = NextResponse.json(payload);
+    miss.headers.set('X-Cache', 'MISS');
+    return miss;
   } catch (err) {
     console.error('[view error]', err);
     return NextResponse.json({ error: 'Submit failed' }, { status: 500 });

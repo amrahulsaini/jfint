@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
+import { cacheGetJson, cacheSetJson, stableCacheHash } from '@/lib/cache';
 
 const RTU_URL =
   'https://rtu.sumsraj.com/Monitoring/Examination/ACD_Track_PaperMarksEntry_RTU.aspx';
+const RTU_CASCADE_CACHE_TTL_SECONDS = 15;
 
 const BROWSER_HEADERS = (cookie: string) => ({
   Cookie: cookie,
@@ -41,6 +43,14 @@ export async function POST(req: NextRequest) {
   const { cookie, eventTarget, ...formFields } = body;
   if (!cookie)      return NextResponse.json({ error: 'cookie required' }, { status: 400 });
   if (!eventTarget) return NextResponse.json({ error: 'eventTarget required' }, { status: 400 });
+
+  const cacheKey = `rtu:cascade:v1:${stableCacheHash({ cookie, eventTarget, formFields })}`;
+  const cached = await cacheGetJson<Record<string, unknown>>(cacheKey);
+  if (cached) {
+    const hit = NextResponse.json(cached);
+    hit.headers.set('X-Cache', 'HIT');
+    return hit;
+  }
 
   // ─── Step 1: Get ViewState ────────────────────────────────────────────────
   // Use client-provided ViewState from the previous cascade step (chained).
@@ -159,11 +169,16 @@ export async function POST(req: NextRequest) {
     const $resp  = cheerio.load(rawText);
     const newVS  = $resp('#__VIEWSTATE').attr('value');
     const newVSG = $resp('#__VIEWSTATEGENERATOR').attr('value');
-    return NextResponse.json({
+    const payload = {
       options,
       viewState:    newVS  ?? viewState,
       viewStateGen: newVSG ?? viewStateGen,
-    });
+    };
+
+    await cacheSetJson(cacheKey, payload, RTU_CASCADE_CACHE_TTL_SECONDS);
+    const miss = NextResponse.json(payload);
+    miss.headers.set('X-Cache', 'MISS');
+    return miss;
   } catch (err) {
     console.error('[cascade error]', err);
     return NextResponse.json({ error: 'Cascade failed' }, { status: 500 });

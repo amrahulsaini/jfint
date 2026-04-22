@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
+import { cacheGetJson, cacheSetJson } from '@/lib/cache';
 import { getPool } from '@/lib/db';
 
 const ALLOWED_TABLES = ['jecr_2ndyear', '1styearmaster'] as const;
 type AllowedTable = typeof ALLOWED_TABLES[number];
 
 const FIRST_YEAR_COMM_TABLE = '2528firstyear_comm';
+const STUDENTS_CACHE_TTL_SECONDS = 40;
 
 /* ─── Server-side cache (lives for the Node.js process lifetime) ─────────────
    branches/genders/stats almost never change — cache them aggressively so
@@ -40,6 +42,22 @@ export async function GET(req: Request) {
     ? rawTable as AllowedTable
     : 'jecr_2ndyear';
   const isFirstYearMaster = tableName === '1styearmaster';
+  const cacheKey = [
+    'db-students-v3',
+    encodeURIComponent(tableName),
+    page,
+    limit,
+    encodeURIComponent(search.toLowerCase()),
+    encodeURIComponent(branch.toLowerCase()),
+    encodeURIComponent(gender.toLowerCase()),
+  ].join(':');
+
+  const cached = await cacheGetJson<Record<string, unknown>>(cacheKey);
+  if (cached) {
+    const hit = NextResponse.json(cached);
+    hit.headers.set('X-Cache', 'HIT');
+    return hit;
+  }
 
   try {
     const pool = getPool();
@@ -133,7 +151,7 @@ export async function GET(req: Request) {
       const [[countResult], [rowsResult], meta] = await Promise.all([countPromise, rowsPromise, metaPromise]);
       const total = (countResult as { total: number }[])[0].total;
 
-      return NextResponse.json({
+      const payload = {
         rows: rowsResult,
         total,
         page,
@@ -142,7 +160,12 @@ export async function GET(req: Request) {
         branches: meta.branches,
         genders: meta.genders,
         stats: meta.stats,
-      });
+      };
+
+      await cacheSetJson(cacheKey, payload, STUDENTS_CACHE_TTL_SECONDS);
+      const miss = NextResponse.json(payload);
+      miss.headers.set('X-Cache', 'MISS');
+      return miss;
 
     } else {
       // ── 2nd year: run all 3 queries in parallel ──
@@ -173,7 +196,7 @@ export async function GET(req: Request) {
 
       const total = (countResult[0] as { total: number }[])[0].total;
 
-      return NextResponse.json({
+      const payload = {
         rows: rowsResult[0],
         total,
         page,
@@ -182,7 +205,12 @@ export async function GET(req: Request) {
         branches: (branchResult[0] as { branch: string }[]).map(b => b.branch),
         genders: [],
         stats: (statsResult[0] as Record<string, number>[])[0],
-      });
+      };
+
+      await cacheSetJson(cacheKey, payload, STUDENTS_CACHE_TTL_SECONDS);
+      const miss = NextResponse.json(payload);
+      miss.headers.set('X-Cache', 'MISS');
+      return miss;
     }
 
   } catch (err: unknown) {

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cacheGetJson, cacheSetJson } from '@/lib/cache';
 import { getPool } from '@/lib/db';
 
 type DictRow = Record<string, unknown>;
 
 const VERIFIED_COOKIE = 'jfint_student_verified';
+const PROFILE_CACHE_TTL_SECONDS = 45;
 
 function normalizeEmail(value: string): string {
   return String(value || '').trim().toLowerCase();
@@ -151,6 +153,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Email verification required.' }, { status: 401 });
     }
 
+    const cacheKey = `profile:v2:${verifiedEmail}`;
+    const cached = await cacheGetJson<Record<string, unknown>>(cacheKey);
+    if (cached) {
+      const hit = NextResponse.json(cached);
+      hit.headers.set('X-Cache', 'HIT');
+      return hit;
+    }
+
     const pool = getPool();
 
     const [sessionRows] = await pool.query(
@@ -220,7 +230,7 @@ export async function GET(req: NextRequest) {
           warning: 'Skipped fallback: match found in 2428main.student_emailid.',
         };
 
-    return NextResponse.json({
+    const payload = {
       email: verifiedEmail,
       totals: {
         sessions: sessions.length,
@@ -234,7 +244,12 @@ export async function GET(req: NextRequest) {
         firstSem,
         thirdSem,
       },
-    });
+    };
+
+    await cacheSetJson(cacheKey, payload, PROFILE_CACHE_TTL_SECONDS);
+    const miss = NextResponse.json(payload);
+    miss.headers.set('X-Cache', 'MISS');
+    return miss;
   } catch (err) {
     console.error('[profile]', err);
     return NextResponse.json({ error: 'Failed to load profile data.' }, { status: 500 });

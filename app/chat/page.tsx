@@ -69,6 +69,14 @@ function mergeMessages(prev: ChatMessage[], incoming: ChatMessage[]): ChatMessag
   return merged.slice(-500);
 }
 
+function maxServerMessageId(messages: ChatMessage[]): number {
+  let maxId = 0;
+  for (const m of messages) {
+    if (m.id > 0 && m.id > maxId) maxId = m.id;
+  }
+  return maxId;
+}
+
 function Avatar({
   user,
   size = 40,
@@ -120,6 +128,8 @@ export default function ChatPage() {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingEnabledRef = useRef(false);
   const typingSentAtRef = useRef(0);
+  const pollInFlightRef = useRef(false);
+  const heartbeatInFlightRef = useRef(false);
 
   const stopTyping = useCallback(async () => {
     if (!typingEnabledRef.current) return;
@@ -188,7 +198,7 @@ export default function ChatPage() {
         setMe(json.me);
         setRoom(json.room);
         setMessages(json.messages || []);
-        lastMessageIdRef.current = json.messages?.length ? json.messages[json.messages.length - 1].id : 0;
+        lastMessageIdRef.current = maxServerMessageId(json.messages || []);
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
@@ -210,6 +220,8 @@ export default function ChatPage() {
     if (!me || needsVerify) return;
 
     const poll = async () => {
+      if (pollInFlightRef.current) return;
+      pollInFlightRef.current = true;
       try {
         const sinceId = lastMessageIdRef.current;
         const res = await fetch(`/api/chat/messages?sinceId=${sinceId}`, { cache: 'no-store' });
@@ -227,10 +239,9 @@ export default function ChatPage() {
         if (!json) return;
 
         if (Array.isArray(json.messages) && json.messages.length > 0) {
+          lastMessageIdRef.current = Math.max(lastMessageIdRef.current, maxServerMessageId(json.messages));
           setMessages((prev) => {
-            const next = mergeMessages(prev, json.messages || []);
-            lastMessageIdRef.current = next.length ? next[next.length - 1].id : lastMessageIdRef.current;
-            return next;
+            return mergeMessages(prev, json.messages || []);
           });
         }
 
@@ -239,10 +250,12 @@ export default function ChatPage() {
         }
       } catch {
         // ignore transient poll errors
+      } finally {
+        pollInFlightRef.current = false;
       }
     };
 
-    const id = setInterval(poll, 1000);
+    const id = setInterval(poll, 700);
     return () => clearInterval(id);
   }, [me, needsVerify]);
 
@@ -250,6 +263,8 @@ export default function ChatPage() {
     if (!me || needsVerify) return;
 
     const heartbeat = async () => {
+      if (heartbeatInFlightRef.current) return;
+      heartbeatInFlightRef.current = true;
       try {
         const res = await fetch('/api/chat/presence', {
           method: 'POST',
@@ -261,11 +276,13 @@ export default function ChatPage() {
         if (json?.room) setRoom(json.room);
       } catch {
         // no-op
+      } finally {
+        heartbeatInFlightRef.current = false;
       }
     };
 
     heartbeat();
-    const id = setInterval(heartbeat, 10000);
+    const id = setInterval(heartbeat, 6000);
     return () => clearInterval(id);
   }, [me, needsVerify]);
 
@@ -354,10 +371,11 @@ export default function ChatPage() {
       }
 
       if (json.message) {
+        const sentMessage = json.message;
         setMessages((prev) => {
           const filtered = prev.filter(m => m.id !== tempId);
-          const next = mergeMessages(filtered, [json.message!]);
-          lastMessageIdRef.current = Math.max(lastMessageIdRef.current, json.message.id);
+          const next = mergeMessages(filtered, [sentMessage]);
+          lastMessageIdRef.current = Math.max(lastMessageIdRef.current, sentMessage.id);
           return next;
         });
       }

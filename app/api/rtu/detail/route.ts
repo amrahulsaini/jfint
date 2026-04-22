@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
+import { cacheGetJson, cacheSetJson, stableCacheHash } from '@/lib/cache';
 
 const RTU_URL =
   'https://rtu.sumsraj.com/Monitoring/Examination/ACD_Track_PaperMarksEntry_RTU.aspx';
+const RTU_DETAIL_CACHE_TTL_SECONDS = 20;
 
 const BROWSER_HEADERS = (cookie: string) => ({
   Cookie: cookie,
@@ -51,6 +53,14 @@ export async function POST(req: NextRequest) {
   const { cookie, eventTarget, ...formFields } = body;
   if (!cookie)      return NextResponse.json({ error: 'cookie required' }, { status: 400 });
   if (!eventTarget) return NextResponse.json({ error: 'eventTarget required' }, { status: 400 });
+
+  const cacheKey = `rtu:detail:v1:${stableCacheHash({ cookie, eventTarget, formFields })}`;
+  const cached = await cacheGetJson<Record<string, unknown>>(cacheKey);
+  if (cached) {
+    const hit = NextResponse.json(cached);
+    hit.headers.set('X-Cache', 'HIT');
+    return hit;
+  }
 
   const viewState    = formFields.__VIEWSTATE ?? '';
   const viewStateGen = formFields.__VIEWSTATEGENERATOR ?? '68EA6D12';
@@ -180,12 +190,17 @@ export async function POST(req: NextRequest) {
       } catch { /* already parsed above */ }
     }
 
-    return NextResponse.json({
+    const payload = {
       title,
       studentGrid,
       addMoreGrid,
       ...(newViewState ? { newViewState } : {}),
-    });
+    };
+
+    await cacheSetJson(cacheKey, payload, RTU_DETAIL_CACHE_TTL_SECONDS);
+    const miss = NextResponse.json(payload);
+    miss.headers.set('X-Cache', 'MISS');
+    return miss;
 
   } catch (err) {
     console.error('[detail error]', err);

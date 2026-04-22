@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cacheGetJson, cacheSetJson } from '@/lib/cache';
 import { verifySessionToken, SESSION_COOKIE, getActiveSessionRecord } from '@/lib/session';
 import { getPool } from '@/lib/db';
+
+const TRACKING_CACHE_TTL_SECONDS = 20;
 
 export async function GET(req: NextRequest) {
   const sidCookie = req.cookies.get(SESSION_COOKIE)?.value;
@@ -16,6 +19,14 @@ export async function GET(req: NextRequest) {
     const sess = await getActiveSessionRecord(sessionId);
     if (!sess) {
       return NextResponse.json({ error: 'Session expired. Please verify again.' }, { status: 401 });
+    }
+
+    const cacheKey = `tracking:v2:${String(sess.email || '').toLowerCase()}:${sessionId}`;
+    const cached = await cacheGetJson<Record<string, unknown>>(cacheKey);
+    if (cached) {
+      const hit = NextResponse.json(cached);
+      hit.headers.set('X-Cache', 'HIT');
+      return hit;
     }
 
     // Full payment history — query by email (if known) OR session_id
@@ -49,7 +60,7 @@ export async function GET(req: NextRequest) {
       isCoupon: p.razorpay_order_id === 'coupon',
     }));
 
-    return NextResponse.json({
+    const payload = {
       sessionId: sessionId.slice(0, 8) + '…', // partial, for display only
       email: sess?.email ?? null,
       loginAt: sess?.createdAt ? sess.createdAt.toISOString() : null,
@@ -57,7 +68,12 @@ export async function GET(req: NextRequest) {
       ipAddress: sess?.ipAddress ?? null,
       payments,
       totalSpent: payments.reduce((sum, p) => sum + p.amountPaise, 0),
-    });
+    };
+
+    await cacheSetJson(cacheKey, payload, TRACKING_CACHE_TTL_SECONDS);
+    const miss = NextResponse.json(payload);
+    miss.headers.set('X-Cache', 'MISS');
+    return miss;
   } catch (err) {
     console.error('[tracking]', err);
     return NextResponse.json({ error: 'Failed to fetch tracking data' }, { status: 500 });

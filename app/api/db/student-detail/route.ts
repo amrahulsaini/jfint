@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cacheGetJson, cacheSetJson } from '@/lib/cache';
 import { getPool } from '@/lib/db';
-import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
 
 const ALLOWED_TABLES = ['jecr_2ndyear', '1styearmaster'] as const;
 type AllowedTable = typeof ALLOWED_TABLES[number];
 const ALL_INFO_TABLE = '2528allinfo';
 const FIRST_YEAR_COMM_TABLE = '2528firstyear_comm';
+const STUDENT_DETAIL_CACHE_TTL_SECONDS = 45;
 
 type StudentIdentity = {
   roll_no: string;
@@ -276,6 +277,12 @@ export async function GET(req: NextRequest) {
   const tableName: AllowedTable = ALLOWED_TABLES.includes(rawTable as AllowedTable)
     ? rawTable as AllowedTable
     : 'jecr_2ndyear';
+  const cacheKey = [
+    'db-student-detail-v2',
+    encodeURIComponent(tableName),
+    encodeURIComponent(rollNo.toLowerCase()),
+    includeProfile ? 'profile1' : 'profile0',
+  ].join(':');
 
 
 
@@ -288,6 +295,13 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const cached = await cacheGetJson<Record<string, unknown>>(cacheKey);
+    if (cached) {
+      const hit = NextResponse.json(cached);
+      hit.headers.set('X-Cache', 'HIT');
+      return hit;
+    }
+
     const pool = getPool();
 
     if (tableName === '1styearmaster') {
@@ -348,14 +362,19 @@ export async function GET(req: NextRequest) {
         profileMatch = matched.profileMatch;
       }
 
-      return NextResponse.json({
+      const payload = {
         student,
         papers,
         summary,
         profile,
         profileMatch,
         profileLoaded: includeProfile,
-      });
+      };
+
+      await cacheSetJson(cacheKey, payload, STUDENT_DETAIL_CACHE_TTL_SECONDS);
+      const miss = NextResponse.json(payload);
+      miss.headers.set('X-Cache', 'MISS');
+      return miss;
     }
 
     // Get all records for this roll number (all papers, marks, etc.)
@@ -403,7 +422,11 @@ export async function GET(req: NextRequest) {
       }).length,
     };
 
-    return NextResponse.json({ student, papers, summary, profileLoaded: false });
+    const payload = { student, papers, summary, profileLoaded: false };
+    await cacheSetJson(cacheKey, payload, STUDENT_DETAIL_CACHE_TTL_SECONDS);
+    const miss = NextResponse.json(payload);
+    miss.headers.set('X-Cache', 'MISS');
+    return miss;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Database error';
     return NextResponse.json({ error: message }, { status: 500 });

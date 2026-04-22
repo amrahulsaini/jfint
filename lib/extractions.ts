@@ -2,7 +2,7 @@ import { mkdir, readFile, readdir, writeFile } from 'fs/promises';
 import path from 'path';
 
 export const DEFAULT_PDF_RELATIVE_PATH = 'forms-1styear/mechanical-engineering.pdf';
-export const EXTRACTIONS_OUTPUT_ROOT = path.join(process.cwd(), 'data', 'extractions');
+export const EXTRACTIONS_OUTPUT_ROOT = path.join(/*turbopackIgnore: true*/ process.cwd(), 'data', 'extractions');
 
 type EducationRow = {
   exam: string;
@@ -150,7 +150,7 @@ function normalizeForParsing(value: string): string {
 }
 
 export function toRelativeWorkspacePath(absPath: string): string {
-  return path.relative(process.cwd(), absPath).split(path.sep).join('/');
+  return path.relative(/*turbopackIgnore: true*/ process.cwd(), absPath).split(path.sep).join('/');
 }
 
 export function isFileNotFound(err: unknown): boolean {
@@ -175,7 +175,7 @@ export function outputJsonPathForPdf(pdfRelativePath: string): string {
 }
 
 export async function listFormPdfFiles(): Promise<string[]> {
-  const dir = path.join(process.cwd(), 'public', 'forms-1styear');
+  const dir = path.join(/*turbopackIgnore: true*/ process.cwd(), 'public', 'forms-1styear');
   const entries = await readdir(dir, { withFileTypes: true });
   return entries
     .filter(e => e.isFile() && /\.pdf$/i.test(e.name))

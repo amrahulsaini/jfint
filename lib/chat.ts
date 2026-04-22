@@ -1,5 +1,6 @@
 import type { ResultSetHeader } from 'mysql2';
 import { NextRequest } from 'next/server';
+import { cacheGetJson, cacheGetString, cacheIncrement, cacheSetJson } from '@/lib/cache';
 import { getPool } from '@/lib/db';
 import { getActiveSessionRecord, SESSION_COOKIE, verifySessionToken } from '@/lib/session';
 
@@ -8,10 +9,72 @@ export const CHAT_ADMIN_EMAIL = 'rahulsaini.cse28@jecrc.ac.in';
 
 const ACTIVE_WINDOW_SECONDS = 120;
 const TYPING_WINDOW_SECONDS = 8;
+const IST_OFFSET_MINUTES = 330;
+const CHAT_IDENTITY_CACHE_TTL_SECONDS = 15 * 60;
+const CHAT_RECENT_CACHE_TTL_SECONDS = 2;
+const CHAT_SINCE_CACHE_TTL_SECONDS = 1;
+const CHAT_ROOM_CACHE_TTL_SECONDS = 2;
+const CHAT_MESSAGE_VERSION_KEY = 'chat:messages:version';
+const CHAT_ROOM_VERSION_KEY = 'chat:room:version';
 
 let ensureTablesPromise: Promise<void> | null = null;
 
 type DictRow = Record<string, unknown>;
+
+function pad2(value: number): string {
+  return value < 10 ? `0${value}` : String(value);
+}
+
+function formatIstDateTime(date: Date): string {
+  const shifted = new Date(date.getTime() + IST_OFFSET_MINUTES * 60 * 1000);
+  const yyyy = shifted.getUTCFullYear();
+  const mm = pad2(shifted.getUTCMonth() + 1);
+  const dd = pad2(shifted.getUTCDate());
+  const hh = pad2(shifted.getUTCHours());
+  const mi = pad2(shifted.getUTCMinutes());
+  const ss = pad2(shifted.getUTCSeconds());
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+}
+
+function nowIstDateTime(): string {
+  return formatIstDateTime(new Date());
+}
+
+function istDateTimeFromNow(secondsDelta: number): string {
+  return formatIstDateTime(new Date(Date.now() + secondsDelta * 1000));
+}
+
+function parseIstDateTimeToIso(value: string | Date | null | undefined): string {
+  if (!value) return new Date().toISOString();
+  if (value instanceof Date) return value.toISOString();
+
+  const raw = String(value).trim();
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/);
+  if (!m) {
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+  }
+
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const hour = Number(m[4]);
+  const minute = Number(m[5]);
+  const second = Number(m[6]);
+
+  const utcMs = Date.UTC(year, month - 1, day, hour, minute, second) - IST_OFFSET_MINUTES * 60 * 1000;
+  return new Date(utcMs).toISOString();
+}
+
+async function getCacheVersion(key: string): Promise<number> {
+  const raw = await cacheGetString(key);
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+async function bumpCacheVersion(key: string): Promise<void> {
+  await cacheIncrement(key);
+}
 
 export interface ChatIdentity {
   email: string;
@@ -105,7 +168,7 @@ function toChatUserSummary(row: {
   alias_name: string;
   photo_url: string | null;
   is_admin: number;
-  last_seen?: Date | null;
+  last_seen?: string | Date | null;
 }): ChatUserSummary {
   return {
     email: normalizeEmail(row.email),
@@ -113,7 +176,7 @@ function toChatUserSummary(row: {
     firstName: extractFirstName(String(row.alias_name || ''), String(row.email || '')),
     photoUrl: row.photo_url ? String(row.photo_url) : null,
     isAdmin: Number(row.is_admin) === 1,
-    lastSeen: row.last_seen ? row.last_seen.toISOString() : null,
+    lastSeen: row.last_seen ? parseIstDateTimeToIso(row.last_seen) : null,
   };
 }
 
@@ -124,12 +187,12 @@ function toChatMessage(row: {
   sender_photo_url: string | null;
   sender_is_admin: number;
   message_text: string;
-  created_at: Date;
+  created_at: string | Date;
 }): ChatMessage {
   return {
     id: Number(row.id),
     text: String(row.message_text || ''),
-    createdAt: row.created_at.toISOString(),
+    createdAt: parseIstDateTimeToIso(row.created_at),
     sender: {
       email: normalizeEmail(row.sender_email),
       aliasName: String(row.sender_alias || ''),
@@ -218,10 +281,17 @@ export async function ensureChatTables(): Promise<void> {
 
 export async function resolveChatIdentity(email: string): Promise<ChatIdentity> {
   const normalizedEmail = normalizeEmail(email);
+  const identityCacheKey = `chat:identity:${normalizedEmail}`;
+  const cachedIdentity = await cacheGetJson<ChatIdentity>(identityCacheKey);
+  if (cachedIdentity && normalizeEmail(cachedIdentity.email) === normalizedEmail) {
+    return cachedIdentity;
+  }
+
   const isAdmin = normalizedEmail === normalizeEmail(CHAT_ADMIN_EMAIL);
+  let resolved: ChatIdentity;
 
   if (isAdmin) {
-    return {
+    resolved = {
       email: normalizedEmail,
       aliasName: 'Admin',
       firstName: 'Admin',
@@ -229,6 +299,8 @@ export async function resolveChatIdentity(email: string): Promise<ChatIdentity> 
       photoUrl: null,
       isAdmin: true,
     };
+    await cacheSetJson(identityCacheKey, resolved, CHAT_IDENTITY_CACHE_TTL_SECONDS);
+    return resolved;
   }
 
   const row3rd = await findUserByEmail(
@@ -243,7 +315,7 @@ export async function resolveChatIdentity(email: string): Promise<ChatIdentity> 
     const fullName = rowValue(row3rd, 'student_name');
     const firstName = extractFirstName(fullName, normalizedEmail);
     const rollForPhoto = normalizeRoll(rollNo);
-    return {
+    resolved = {
       email: normalizedEmail,
       aliasName: firstName,
       firstName,
@@ -251,6 +323,8 @@ export async function resolveChatIdentity(email: string): Promise<ChatIdentity> 
       photoUrl: rollForPhoto ? `/student_photos/photo_${rollForPhoto}.jpg` : null,
       isAdmin: false,
     };
+    await cacheSetJson(identityCacheKey, resolved, CHAT_IDENTITY_CACHE_TTL_SECONDS);
+    return resolved;
   }
 
   const row1st = await findUserByEmail(
@@ -265,7 +339,7 @@ export async function resolveChatIdentity(email: string): Promise<ChatIdentity> 
     const fullName = rowValue(row1st, 'applicant_name');
     const firstName = extractFirstName(fullName, normalizedEmail);
     const rollForPhoto = normalizeRoll(rollNo);
-    return {
+    resolved = {
       email: normalizedEmail,
       aliasName: firstName,
       firstName,
@@ -273,10 +347,12 @@ export async function resolveChatIdentity(email: string): Promise<ChatIdentity> 
       photoUrl: rollForPhoto ? `/1styearphotos/photo_${rollForPhoto}.jpg` : null,
       isAdmin: false,
     };
+    await cacheSetJson(identityCacheKey, resolved, CHAT_IDENTITY_CACHE_TTL_SECONDS);
+    return resolved;
   }
 
   const fallbackName = extractFirstName('', normalizedEmail);
-  return {
+  resolved = {
     email: normalizedEmail,
     aliasName: fallbackName,
     firstName: fallbackName,
@@ -284,6 +360,8 @@ export async function resolveChatIdentity(email: string): Promise<ChatIdentity> 
     photoUrl: null,
     isAdmin: false,
   };
+  await cacheSetJson(identityCacheKey, resolved, CHAT_IDENTITY_CACHE_TTL_SECONDS);
+  return resolved;
 }
 
 export async function upsertChatUser(identity: ChatIdentity): Promise<void> {
@@ -310,15 +388,16 @@ export async function upsertChatUser(identity: ChatIdentity): Promise<void> {
 
 export async function touchPresence(identity: ChatIdentity): Promise<void> {
   const pool = getPool();
+  const nowIst = nowIstDateTime();
   await pool.query(
     `INSERT INTO chat_presence (email, alias_name, photo_url, is_admin, last_seen)
-     VALUES (?, ?, ?, ?, NOW())
+     VALUES (?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        alias_name = VALUES(alias_name),
        photo_url = VALUES(photo_url),
        is_admin = VALUES(is_admin),
-       last_seen = NOW()`,
-    [identity.email, identity.aliasName, identity.photoUrl, identity.isAdmin ? 1 : 0],
+       last_seen = VALUES(last_seen)`,
+    [identity.email, identity.aliasName, identity.photoUrl, identity.isAdmin ? 1 : 0, nowIst],
   );
 }
 
@@ -326,18 +405,21 @@ export async function setTypingStatus(identity: ChatIdentity, isTyping: boolean)
   const pool = getPool();
   if (!isTyping) {
     await pool.query('DELETE FROM chat_typing WHERE email = ?', [identity.email]);
+    await bumpCacheVersion(CHAT_ROOM_VERSION_KEY);
     return;
   }
 
+  const nowIst = nowIstDateTime();
   await pool.query(
     `INSERT INTO chat_typing (email, alias_name, is_admin, last_typing_at)
-     VALUES (?, ?, ?, NOW())
+     VALUES (?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        alias_name = VALUES(alias_name),
        is_admin = VALUES(is_admin),
-       last_typing_at = NOW()`,
-    [identity.email, identity.aliasName, identity.isAdmin ? 1 : 0],
+       last_typing_at = VALUES(last_typing_at)`,
+    [identity.email, identity.aliasName, identity.isAdmin ? 1 : 0, nowIst],
   );
+  await bumpCacheVersion(CHAT_ROOM_VERSION_KEY);
 }
 
 export async function createChatMessage(identity: ChatIdentity, text: string): Promise<ChatMessage> {
@@ -345,54 +427,44 @@ export async function createChatMessage(identity: ChatIdentity, text: string): P
   if (!cleaned) throw new Error('EMPTY_MESSAGE');
   if (cleaned.length > 1200) throw new Error('MESSAGE_TOO_LONG');
 
+  const createdAtIst = nowIstDateTime();
   const pool = getPool();
   const [result] = await pool.query(
-    `INSERT INTO chat_messages (sender_email, sender_alias, sender_photo_url, sender_is_admin, message_text)
-     VALUES (?, ?, ?, ?, ?)`,
-    [identity.email, identity.aliasName, identity.photoUrl, identity.isAdmin ? 1 : 0, cleaned],
+    `INSERT INTO chat_messages (sender_email, sender_alias, sender_photo_url, sender_is_admin, message_text, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [identity.email, identity.aliasName, identity.photoUrl, identity.isAdmin ? 1 : 0, cleaned, createdAtIst],
   ) as [ResultSetHeader, unknown];
 
   const insertId = Number(result.insertId || 0);
-  const [rows] = await pool.query(
-    `SELECT id, sender_email, sender_alias, sender_photo_url, sender_is_admin, message_text, created_at
-     FROM chat_messages
-     WHERE id = ?
-     LIMIT 1`,
-    [insertId],
-  ) as [unknown[], unknown];
+  await Promise.all([
+    bumpCacheVersion(CHAT_MESSAGE_VERSION_KEY),
+    bumpCacheVersion(CHAT_ROOM_VERSION_KEY),
+  ]);
 
-  const row = (rows as Array<{
-    id: number;
-    sender_email: string;
-    sender_alias: string;
-    sender_photo_url: string | null;
-    sender_is_admin: number;
-    message_text: string;
-    created_at: Date;
-  }>)[0];
-
-  if (!row) {
-    return {
-      id: insertId,
-      text: cleaned,
-      createdAt: new Date().toISOString(),
-      sender: {
-        email: identity.email,
-        aliasName: identity.aliasName,
-        photoUrl: identity.photoUrl,
-        isAdmin: identity.isAdmin,
-      },
-    };
-  }
-
-  return toChatMessage(row);
+  return {
+    id: insertId,
+    text: cleaned,
+    createdAt: parseIstDateTimeToIso(createdAtIst),
+    sender: {
+      email: identity.email,
+      aliasName: identity.aliasName,
+      photoUrl: identity.photoUrl,
+      isAdmin: identity.isAdmin,
+    },
+  };
 }
 
 export async function listRecentMessages(limit = 80): Promise<ChatMessage[]> {
-  const pool = getPool();
   const safeLimit = Math.max(1, Math.min(limit, 300));
+  const messageVersion = await getCacheVersion(CHAT_MESSAGE_VERSION_KEY);
+  const cacheKey = `chat:messages:recent:${safeLimit}:v${messageVersion}`;
+  const cached = await cacheGetJson<ChatMessage[]>(cacheKey);
+  if (cached) return cached;
+
+  const pool = getPool();
   const [rows] = await pool.query(
-    `SELECT id, sender_email, sender_alias, sender_photo_url, sender_is_admin, message_text, created_at
+    `SELECT id, sender_email, sender_alias, sender_photo_url, sender_is_admin, message_text,
+            DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
      FROM chat_messages
      ORDER BY id DESC
      LIMIT ?`,
@@ -406,20 +478,27 @@ export async function listRecentMessages(limit = 80): Promise<ChatMessage[]> {
     sender_photo_url: string | null;
     sender_is_admin: number;
     message_text: string;
-    created_at: Date;
+    created_at: string;
   }>).map(toChatMessage);
 
   mapped.reverse();
+  await cacheSetJson(cacheKey, mapped, CHAT_RECENT_CACHE_TTL_SECONDS);
   return mapped;
 }
 
 export async function listMessagesSince(sinceId: number, limit = 200): Promise<ChatMessage[]> {
-  const pool = getPool();
   const safeSince = Number.isFinite(sinceId) ? Math.max(0, Math.floor(sinceId)) : 0;
   const safeLimit = Math.max(1, Math.min(limit, 300));
+  const messageVersion = await getCacheVersion(CHAT_MESSAGE_VERSION_KEY);
+  const cacheKey = `chat:messages:since:${safeSince}:limit:${safeLimit}:v${messageVersion}`;
+  const cached = await cacheGetJson<ChatMessage[]>(cacheKey);
+  if (cached) return cached;
+
+  const pool = getPool();
 
   const [rows] = await pool.query(
-    `SELECT id, sender_email, sender_alias, sender_photo_url, sender_is_admin, message_text, created_at
+    `SELECT id, sender_email, sender_alias, sender_photo_url, sender_is_admin, message_text,
+            DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
      FROM chat_messages
      WHERE id > ?
      ORDER BY id ASC
@@ -427,43 +506,62 @@ export async function listMessagesSince(sinceId: number, limit = 200): Promise<C
     [safeSince, safeLimit],
   ) as [unknown[], unknown];
 
-  return (rows as Array<{
+  const mapped = (rows as Array<{
     id: number;
     sender_email: string;
     sender_alias: string;
     sender_photo_url: string | null;
     sender_is_admin: number;
     message_text: string;
-    created_at: Date;
+    created_at: string;
   }>).map(toChatMessage);
+
+  await cacheSetJson(cacheKey, mapped, CHAT_SINCE_CACHE_TTL_SECONDS);
+  return mapped;
 }
 
 export async function getRoomState(): Promise<ChatRoomState> {
+  const roomVersion = await getCacheVersion(CHAT_ROOM_VERSION_KEY);
+  const secondBucket = Math.floor(Date.now() / 1000);
+  const cacheKey = `chat:room:v${roomVersion}:t${secondBucket}`;
+  const cached = await cacheGetJson<ChatRoomState>(cacheKey);
+  if (cached) return cached;
+
   const pool = getPool();
+
+  const prunePresenceCutoff = istDateTimeFromNow(-(ACTIVE_WINDOW_SECONDS * 5));
+  const pruneTypingCutoff = istDateTimeFromNow(-(TYPING_WINDOW_SECONDS * 6));
+  const activeCutoff = istDateTimeFromNow(-ACTIVE_WINDOW_SECONDS);
+  const typingCutoff = istDateTimeFromNow(-TYPING_WINDOW_SECONDS);
 
   await pool.query(
     `DELETE FROM chat_presence
-     WHERE last_seen < (NOW() - INTERVAL ${ACTIVE_WINDOW_SECONDS * 5} SECOND)`,
+     WHERE last_seen < ?`,
+    [prunePresenceCutoff],
   );
   await pool.query(
     `DELETE FROM chat_typing
-     WHERE last_typing_at < (NOW() - INTERVAL ${TYPING_WINDOW_SECONDS * 6} SECOND)`,
+     WHERE last_typing_at < ?`,
+    [pruneTypingCutoff],
   );
 
   const [presenceRows] = await pool.query(
-    `SELECT email, alias_name, photo_url, is_admin, last_seen
+    `SELECT email, alias_name, photo_url, is_admin,
+            DATE_FORMAT(last_seen, '%Y-%m-%d %H:%i:%s') AS last_seen
      FROM chat_presence
-     WHERE last_seen >= (NOW() - INTERVAL ${ACTIVE_WINDOW_SECONDS} SECOND)
+     WHERE last_seen >= ?
      ORDER BY is_admin DESC, alias_name ASC
      LIMIT 300`,
+    [activeCutoff],
   ) as [unknown[], unknown];
 
   const [typingRows] = await pool.query(
     `SELECT email, alias_name, is_admin
      FROM chat_typing
-     WHERE last_typing_at >= (NOW() - INTERVAL ${TYPING_WINDOW_SECONDS} SECOND)
+     WHERE last_typing_at >= ?
      ORDER BY is_admin DESC, alias_name ASC
      LIMIT 120`,
+    [typingCutoff],
   ) as [unknown[], unknown];
 
   const [countRows] = await pool.query(
@@ -476,7 +574,7 @@ export async function getRoomState(): Promise<ChatRoomState> {
     alias_name: string;
     photo_url: string | null;
     is_admin: number;
-    last_seen: Date | null;
+    last_seen: string | null;
   }>).map(toChatUserSummary);
 
   const typingUsers = (typingRows as Array<{
@@ -493,12 +591,15 @@ export async function getRoomState(): Promise<ChatRoomState> {
 
   const totalMessages = Number((countRows as Array<{ total: number }>)[0]?.total || 0);
 
-  return {
+  const state = {
     activeCount: activeUsers.length,
     totalMessages,
     activeUsers,
     typingUsers,
   };
+
+  await cacheSetJson(cacheKey, state, CHAT_ROOM_CACHE_TTL_SECONDS);
+  return state;
 }
 
 export function publicIdentity(identity: ChatIdentity): ChatUserSummary {

@@ -21,8 +21,7 @@ export async function GET(req: NextRequest) {
   try {
     await ensureChatTables();
     const identity = await resolveChatIdentity(auth.email);
-    await upsertChatUser(identity);
-    await touchPresence(identity);
+    await Promise.all([upsertChatUser(identity), touchPresence(identity)]);
 
     const sinceIdRaw = new URL(req.url).searchParams.get('sinceId');
     const sinceId = Number.isFinite(Number(sinceIdRaw)) ? Number(sinceIdRaw) : 0;
@@ -66,9 +65,8 @@ export async function POST(req: NextRequest) {
 
     const message = await createChatMessage(identity, text);
     await setTypingStatus(identity, false);
-    const room = await getRoomState();
 
-    return NextResponse.json({ message, room });
+    return NextResponse.json({ message });
   } catch (err) {
     const code = err instanceof Error ? err.message : '';
     if (code === 'EMPTY_MESSAGE') {

@@ -57,7 +57,10 @@ interface PythonExtractResult {
 }
 
 async function runPythonExtractor(pdfPath: string, outputPath: string): Promise<PythonExtractResult> {
-  const scriptPath = path.join(process.cwd(), 'scripts', 'extract_student_photos.py');
+  const scriptPathFromEnv = process.env.PDF_EXTRACT_SCRIPT_PATH?.trim();
+  const scriptPath = scriptPathFromEnv && scriptPathFromEnv.length > 0
+    ? scriptPathFromEnv
+    : ['scripts', 'extract_student_photos.py'].join(path.sep);
   const preferredPython = process.env.PYTHON_PATH || 'C:/Users/ammra/AppData/Local/Programs/Python/Python313/python.exe';
   const candidates = process.platform === 'win32'
     ? [
@@ -112,9 +115,9 @@ export async function POST(req: NextRequest) {
       let tempDir = '';
 
       try {
-        tempDir = await mkdtemp(path.join(os.tmpdir(), 'jfint-'));
-        const tempPdfPath = path.join(tempDir, file.name || 'upload.pdf');
-        const tempJsonPath = path.join(tempDir, 'extract-result.json');
+        tempDir = await mkdtemp(`${os.tmpdir()}${path.sep}jfint-`);
+        const tempPdfPath = `${tempDir}${path.sep}upload.pdf`;
+        const tempJsonPath = `${tempDir}${path.sep}extract-result.json`;
         await writeFile(tempPdfPath, buffer);
 
         const extracted = await runPythonExtractor(tempPdfPath, tempJsonPath);
