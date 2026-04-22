@@ -401,6 +401,7 @@ export default function Home() {
           <div className="hidden md:flex items-center gap-8 text-[13px] font-bold text-neutral-500">
             <a href="#portal" className="hover:text-orange-500 transition-colors duration-200">Portal</a>
             <a href="#about" className="hover:text-orange-500 transition-colors duration-200">About</a>
+            <a href="/chat" className="hover:text-orange-500 transition-colors duration-200">Chat</a>
             <a href="/profile" className="hover:text-orange-500 transition-colors duration-200">Profile</a>
             <a href="/tracking" className="hover:text-orange-500 transition-colors duration-200">Tracking</a>
           </div>
@@ -451,6 +452,7 @@ export default function Home() {
             <div className="max-w-7xl mx-auto px-5 py-3 flex flex-col gap-2 text-sm font-bold text-neutral-600">
               <a href="#portal" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Portal</a>
               <a href="#about" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">About</a>
+              <a href="/chat" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Chat</a>
               <a href="/profile" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Profile</a>
               <a href="/tracking" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Tracking</a>
             </div>

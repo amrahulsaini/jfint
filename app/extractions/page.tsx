@@ -151,7 +151,7 @@ const FIELD_GROUPS: Array<{
 
 function fmtDate(iso?: string) {
   if (!iso) return '-';
-  return new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+  return new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' });
 }
 
 export default function ExtractionsPage() {

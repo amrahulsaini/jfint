@@ -31,6 +31,8 @@ function fmt(iso: string | null) {
   return new Date(iso).toLocaleString('en-IN', {
     dateStyle: 'medium',
     timeStyle: 'short',
+    timeZone: 'Asia/Kolkata',
+    hour12: true,
   });
 }
 
@@ -106,6 +108,12 @@ export default function TrackingPage() {
               className="flex items-center gap-1.5 bg-neutral-100 hover:bg-orange-50 border border-neutral-200 hover:border-orange-300 text-neutral-500 hover:text-orange-600 text-xs font-black px-3 py-1.5 rounded-xl transition-all duration-200"
             >
               ← Portal
+            </Link>
+            <Link
+              href="/chat"
+              className="flex items-center gap-1.5 bg-neutral-100 hover:bg-orange-50 border border-neutral-200 hover:border-orange-300 text-neutral-500 hover:text-orange-600 text-xs font-black px-3 py-1.5 rounded-xl transition-all duration-200"
+            >
+              Chat
             </Link>
             <Link
               href="/profile"

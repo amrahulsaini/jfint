@@ -44,15 +44,20 @@ function getValue(row: DictRow, keys: string[]): string {
   return '';
 }
 
+function normalizeRollForPhoto(value: string): string {
+  return String(value || '').trim().replace(/\s+/g, '');
+}
+
 async function fetchMappedRecords(
   pool: ReturnType<typeof getPool>,
   table: string,
   semester: '1st Sem' | '3rd Sem',
   verifiedEmail: string,
+  emailColumnName: string,
 ) {
   try {
     const columns = await getColumns(pool, table);
-    const emailCol = pickField(columns, ['student_email', 'email']);
+    const emailCol = pickField(columns, [emailColumnName]);
     if (!emailCol) {
       return {
         table,
@@ -60,7 +65,7 @@ async function fetchMappedRecords(
         count: 0,
         fieldMap: null,
         records: [] as Array<Record<string, unknown>>,
-        warning: 'Email column not found (expected student_email/email).',
+        warning: `Email column not found (expected ${emailColumnName}).`,
       };
     }
 
@@ -68,7 +73,10 @@ async function fetchMappedRecords(
     const orderBy = orderCol ? ` ORDER BY \`${orderCol}\` DESC` : '';
 
     const [rows] = await pool.query(
-      `SELECT * FROM \`${table}\` WHERE \`${emailCol}\` = ?${orderBy} LIMIT 250`,
+      `SELECT *
+       FROM \`${table}\`
+       WHERE LOWER(TRIM(COALESCE(\`${emailCol}\`, ''))) = LOWER(TRIM(?))${orderBy}
+       LIMIT 250`,
       [verifiedEmail],
     ) as [unknown[], unknown];
 
@@ -82,23 +90,27 @@ async function fetchMappedRecords(
     const records = rawRows.map((row, idx) => {
       const primaryRoll = getValue(row, ['roll_no', 'rollno', 'roll_number', 'earlier_enrollment_no', 'rtu_roll_no']);
       const secondaryRoll = getValue(row, ['entrance_exam_roll_no', 'university_roll_no']);
+      const mappedRoll = primaryRoll || secondaryRoll;
       const studentName = getValue(row, ['student_name', 'applicant_name', 'name']);
       const branch = getValue(row, ['branch', 'branch_name', 'specialization_branch']);
       const mobile = getValue(row, ['mobile_no', 'mobile', 'student_mobile']);
       const fatherName = getValue(row, ['father_name']);
       const motherName = getValue(row, ['mother_name']);
+      const photoRoll = normalizeRollForPhoto(mappedRoll);
+      const photoDir = semester === '3rd Sem' ? 'student_photos' : '1styearphotos';
 
       return {
         id: String(row.id ?? `${table}-${idx + 1}`),
         table,
         semester,
-        rollNo: primaryRoll || secondaryRoll || '-',
+        rollNo: mappedRoll || '-',
         secondaryRollNo: secondaryRoll || null,
         studentName: studentName || null,
         branch: branch || null,
         mobile: mobile || null,
         fatherName: fatherName || null,
         motherName: motherName || null,
+        photoUrl: photoRoll ? `/${photoDir}/photo_${photoRoll}.jpg` : null,
         updatedAt: toIso(row.updated_at ?? row.created_at ?? row.extracted_at),
       };
     });
@@ -193,8 +205,20 @@ export async function GET(req: NextRequest) {
       active: row.plan === 'all' ? (!row.expires_at || row.expires_at.getTime() > Date.now()) : true,
     }));
 
-    const firstSem = await fetchMappedRecords(pool, '2528allinfo', '1st Sem', verifiedEmail);
-    const thirdSem = await fetchMappedRecords(pool, '2428main', '3rd Sem', verifiedEmail);
+    // Strict lookup flow requested:
+    // 1) Check 2428main.student_emailid
+    // 2) If nothing found, fallback to 2528allinfo.student_email
+    const thirdSem = await fetchMappedRecords(pool, '2428main', '3rd Sem', verifiedEmail, 'student_emailid');
+    const firstSem = thirdSem.count === 0
+      ? await fetchMappedRecords(pool, '2528allinfo', '1st Sem', verifiedEmail, 'student_email')
+      : {
+          table: '2528allinfo',
+          semester: '1st Sem',
+          count: 0,
+          fieldMap: null,
+          records: [] as Array<Record<string, unknown>>,
+          warning: 'Skipped fallback: match found in 2428main.student_emailid.',
+        };
 
     return NextResponse.json({
       email: verifiedEmail,

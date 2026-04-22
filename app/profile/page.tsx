@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 interface SessionLog {
   sessionId: string;
@@ -36,6 +37,7 @@ interface MappedRecord {
   mobile: string | null;
   fatherName: string | null;
   motherName: string | null;
+  photoUrl: string | null;
   updatedAt: string | null;
 }
 
@@ -75,6 +77,8 @@ function fmt(iso: string | null): string {
   return new Date(iso).toLocaleString('en-IN', {
     dateStyle: 'medium',
     timeStyle: 'short',
+    timeZone: 'Asia/Kolkata',
+    hour12: true,
   });
 }
 
@@ -89,6 +93,8 @@ function shortSessionId(id: string): string {
 }
 
 function MappingCard({ group }: { group: MappingGroup }) {
+  if (group.records.length === 0) return null;
+
   return (
     <section className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
       <div className="px-5 py-4 border-b border-neutral-100 bg-neutral-50 flex items-center justify-between gap-3">
@@ -100,12 +106,6 @@ function MappingCard({ group }: { group: MappingGroup }) {
           {group.count} record{group.count === 1 ? '' : 's'}
         </span>
       </div>
-
-      {group.warning && (
-        <div className="mx-5 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
-          {group.warning}
-        </div>
-      )}
 
       {group.fieldMap && (
         <div className="mx-5 mt-4 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-3">
@@ -120,40 +120,54 @@ function MappingCard({ group }: { group: MappingGroup }) {
         </div>
       )}
 
-      {group.records.length === 0 ? (
-        <div className="px-5 py-8 text-sm font-semibold text-neutral-500">No mapped rows found for this email.</div>
-      ) : (
-        <div className="p-5 overflow-x-auto">
-          <table className="w-full min-w-[880px] text-sm">
-            <thead>
-              <tr className="bg-neutral-50 border-y border-neutral-200">
-                <th className="px-3 py-2 text-left text-[11px] font-black uppercase tracking-wider text-neutral-500">Roll No</th>
-                <th className="px-3 py-2 text-left text-[11px] font-black uppercase tracking-wider text-neutral-500">Secondary Roll</th>
-                <th className="px-3 py-2 text-left text-[11px] font-black uppercase tracking-wider text-neutral-500">Name</th>
-                <th className="px-3 py-2 text-left text-[11px] font-black uppercase tracking-wider text-neutral-500">Branch</th>
-                <th className="px-3 py-2 text-left text-[11px] font-black uppercase tracking-wider text-neutral-500">Mobile</th>
-                <th className="px-3 py-2 text-left text-[11px] font-black uppercase tracking-wider text-neutral-500">Father</th>
-                <th className="px-3 py-2 text-left text-[11px] font-black uppercase tracking-wider text-neutral-500">Mother</th>
-                <th className="px-3 py-2 text-left text-[11px] font-black uppercase tracking-wider text-neutral-500">Updated</th>
+      <div className="p-5 overflow-x-auto">
+        <table className="w-full min-w-[980px] text-sm">
+          <thead>
+            <tr className="bg-neutral-50 border-y border-neutral-200">
+              <th className="px-3 py-2 text-left text-[11px] font-black uppercase tracking-wider text-neutral-500">Photo</th>
+              <th className="px-3 py-2 text-left text-[11px] font-black uppercase tracking-wider text-neutral-500">Roll No</th>
+              <th className="px-3 py-2 text-left text-[11px] font-black uppercase tracking-wider text-neutral-500">Secondary Roll</th>
+              <th className="px-3 py-2 text-left text-[11px] font-black uppercase tracking-wider text-neutral-500">Name</th>
+              <th className="px-3 py-2 text-left text-[11px] font-black uppercase tracking-wider text-neutral-500">Branch</th>
+              <th className="px-3 py-2 text-left text-[11px] font-black uppercase tracking-wider text-neutral-500">Mobile</th>
+              <th className="px-3 py-2 text-left text-[11px] font-black uppercase tracking-wider text-neutral-500">Father</th>
+              <th className="px-3 py-2 text-left text-[11px] font-black uppercase tracking-wider text-neutral-500">Mother</th>
+              <th className="px-3 py-2 text-left text-[11px] font-black uppercase tracking-wider text-neutral-500">Updated</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-neutral-100">
+            {group.records.map((row) => (
+              <tr key={row.id} className="hover:bg-orange-50/40 transition-colors">
+                <td className="px-3 py-2.5">
+                  <div className="relative w-10 h-10 rounded-full overflow-hidden bg-neutral-100 border border-neutral-200">
+                    <span className="absolute inset-0 flex items-center justify-center text-[11px] font-black text-neutral-500">
+                      {String(row.studentName || row.rollNo || '?').charAt(0).toUpperCase()}
+                    </span>
+                    {row.photoUrl && (
+                      <Image
+                        src={row.photoUrl}
+                        alt={row.studentName || row.rollNo || 'student photo'}
+                        fill
+                        sizes="40px"
+                        className="absolute inset-0 w-full h-full object-cover"
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    )}
+                  </div>
+                </td>
+                <td className="px-3 py-2.5 font-black text-neutral-900">{row.rollNo || '-'}</td>
+                <td className="px-3 py-2.5 font-semibold text-neutral-600">{row.secondaryRollNo || '-'}</td>
+                <td className="px-3 py-2.5 font-semibold text-neutral-700">{row.studentName || '-'}</td>
+                <td className="px-3 py-2.5 font-semibold text-neutral-700">{row.branch || '-'}</td>
+                <td className="px-3 py-2.5 font-semibold text-neutral-700">{row.mobile || '-'}</td>
+                <td className="px-3 py-2.5 font-semibold text-neutral-700">{row.fatherName || '-'}</td>
+                <td className="px-3 py-2.5 font-semibold text-neutral-700">{row.motherName || '-'}</td>
+                <td className="px-3 py-2.5 font-semibold text-neutral-500">{fmt(row.updatedAt)}</td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {group.records.map((row) => (
-                <tr key={row.id} className="hover:bg-orange-50/40 transition-colors">
-                  <td className="px-3 py-2.5 font-black text-neutral-900">{row.rollNo || '-'}</td>
-                  <td className="px-3 py-2.5 font-semibold text-neutral-600">{row.secondaryRollNo || '-'}</td>
-                  <td className="px-3 py-2.5 font-semibold text-neutral-700">{row.studentName || '-'}</td>
-                  <td className="px-3 py-2.5 font-semibold text-neutral-700">{row.branch || '-'}</td>
-                  <td className="px-3 py-2.5 font-semibold text-neutral-700">{row.mobile || '-'}</td>
-                  <td className="px-3 py-2.5 font-semibold text-neutral-700">{row.fatherName || '-'}</td>
-                  <td className="px-3 py-2.5 font-semibold text-neutral-700">{row.motherName || '-'}</td>
-                  <td className="px-3 py-2.5 font-semibold text-neutral-500">{fmt(row.updatedAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
@@ -204,6 +218,16 @@ export default function ProfilePage() {
     return data.payments.reduce((sum, p) => sum + (Number(p.amountPaise) || 0), 0);
   }, [data]);
 
+  const hasMappedRecords = useMemo(() => {
+    if (!data) return false;
+    return (data.mappings.firstSem.count + data.mappings.thirdSem.count) > 0;
+  }, [data]);
+
+  const mappedGroups = useMemo(() => {
+    if (!data) return [] as MappingGroup[];
+    return [data.mappings.thirdSem, data.mappings.firstSem].filter((g) => g.count > 0);
+  }, [data]);
+
   return (
     <div className="min-h-screen bg-white text-neutral-900">
       <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur-2xl border-b border-neutral-200">
@@ -220,6 +244,9 @@ export default function ProfilePage() {
           <div className="flex items-center gap-2">
             <Link href="/portal" className="text-xs font-black border border-neutral-200 bg-neutral-100 hover:bg-orange-50 hover:border-orange-300 rounded-xl px-3 py-1.5 text-neutral-600 hover:text-orange-600 transition-colors">
               Portal
+            </Link>
+            <Link href="/chat" className="text-xs font-black border border-neutral-200 bg-neutral-100 hover:bg-orange-50 hover:border-orange-300 rounded-xl px-3 py-1.5 text-neutral-600 hover:text-orange-600 transition-colors">
+              Chat
             </Link>
             <Link href="/tracking" className="text-xs font-black border border-neutral-200 bg-neutral-100 hover:bg-orange-50 hover:border-orange-300 rounded-xl px-3 py-1.5 text-neutral-600 hover:text-orange-600 transition-colors">
               Tracking
@@ -295,7 +322,8 @@ export default function ProfilePage() {
               </div>
             </section>
 
-            <section className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
+            {hasMappedRecords && (
+              <section className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-neutral-100 bg-neutral-50">
                 <h2 className="text-sm font-black text-neutral-900">Session Logs</h2>
               </div>
@@ -333,9 +361,11 @@ export default function ProfilePage() {
                   </table>
                 </div>
               )}
-            </section>
+              </section>
+            )}
 
-            <section className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
+            {hasMappedRecords && (
+              <section className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-neutral-100 bg-neutral-50">
                 <h2 className="text-sm font-black text-neutral-900">Payment Logs</h2>
               </div>
@@ -379,10 +409,20 @@ export default function ProfilePage() {
                   </table>
                 </div>
               )}
-            </section>
+              </section>
+            )}
 
-            <MappingCard group={data.mappings.firstSem} />
-            <MappingCard group={data.mappings.thirdSem} />
+            {!hasMappedRecords && (
+              <section className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-5">
+                <p className="text-sm font-semibold text-neutral-700">
+                  No student data found for this email in 2428main.student_emailid or 2528allinfo.student_email.
+                </p>
+              </section>
+            )}
+
+            {mappedGroups.map((group) => (
+              <MappingCard key={`${group.table}-${group.semester}`} group={group} />
+            ))}
           </>
         )}
       </main>

@@ -38,6 +38,7 @@ export function getPool() {
       enableKeepAlive: true,
       keepAliveInitialDelay: 0,
       ssl: sslConfig(),
+      timezone: '+05:30',
     });
   }
   return pool;

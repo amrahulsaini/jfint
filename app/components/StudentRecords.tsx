@@ -575,7 +575,7 @@ export default function StudentRecords({
       doc.setFontSize(8);
       doc.setTextColor(203, 213, 225);
       doc.text('Internal Marks + 2528allinfo Data', margin + 4, y + 14);
-      doc.text(new Date().toLocaleString('en-IN'), pageW - margin - 4, y + 14, { align: 'right' });
+      doc.text(new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }), pageW - margin - 4, y + 14, { align: 'right' });
       y += 24;
 
       // Student photo block
