@@ -34,9 +34,9 @@ function fmt(iso: string | null) {
   });
 }
 
-function timeLeft(iso: string | null): string {
+function timeLeft(iso: string | null, nowMs: number): string {
   if (!iso) return '—';
-  const diff = new Date(iso).getTime() - Date.now();
+  const diff = new Date(iso).getTime() - nowMs;
   if (diff <= 0) return 'Expired';
   const m = Math.floor(diff / 60000);
   const s = Math.floor((diff % 60000) / 1000);
@@ -52,15 +52,22 @@ export default function TrackingPage() {
   const [data, setData] = useState<TrackingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [needsVerify, setNeedsVerify] = useState(false);
   const [tick, setTick] = useState(0);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
     fetch('/api/tracking')
       .then(r => {
-        if (r.status === 401) { router.replace('/login'); return null; }
+        if (r.status === 401) {
+          setNeedsVerify(true);
+          setLoading(false);
+          return null;
+        }
         return r.json();
       })
       .then(d => {
+        if (!d) return;
         if (d?.error) setError(d.error);
         else if (d) setData(d);
         setLoading(false);
@@ -70,7 +77,10 @@ export default function TrackingPage() {
 
   // Live countdown tick
   useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 1000);
+    const id = setInterval(() => {
+      setTick(t => t + 1);
+      setNowMs(Date.now());
+    }, 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -97,8 +107,14 @@ export default function TrackingPage() {
             >
               ← Portal
             </Link>
+            <Link
+              href="/profile"
+              className="flex items-center gap-1.5 bg-neutral-100 hover:bg-orange-50 border border-neutral-200 hover:border-orange-300 text-neutral-500 hover:text-orange-600 text-xs font-black px-3 py-1.5 rounded-xl transition-all duration-200"
+            >
+              Profile
+            </Link>
             <button
-              onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); router.replace('/login'); }}
+              onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); router.replace('/portal'); }}
               className="flex items-center gap-1.5 bg-neutral-100 hover:bg-red-50 border border-neutral-200 hover:border-red-300 text-neutral-500 hover:text-red-600 text-xs font-black px-3 py-1.5 rounded-xl transition-all duration-200"
             >
               Logout
@@ -122,6 +138,19 @@ export default function TrackingPage() {
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-2xl p-5 text-red-600 font-semibold text-sm">
             {error}
+          </div>
+        )}
+
+        {needsVerify && (
+          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-6">
+            <h2 className="text-lg font-black text-orange-700">Session Expired</h2>
+            <p className="text-sm text-orange-700 font-semibold mt-1">Verify your email again to view tracking logs.</p>
+            <Link
+              href="/verify?from=/tracking"
+              className="inline-flex mt-4 bg-orange-500 hover:bg-orange-400 text-white text-sm font-black px-4 py-2 rounded-xl transition-colors"
+            >
+              Verify Email
+            </Link>
           </div>
         )}
 
@@ -156,10 +185,10 @@ export default function TrackingPage() {
                   <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1">Time Left</p>
                   {/* tick dep forces re-render every second */}
                   <p className={`text-sm font-black tabular-nums ${
-                    data.sessionExpiresAt && (new Date(data.sessionExpiresAt).getTime() - Date.now()) < 120000
+                    data.sessionExpiresAt && (new Date(data.sessionExpiresAt).getTime() - nowMs) < 120000
                       ? 'text-red-500'
                       : 'text-orange-500'
-                  }`} key={tick}>{timeLeft(data.sessionExpiresAt)}</p>
+                  }`} key={tick}>{timeLeft(data.sessionExpiresAt, nowMs)}</p>
                 </div>
               </div>
             </div>
@@ -225,7 +254,7 @@ export default function TrackingPage() {
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 bg-green-50 border border-green-200 text-green-700 text-[11px] font-black px-2 py-0.5 rounded-lg" key={tick}>
-                                  ✓ {timeLeft(p.expiresAt)}
+                                  ✓ {timeLeft(p.expiresAt, nowMs)}
                                 </span>
                               )}
                             </td>

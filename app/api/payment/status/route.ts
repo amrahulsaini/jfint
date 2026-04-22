@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPaymentStatus } from '@/lib/payment';
-import { verifySessionToken, SESSION_COOKIE, getSessionEmail } from '@/lib/session';
+import { verifySessionToken, SESSION_COOKIE, getActiveSessionRecord } from '@/lib/session';
 
 export async function GET(req: NextRequest) {
   const sidCookie = req.cookies.get(SESSION_COOKIE)?.value;
@@ -11,9 +11,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const session = await getActiveSessionRecord(sessionId);
+    if (!session) {
+      return NextResponse.json({ allAccess: false, allAccessExpiresAt: null, paidRolls: [] });
+    }
     // Get email so we can find payments from previous sessions with same email
-    const email = await getSessionEmail(sessionId).catch(() => null);
-    const status = await getPaymentStatus(sessionId, email);
+    const status = await getPaymentStatus(sessionId, session.email);
     return NextResponse.json(status);
   } catch (err) {
     console.error('[payment/status]', err);

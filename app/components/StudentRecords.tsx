@@ -129,22 +129,17 @@ function getFullMarks(paperType: string, paperName: string): number {
   return 0;
 }
 
-const statusPill = (s: string) => {
-  const l = s?.toLowerCase() || '';
-  if (l.includes('filled') || l.includes('complete') || l.includes('submit'))
-    return 'text-emerald-700 bg-emerald-50 border-emerald-200';
-  if (l.includes('not') || l.includes('pending'))
-    return 'text-orange-700 bg-orange-50 border-orange-200';
-  return 'text-neutral-500 bg-neutral-100 border-neutral-200';
-};
-
 /* ── Component ──────────────────────────────────────────── */
 export default function StudentRecords({
   table = 'jecr_2ndyear',
   photoDir = 'student_photos',
+  verifiedEmail = null,
+  onRequireVerification,
 }: {
   table?: string;
   photoDir?: string;
+  verifiedEmail?: string | null;
+  onRequireVerification?: () => void;
 }) {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -165,15 +160,11 @@ export default function StudentRecords({
 
   // Payment state
   const [allAccess, setAllAccess] = useState(false);          // all-access plan or coupon
-  const [allAccessExpiresAt, setAllAccessExpiresAt] = useState<string | null>(null);
   const [paidRolls, setPaidRolls] = useState<Set<string>>(new Set()); // per-roll single plan
   const [showPayModal, setShowPayModal] = useState(false);
   const [pendingRollNo, setPendingRollNo] = useState<string | null>(null);
   const [pendingTab, setPendingTab] = useState<'marks' | 'profile'>('marks');
   const [payLoading, setPayLoading] = useState(false);
-  const [payPrice, setPayPrice] = useState<number | null>(null);     // single plan price
-  const [allPrice, setAllPrice] = useState<number | null>(null);     // all-access plan price
-  const [selectedPlan, setSelectedPlan] = useState<'single' | 'all'>('single');
   const [coupon, setCoupon] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState('');
@@ -208,13 +199,8 @@ export default function StudentRecords({
   // Check paid status + price on mount
   useEffect(() => {
     fetch('/api/payment/status').then(r => r.json()).then(d => {
-      if (d.allAccess) { setAllAccess(true); setAllAccessExpiresAt(d.allAccessExpiresAt ?? null); }
+      if (d.allAccess) { setAllAccess(true); }
       if (d.paidRolls?.length) setPaidRolls(new Set(d.paidRolls));
-    }).catch(() => {});
-    fetch('/api/payment/create-order').then(r => r.json()).then(d => {
-      if (d.single?.amountRupees) setPayPrice(d.single.amountRupees);
-      else if (d.amountRupees) setPayPrice(d.amountRupees); // legacy fallback
-      if (d.all?.amountRupees) setAllPrice(d.all.amountRupees);
     }).catch(() => {});
   }, []);
 
@@ -886,6 +872,10 @@ export default function StudentRecords({
   };
 
   const applyCoupon = async () => {
+    if (!verifiedEmail) {
+      onRequireVerification?.();
+      return;
+    }
     if (!coupon.trim()) return;
     setCouponLoading(true);
     setCouponError('');
@@ -918,6 +908,10 @@ export default function StudentRecords({
 
   const initiatePayment = async () => {
     if (!pendingRollNo) return;
+    if (!verifiedEmail) {
+      onRequireVerification?.();
+      return;
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (typeof (window as any).Razorpay === 'undefined') {
       alert('Payment gateway is still loading. Please wait a moment and try again.');
@@ -931,6 +925,11 @@ export default function StudentRecords({
         body: JSON.stringify({ plan: 'single' }),
       });
       const order = await orderRes.json();
+      if (!orderRes.ok && (order.code === 'EMAIL_VERIFICATION_REQUIRED' || order.code === 'SESSION_EXPIRED')) {
+        setPayLoading(false);
+        onRequireVerification?.();
+        return;
+      }
       if (order.error) { alert(order.error); setPayLoading(false); return; }
 
       const rollForPayment = pendingRollNo;
@@ -958,6 +957,11 @@ export default function StudentRecords({
             }),
           });
           const data = await verifyRes.json();
+          if (!verifyRes.ok && (data.code === 'EMAIL_VERIFICATION_REQUIRED' || data.code === 'SESSION_EXPIRED')) {
+            setPayLoading(false);
+            onRequireVerification?.();
+            return;
+          }
           if (data.success) {
             setPaidRolls(s => new Set([...s, rollForPayment!]));
             setShowPayModal(false);
@@ -1074,7 +1078,7 @@ export default function StudentRecords({
           <div>
             <h3 className="text-sm font-black text-orange-900 mb-0.5">Unlock Complete Info for just ₹10</h3>
             <p className="text-xs font-semibold text-orange-700">
-              Get access to Internal Marks PLUS detailed student profile including <span className="font-black underline decoration-orange-300">Aadhar Number</span>, <span className="font-black underline decoration-orange-300">Parents' Mobile Numbers</span>, <span className="font-black underline decoration-orange-300">Caste</span>, <span className="font-black underline decoration-orange-300">Home & Living Address</span>, and <span className="font-black underline decoration-orange-300">10th & 12th Percentage</span>.
+              Get access to Internal Marks PLUS detailed student profile including <span className="font-black underline decoration-orange-300">Aadhar Number</span>, <span className="font-black underline decoration-orange-300">Parents&apos; Mobile Numbers</span>, <span className="font-black underline decoration-orange-300">Caste</span>, <span className="font-black underline decoration-orange-300">Home & Living Address</span>, and <span className="font-black underline decoration-orange-300">10th & 12th Percentage</span>.
             </p>
           </div>
         </div>
@@ -1421,6 +1425,21 @@ export default function StudentRecords({
                   </li>
                 ))}
               </ul>
+
+              {verifiedEmail ? (
+                <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-left">
+                  <p className="text-[11px] font-black uppercase tracking-widest text-emerald-600">Verified Email</p>
+                  <p className="text-xs font-semibold text-emerald-700 mt-0.5 break-all">{verifiedEmail}</p>
+                </div>
+              ) : (
+                <button
+                  onClick={() => onRequireVerification?.()}
+                  className="mb-4 w-full rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-left hover:bg-orange-100 transition-colors"
+                >
+                  <p className="text-[11px] font-black uppercase tracking-widest text-orange-500">Verification Required</p>
+                  <p className="text-xs font-semibold text-orange-700 mt-0.5">Verify your @jecrc.ac.in email to continue with payment.</p>
+                </button>
+              )}
 
               <button
                 onClick={() => initiatePayment()}

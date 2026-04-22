@@ -13,8 +13,10 @@ export async function POST(req: NextRequest) {
 
   const res = NextResponse.json({ success: true });
   res.cookies.set('jfint_auth', '', { httpOnly: true, sameSite: 'lax', maxAge: 0, path: '/' });
+  res.cookies.set('jfint_auth_exp', '', { httpOnly: false, sameSite: 'lax', maxAge: 0, path: '/' });
   res.cookies.set(SESSION_COOKIE, '', { httpOnly: true, sameSite: 'lax', maxAge: 0, path: '/' });
   res.cookies.set('jfint_paid', '', { httpOnly: true, maxAge: 0, path: '/' }); // clear legacy cookie
   res.cookies.set('jfint_student_verified', '', { httpOnly: true, sameSite: 'lax', maxAge: 0, path: '/' });
+  res.cookies.set('jfint_student_otp', '', { httpOnly: true, sameSite: 'lax', maxAge: 0, path: '/' });
   return res;
 }

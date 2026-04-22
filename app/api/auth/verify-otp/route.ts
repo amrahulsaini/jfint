@@ -3,7 +3,7 @@ import { createSessionToken, saveSessionToDB, SESSION_COOKIE } from '@/lib/sessi
 import { clearAdminPass, getAdminLoginEmail, verifyAdminPass } from '@/lib/login-pass';
 import { verifyOtp } from '@/lib/otp';
 
-const SESSION_MINUTES = 20;
+const SESSION_MINUTES = 30;
 const OTP_COOKIE = 'jfint_login_otp';
 
 export async function POST(req: NextRequest) {
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     const res = NextResponse.json({ success: true });
     const expiryMs = Date.now() + SESSION_MINUTES * 60 * 1000;
-    // Auth cookie — fixed 20-min session, expiry does NOT slide on navigation
+    // Auth cookie — fixed 30-min session, expiry does NOT slide on navigation
     res.cookies.set('jfint_auth', process.env.AUTH_PASSWORD!, {
       httpOnly: true, sameSite: 'lax', maxAge: SESSION_MINUTES * 60, path: '/',
     });

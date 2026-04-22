@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { saveSinglePayment, saveAllAccessPayment } from '@/lib/payment';
-import { verifySessionToken, SESSION_COOKIE, getSessionEmail } from '@/lib/session';
+import { verifySessionToken, SESSION_COOKIE, getActiveSessionRecord } from '@/lib/session';
+
+const VERIFIED_COOKIE = 'jfint_student_verified';
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,13 +46,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No valid session — please log in again' }, { status: 401 });
     }
 
+    const verifiedEmail = String(req.cookies.get(VERIFIED_COOKIE)?.value || '').trim().toLowerCase();
+    if (!verifiedEmail || !verifiedEmail.endsWith('@jecrc.ac.in')) {
+      return NextResponse.json({ error: 'Email verification required', code: 'EMAIL_VERIFICATION_REQUIRED' }, { status: 401 });
+    }
+
+    const session = await getActiveSessionRecord(sessionId);
+    if (!session?.email || session.email.toLowerCase() !== verifiedEmail) {
+      return NextResponse.json({ error: 'Session expired. Please verify again.', code: 'SESSION_EXPIRED' }, { status: 401 });
+    }
+
     // Determine amount from env
     const amountPaise = paymentPlan === 'all'
       ? parseInt(process.env.ALL_ACCESS_AMOUNT_PAISE || '20000', 10)
       : parseInt(process.env.PAYMENT_AMOUNT_PAISE || '500', 10);
 
     // Persist to DB
-    const email = await getSessionEmail(sessionId).catch(() => null);
+    const email = session.email;
     if (paymentPlan === 'all') {
       await saveAllAccessPayment(sessionId, email, razorpay_order_id, razorpay_payment_id, amountPaise);
     } else {

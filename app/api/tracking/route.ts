@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
+import { verifySessionToken, SESSION_COOKIE, getActiveSessionRecord } from '@/lib/session';
 import { getPool } from '@/lib/db';
 
 export async function GET(req: NextRequest) {
@@ -13,12 +13,10 @@ export async function GET(req: NextRequest) {
   try {
     const pool = getPool();
 
-    // Session info
-    const [sessRows] = await pool.query(
-      'SELECT email, created_at, expires_at, ip_address FROM portal_sessions WHERE id = ? LIMIT 1',
-      [sessionId],
-    ) as [unknown[], unknown];
-    const sess = (sessRows as { email: string | null; created_at: Date; expires_at: Date; ip_address: string | null }[])[0] ?? null;
+    const sess = await getActiveSessionRecord(sessionId);
+    if (!sess) {
+      return NextResponse.json({ error: 'Session expired. Please verify again.' }, { status: 401 });
+    }
 
     // Full payment history — query by email (if known) OR session_id
     // so history from previous login sessions with same email is included
@@ -54,9 +52,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       sessionId: sessionId.slice(0, 8) + '…', // partial, for display only
       email: sess?.email ?? null,
-      loginAt: sess?.created_at ? sess.created_at.toISOString() : null,
-      sessionExpiresAt: sess?.expires_at ? sess.expires_at.toISOString() : null,
-      ipAddress: sess?.ip_address ?? null,
+      loginAt: sess?.createdAt ? sess.createdAt.toISOString() : null,
+      sessionExpiresAt: sess?.expiresAt ? sess.expiresAt.toISOString() : null,
+      ipAddress: sess?.ipAddress ?? null,
       payments,
       totalSpent: payments.reduce((sum, p) => sum + p.amountPaise, 0),
     });

@@ -9,7 +9,7 @@ import { getPool } from '@/lib/db';
 const SESSION_COOKIE = 'jfint_sid';
 export { SESSION_COOKIE };
 
-const SESSION_MINUTES = 20;
+const SESSION_MINUTES = 30;
 const SESSION_MS = SESSION_MINUTES * 60 * 1000;
 
 function secret(): string {
@@ -69,13 +69,43 @@ export async function saveSessionToDB(sessionId: string, ip: string, email: stri
 
 /** Get the email associated with a session ID */
 export async function getSessionEmail(sessionId: string): Promise<string | null> {
+  const session = await getActiveSessionRecord(sessionId);
+  return session?.email ?? null;
+}
+
+export interface ActiveSessionRecord {
+  email: string | null;
+  createdAt: Date;
+  expiresAt: Date;
+  ipAddress: string | null;
+}
+
+/**
+ * Returns active session metadata if the session is still valid.
+ * Expired sessions are treated as non-existent.
+ */
+export async function getActiveSessionRecord(sessionId: string): Promise<ActiveSessionRecord | null> {
   const pool = getPool();
   const [rows] = await pool.query(
-    'SELECT email FROM portal_sessions WHERE id = ? LIMIT 1',
+    `SELECT email, created_at, expires_at, ip_address
+     FROM portal_sessions
+     WHERE id = ? AND expires_at > NOW()
+     LIMIT 1`,
     [sessionId]
   ) as [unknown[], unknown];
-  const r = (rows as { email: string | null }[])[0];
-  return r?.email ?? null;
+  const r = (rows as {
+    email: string | null;
+    created_at: Date;
+    expires_at: Date;
+    ip_address: string | null;
+  }[])[0];
+  if (!r) return null;
+  return {
+    email: r.email ?? null,
+    createdAt: r.created_at,
+    expiresAt: r.expires_at,
+    ipAddress: r.ip_address ?? null,
+  };
 }
 
 /** Remove session from DB on logout */

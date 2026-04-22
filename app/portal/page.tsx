@@ -58,10 +58,18 @@ export default function Home() {
         if (d.verified) {
           setVerifiedEmail(d.email || null);
         } else {
-          setShowVerify(true);
+          setVerifiedEmail(null);
         }
       })
-      .catch(() => { setVerifyChecked(true); setShowVerify(true); });
+      .catch(() => { setVerifyChecked(true); setVerifiedEmail(null); });
+  }, []);
+
+  const promptVerificationForPayment = useCallback(() => {
+    setVerifyChecked(true);
+    setVerifyError('');
+    setVerifyStep('email');
+    setVerifyOtp(['', '', '', '', '', '']);
+    setShowVerify(true);
   }, []);
 
   const startCooldown = useCallback((secs = 60) => {
@@ -165,7 +173,7 @@ export default function Home() {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
       setVerifiedEmail(null);
-      setShowVerify(true);
+      setShowVerify(false);
       setVerifyStep('email');
       setVerifyEmail('');
       setVerifyOtp(['', '', '', '', '', '']);
@@ -332,7 +340,7 @@ export default function Home() {
                     {verifyCooldown > 0 ? (
                       <p className="text-[11px] text-neutral-400 font-semibold">Resend in <span className="text-orange-500 font-black tabular-nums">{verifyCooldown}s</span></p>
                     ) : (
-                      <button onClick={() => handleSendOtp()} disabled={verifyLoading} className="text-[11px] font-bold text-orange-500 hover:text-orange-600 transition-colors disabled:opacity-50">Didn't receive it? Resend OTP</button>
+                      <button onClick={() => handleSendOtp()} disabled={verifyLoading} className="text-[11px] font-bold text-orange-500 hover:text-orange-600 transition-colors disabled:opacity-50">Didn&apos;t receive it? Resend OTP</button>
                     )}
                   </div>
                 </div>
@@ -393,8 +401,7 @@ export default function Home() {
           <div className="hidden md:flex items-center gap-8 text-[13px] font-bold text-neutral-500">
             <a href="#portal" className="hover:text-orange-500 transition-colors duration-200">Portal</a>
             <a href="#about" className="hover:text-orange-500 transition-colors duration-200">About</a>
-            <a href="/portal/bulk" className="hover:text-orange-500 transition-colors duration-200">Bulk PDF</a>
-            <a href="/extractions" className="hover:text-orange-500 transition-colors duration-200">Extractions</a>
+            <a href="/profile" className="hover:text-orange-500 transition-colors duration-200">Profile</a>
             <a href="/tracking" className="hover:text-orange-500 transition-colors duration-200">Tracking</a>
           </div>
           {/* Session timer + logout */}
@@ -444,8 +451,7 @@ export default function Home() {
             <div className="max-w-7xl mx-auto px-5 py-3 flex flex-col gap-2 text-sm font-bold text-neutral-600">
               <a href="#portal" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Portal</a>
               <a href="#about" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">About</a>
-              <a href="/portal/bulk" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Bulk PDF</a>
-              <a href="/extractions" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Extractions</a>
+              <a href="/profile" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Profile</a>
               <a href="/tracking" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Tracking</a>
             </div>
           </div>
@@ -606,7 +612,12 @@ export default function Home() {
                 </a>
               </div>
             </div>
-            <StudentRecords table={VIEWS[view].table} photoDir={VIEWS[view].photoDir} />
+            <StudentRecords
+              table={VIEWS[view].table}
+              photoDir={VIEWS[view].photoDir}
+              verifiedEmail={verifiedEmail}
+              onRequireVerification={promptVerificationForPayment}
+            />
           </div>
         )}
       </section>

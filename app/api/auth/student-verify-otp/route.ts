@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyOtp } from '@/lib/otp';
+import { createSessionToken, saveSessionToDB, SESSION_COOKIE } from '@/lib/session';
 
 const OTP_COOKIE = 'jfint_student_otp';
 const VERIFIED_COOKIE = 'jfint_student_verified';
-const SESSION_HOURS = 24; // verification lasts 24 hours
+const SESSION_MINUTES = 30;
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,13 +37,32 @@ export async function POST(req: NextRequest) {
       return failRes;
     }
 
-    // Verified — set a long-lived verification cookie
+    const { sessionId, cookieValue } = createSessionToken();
+    const ip =
+      req.headers.get('cf-connecting-ip') ||
+      req.headers.get('x-forwarded-for') ||
+      '127.0.0.1';
+    try {
+      await saveSessionToDB(sessionId, ip, email);
+    } catch (e) {
+      console.error('[student-verify-otp] DB session save failed', e);
+      return NextResponse.json({ error: 'Unable to start session. Please try again.' }, { status: 500 });
+    }
+
+    // Verified — issue 30-minute session cookies.
     const res = NextResponse.json({ success: true });
     res.cookies.set(VERIFIED_COOKIE, email, {
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
-      maxAge: SESSION_HOURS * 60 * 60,
+      maxAge: SESSION_MINUTES * 60,
+      path: '/',
+    });
+    res.cookies.set(SESSION_COOKIE, cookieValue, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: SESSION_MINUTES * 60,
       path: '/',
     });
     res.cookies.set(OTP_COOKIE, '', { maxAge: 0, path: '/' });
