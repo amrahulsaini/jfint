@@ -139,32 +139,32 @@ function VerifyPageInner() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-orange-50/30 flex items-center justify-center p-4">
+    <div className="min-h-screen ui-aurora flex items-center justify-center p-4">
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-orange-500/5 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-orange-400/5 rounded-full blur-3xl" />
+        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-orange-400/20 rounded-full blur-[100px]" />
+        <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] bg-sky-400/10 rounded-full blur-[100px]" />
       </div>
 
       <div
-        className={`relative w-full max-w-md transition-all duration-300 ${
+        className={`relative w-full max-w-[400px] bg-white/70 backdrop-blur-2xl border border-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] rounded-[32px] overflow-hidden transition-all duration-300 ${
           shake ? 'animate-[shake_0.5s_ease-in-out]' : ''
         }`}
         style={shake ? { animation: 'shake 0.5s ease-in-out' } : {}}
       >
         {/* Card */}
-        <div className="bg-white border border-neutral-200/80 rounded-3xl shadow-2xl shadow-neutral-900/10 overflow-hidden">
+        <div className="bg-white/90 border border-neutral-200/50 shadow-2xl shadow-neutral-900/10 overflow-hidden h-full w-full">
           {/* Top gradient bar */}
-          <div className="h-1 bg-gradient-to-r from-orange-400 via-orange-500 to-amber-400" />
+          <div className="h-1.5 bg-gradient-to-r from-orange-400 via-orange-500 to-amber-400" />
 
-          <div className="p-8">
+          <div className="p-8 sm:p-10">
             {/* Logo */}
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center font-black text-white shadow-lg shadow-orange-500/30">
+            <div className="flex items-center gap-4 mb-10">
+              <div className="w-12 h-12 rounded-[14px] bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center font-black text-xl text-white shadow-lg shadow-orange-500/30">
                 J
               </div>
               <div>
-                <span className="text-lg font-black tracking-tight text-neutral-900">
+                <span className="text-2xl font-black tracking-tight text-neutral-900">
                   JECRC<span className="text-orange-500">.</span>
                 </span>
                 <p className="text-[11px] font-bold text-neutral-400 -mt-0.5 uppercase tracking-wider">Internal Marks Portal</p>

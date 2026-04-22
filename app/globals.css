@@ -1,25 +1,101 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #111827;
+  --background: #f4f8fc;
+  --foreground: #0f172a;
+  --brand-ink: #102542;
+  --brand-primary: #f97316;
+  --brand-accent: #0891b2;
+  --surface-glass: rgba(255, 255, 255, 0.72);
+  --surface-border: rgba(255, 255, 255, 0.62);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-sans: var(--font-manrope), 'Manrope', system-ui, sans-serif;
+  --font-display: var(--font-sora), 'Sora', 'Plus Jakarta Sans', system-ui, sans-serif;
 }
 
 body {
-  background: #ffffff;
+  background:
+    radial-gradient(circle at 8% 12%, rgba(8, 145, 178, 0.16) 0%, rgba(8, 145, 178, 0) 42%),
+    radial-gradient(circle at 90% 8%, rgba(249, 115, 22, 0.14) 0%, rgba(249, 115, 22, 0) 40%),
+    radial-gradient(circle at 50% 95%, rgba(14, 165, 233, 0.12) 0%, rgba(14, 165, 233, 0) 38%),
+    linear-gradient(155deg, #f8fbff 0%, #f3f7fb 46%, #eef4fa 100%);
   color: var(--foreground);
-  font-family: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-family: var(--font-manrope), 'Manrope', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  min-height: 100dvh;
 }
 
 * {
   box-sizing: border-box;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-sora), 'Sora', 'Plus Jakarta Sans', system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+::selection {
+  background: rgba(249, 115, 22, 0.24);
+  color: #111827;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(8, 145, 178, 0.45), rgba(249, 115, 22, 0.55));
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.ui-aurora {
+  background:
+    radial-gradient(circle at 5% 10%, rgba(14, 165, 233, 0.16) 0%, rgba(14, 165, 233, 0) 34%),
+    radial-gradient(circle at 92% 6%, rgba(249, 115, 22, 0.16) 0%, rgba(249, 115, 22, 0) 35%),
+    radial-gradient(circle at 50% 92%, rgba(2, 132, 199, 0.12) 0%, rgba(2, 132, 199, 0) 34%),
+    linear-gradient(160deg, #f9fbff 0%, #f3f7fc 54%, #eef4fa 100%);
+}
+
+.ui-nav {
+  background: rgba(255, 255, 255, 0.68);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.68);
+  backdrop-filter: saturate(175%) blur(18px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.ui-panel {
+  background: var(--surface-glass);
+  border: 1px solid var(--surface-border);
+  backdrop-filter: blur(10px);
+}
+
+.ui-rise {
+  animation: ui-rise-in 480ms ease-out both;
+}
+
+@keyframes ui-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

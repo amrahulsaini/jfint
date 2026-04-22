@@ -389,34 +389,44 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,_#fed7aa,_transparent_34%),radial-gradient(circle_at_bottom_left,_#dbeafe,_transparent_35%),linear-gradient(140deg,_#fff7ed_0%,_#ffffff_55%,_#f8fafc_100%)] text-neutral-900">
-      <nav className="sticky top-0 z-40 border-b border-white/60 bg-white/70 backdrop-blur-2xl">
-        <div className="max-w-7xl mx-auto h-16 px-5 md:px-8 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center font-black text-sm text-white shadow-lg shadow-orange-500/30">
+    <div className="min-h-[100dvh] ui-aurora text-neutral-900 flex flex-col overflow-hidden">
+      <nav className="shrink-0 z-40 bg-white/60 backdrop-blur-2xl border-b border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300">
+        <div className="max-w-7xl mx-auto flex items-center justify-between px-5 md:px-8 h-[72px]">
+          <div className="flex items-center gap-3.5 group cursor-pointer" onClick={() => router.push('/portal')}>
+            <div className="w-10 h-10 rounded-[14px] bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 flex items-center justify-center font-black text-lg text-white shadow-[0_8px_16px_-4px_rgba(249,115,22,0.4)] group-hover:scale-105 group-active:scale-95 transition-all duration-300">
               J
             </div>
-            <span className="text-lg font-black tracking-tight text-neutral-900">JECRC<span className="text-orange-500">.</span> Chat</span>
+            <span className="text-xl font-black tracking-tight text-neutral-900 group-hover:text-orange-600 transition-colors duration-300">
+              JECRC<span className="text-orange-500">.</span> Chat
+            </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Link href="/portal" className="text-xs font-black border border-neutral-200 bg-white hover:bg-orange-50 hover:border-orange-300 rounded-xl px-3 py-1.5 text-neutral-600 hover:text-orange-600 transition-colors">Portal</Link>
-            <Link href="/profile" className="text-xs font-black border border-neutral-200 bg-white hover:bg-orange-50 hover:border-orange-300 rounded-xl px-3 py-1.5 text-neutral-600 hover:text-orange-600 transition-colors">Profile</Link>
-            <Link href="/tracking" className="text-xs font-black border border-neutral-200 bg-white hover:bg-orange-50 hover:border-orange-300 rounded-xl px-3 py-1.5 text-neutral-600 hover:text-orange-600 transition-colors">Tracking</Link>
-            <button
-              onClick={async () => {
-                await fetch('/api/auth/logout', { method: 'POST' });
-                router.replace('/portal');
-              }}
-              className="text-xs font-black border border-neutral-200 bg-white hover:bg-red-50 hover:border-red-300 rounded-xl px-3 py-1.5 text-neutral-600 hover:text-red-600 transition-colors"
-            >
-              Logout
-            </button>
+          <div className="flex items-center gap-2.5">
+            <Link href="/portal" className="text-xs font-black border border-neutral-200 bg-white/80 hover:bg-orange-50 hover:border-orange-300 rounded-xl px-4 py-2 text-neutral-600 hover:text-orange-600 transition-colors shadow-sm">
+              Portal
+            </Link>
+            <Link href="/profile" className="text-xs font-black border border-neutral-200 bg-white/80 hover:bg-orange-50 hover:border-orange-300 rounded-xl px-4 py-2 text-neutral-600 hover:text-orange-600 transition-colors shadow-sm">
+              Profile
+            </Link>
+            <Link href="/tracking" className="text-xs font-black border border-neutral-200 bg-white/80 hover:bg-orange-50 hover:border-orange-300 rounded-xl px-4 py-2 text-neutral-600 hover:text-orange-600 transition-colors shadow-sm">
+              Tracking
+            </Link>
+            {me && (
+              <button
+                onClick={async () => {
+                  await fetch('/api/auth/logout', { method: 'POST' });
+                  router.replace('/portal');
+                }}
+                className="text-xs font-black border border-neutral-200 bg-white/80 hover:bg-red-50 hover:border-red-300 rounded-xl px-4 py-2 text-neutral-600 hover:text-red-600 transition-colors shadow-sm"
+              >
+                Logout
+              </button>
+            )}
           </div>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 md:px-6 py-6">
+      <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 flex-1 flex flex-col min-h-0 w-full ui-rise">
         {loading && (
           <div className="flex items-center justify-center py-24">
             <div className="w-9 h-9 rounded-full border-2 border-orange-400 border-t-transparent animate-spin" />
@@ -518,14 +528,15 @@ export default function ChatPage() {
                         {!mine && <Avatar user={{ aliasName: m.sender.aliasName, photoUrl: m.sender.photoUrl, isAdmin: m.sender.isAdmin }} size={30} />}
                         <div>
                           {!mine && (
-                            <div className="text-[11px] font-black text-neutral-500 mb-1 ml-1">
-                              {m.sender.aliasName}{m.sender.isAdmin ? ' (Admin)' : ''}
+                            <div className="text-[11px] font-black text-neutral-500 mb-1 ml-1 flex items-center gap-1.5">
+                              {m.sender.aliasName}
+                              {m.sender.isAdmin && <span className="text-[8px] bg-neutral-900 text-white px-1.5 py-0.5 rounded uppercase tracking-wider">Admin</span>}
                             </div>
                           )}
-                          <div className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm border ${mine ? 'bg-orange-500 text-white border-orange-500 rounded-br-md' : 'bg-white text-neutral-800 border-neutral-200 rounded-bl-md'}`}>
+                          <div className={`rounded-[20px] px-4 py-3 text-[13px] leading-relaxed shadow-sm border ${mine ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white border-orange-500 rounded-br-[6px] shadow-[0_4px_12px_-2px_rgba(249,115,22,0.3)]' : 'bg-white text-neutral-800 border-neutral-200/80 rounded-bl-[6px]'}`}>
                             {m.text}
                           </div>
-                          <div className={`text-[10px] font-semibold text-neutral-400 mt-1 ${mine ? 'text-right mr-1' : 'ml-1'}`}>
+                          <div className={`text-[10px] font-semibold text-neutral-400 mt-1.5 ${mine ? 'text-right mr-1' : 'ml-1'}`}>
                             {fmtTime(m.createdAt)}
                           </div>
                         </div>
