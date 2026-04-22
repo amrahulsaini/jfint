@@ -1,0 +1,13 @@
+var R=require("../../chunks/ssr/[turbopack]_runtime.js")("server/app/marks-entry/page.js")
+R.c("server/chunks/ssr/[root-of-the-server]__115fhfp._.js")
+R.c("server/chunks/ssr/node_modules_next_dist_esm_build_templates_app-page_0~_az3n.js")
+R.c("server/chunks/ssr/[root-of-the-server]__0g75f02._.js")
+R.c("server/chunks/ssr/node_modules_next_dist_06hehg4._.js")
+R.c("server/chunks/ssr/[root-of-the-server]__05o2m~c._.js")
+R.c("server/chunks/ssr/node_modules_next_dist_client_components_0inhx6q._.js")
+R.c("server/chunks/ssr/node_modules_next_dist_client_components_builtin_forbidden_0ghu-f7.js")
+R.c("server/chunks/ssr/node_modules_next_dist_client_components_builtin_unauthorized_0cjv-23.js")
+R.c("server/chunks/ssr/node_modules_next_dist_client_components_builtin_global-error_0lgvd_..js")
+R.c("server/chunks/ssr/_next-internal_server_app_marks-entry_page_actions_11q~a45.js")
+R.m(426735)
+module.exports=R.m(426735).exports
