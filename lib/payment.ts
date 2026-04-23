@@ -4,12 +4,12 @@
  *
  * Plans:
  *  - 'single' : access to one specific roll_no (amount from PAYMENT_AMOUNT_PAISE env)
- *  - 'all'    : access to all roll numbers for 2 hours (amount from ALL_ACCESS_AMOUNT_PAISE env, default ₹200)
+ *  - 'all'    : access to all roll numbers for 72 hours (amount from ALL_ACCESS_AMOUNT_PAISE env, default ₹200)
  */
 import { getPool } from '@/lib/db';
 
 // Duration that the 'all' plan (and coupon) grants access
-export const ALL_ACCESS_DURATION_MS = 2 * 60 * 60 * 1000; // 2 hours
+export const ALL_ACCESS_DURATION_MS = 72 * 60 * 60 * 1000; // 72 hours
 
 // ─────────────────────────── Write helpers ───────────────────────────────────
 
@@ -31,7 +31,7 @@ export async function saveSinglePayment(
   );
 }
 
-/** Save a verified all-access payment to DB (expires in 2 h) */
+/** Save a verified all-access payment to DB (expires in 72 h) */
 export async function saveAllAccessPayment(
   sessionId: string,
   email: string | null,
@@ -49,7 +49,7 @@ export async function saveAllAccessPayment(
   );
 }
 
-/** Save a coupon-based all-access grant to DB (expires in 2 h, zero amount) */
+/** Save a coupon-based all-access grant to DB (expires in 72 h, zero amount) */
 export async function saveCouponAccess(sessionId: string, email: string | null): Promise<void> {
   const pool = getPool();
   const expiresAt = new Date(Date.now() + ALL_ACCESS_DURATION_MS);

@@ -19,14 +19,14 @@ function getRazorpay() {
 /**
  * GET — returns pricing for both plans.
  * plan=single : PAYMENT_AMOUNT_PAISE (per student, no expiry)
- * plan=all    : ALL_ACCESS_AMOUNT_PAISE (default 20000 = ₹200, valid 2 hours)
+ * plan=all    : ALL_ACCESS_AMOUNT_PAISE (default 20000 = ₹200, valid 72 hours)
  */
 export async function GET() {
   const singlePaise = parseInt(process.env.PAYMENT_AMOUNT_PAISE || '1000', 10);
   const allPaise = parseInt(process.env.ALL_ACCESS_AMOUNT_PAISE || '1000', 10);
   return NextResponse.json({
     single: { amountPaise: singlePaise, amountRupees: singlePaise / 100 },
-    all:    { amountPaise: allPaise,    amountRupees: allPaise / 100, durationHours: 2 },
+    all:    { amountPaise: allPaise,    amountRupees: allPaise / 100, durationHours: 72 },
     // Legacy field kept for backward compat with old client code
     amountPaise: singlePaise,
     amountRupees: singlePaise / 100,

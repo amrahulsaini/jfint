@@ -221,7 +221,7 @@ export default function TrackingPage() {
               <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
                 <div className="border-b border-neutral-100 px-6 py-4">
                   <h2 className="font-black text-neutral-900 text-sm">All-Access Plans</h2>
-                  <p className="text-xs text-neutral-400 font-medium mt-0.5">Unlocks all student results for 2 hours</p>
+                  <p className="text-xs text-neutral-400 font-medium mt-0.5">Unlocks all student results for 72 hours</p>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">

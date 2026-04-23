@@ -109,11 +109,11 @@
   },
   {
     "route": "/tracking",
-    "firstLoadUncompressedJsBytes": 534243,
+    "firstLoadUncompressedJsBytes": 534244,
     "firstLoadChunkPaths": [
       ".next\\static\\chunks\\00iw.o6p_2m~n.js",
       ".next\\static\\chunks\\0i.l9589uvx0j.js",
-      ".next\\static\\chunks\\0ip3mm.avif1h.js",
+      ".next\\static\\chunks\\0yr7qohjbh7xk.js",
       ".next\\static\\chunks\\0-hrh_uw98wb_.js",
       ".next\\static\\chunks\\0q15c571zuapu.js",
       ".next\\static\\chunks\\02o~ssm5_k3~4.js",
