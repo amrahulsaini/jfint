@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
+import { createPortal } from 'react-dom';
 
 /* ── Types ──────────────────────────────────────────────── */
 interface StudentRow {
@@ -170,6 +171,13 @@ export default function StudentRecords({
   const [couponError, setCouponError] = useState('');
 
   const isRollPaid = (rollNo: string) => allAccess || paidRolls.has(rollNo);
+  const closePayModal = useCallback(() => {
+    setShowPayModal(false);
+    setPendingRollNo(null);
+    setPayLoading(false);
+    setCoupon('');
+    setCouponError('');
+  }, []);
 
   const LIMIT = 20;
 
@@ -213,6 +221,16 @@ export default function StudentRecords({
     script.async = true;
     document.head.appendChild(script);
   }, []);
+
+  // Prevent background scroll when payment modal is open.
+  useEffect(() => {
+    if (!showPayModal) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showPayModal]);
 
   const handleSearch = (e: React.FormEvent) => { e.preventDefault(); setPage(1); setSearch(searchInput); };
 
@@ -1376,14 +1394,25 @@ export default function StudentRecords({
       )}
 
       {/* ─── Payment Gate Modal ──────────────────────── */}
-      {showPayModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setShowPayModal(false); setPendingRollNo(null); setPayLoading(false); setCoupon(''); setCouponError(''); }} />
-          <div className="relative bg-white rounded-3xl w-full max-w-sm shadow-2xl shadow-black/20 border border-neutral-200 overflow-hidden">
-            {/* Orange top bar */}
-            <div className="h-1.5 bg-gradient-to-r from-orange-400 via-orange-500 to-amber-400" />
+      {showPayModal && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[200]">
+          <div className="absolute inset-0 bg-black/50" onClick={closePayModal} />
+          <div className="relative z-10 flex min-h-full items-center justify-center p-3 sm:p-4">
+            <div className="bg-white rounded-2xl sm:rounded-3xl w-full max-w-sm max-h-[90vh] shadow-2xl shadow-black/20 border border-neutral-200 overflow-y-auto">
+              {/* Orange top bar */}
+              <div className="h-1.5 bg-gradient-to-r from-orange-400 via-orange-500 to-amber-400" />
 
-            <div className="p-7 text-center">
+            <div className="relative p-7 text-center">
+              <button
+                type="button"
+                onClick={closePayModal}
+                aria-label="Close payment dialog"
+                className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-500 hover:text-neutral-800 hover:bg-neutral-50 transition-colors"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6l-12 12" />
+                </svg>
+              </button>
               {/* Lock icon */}
               <div className={`w-16 h-16 rounded-2xl border flex items-center justify-center mx-auto mb-5 ${
                 pendingTab === 'profile' ? 'bg-indigo-50 border-indigo-100' : 'bg-orange-50 border-orange-100'
@@ -1516,7 +1545,9 @@ export default function StudentRecords({
               </p>
             </div>
           </div>
-        </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* ─── Detail Modal ─────────────────────────────── */}
