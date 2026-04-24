@@ -171,12 +171,19 @@ export default function StudentRecords({
   const [couponError, setCouponError] = useState('');
 
   const isRollPaid = (rollNo: string) => allAccess || paidRolls.has(rollNo);
-  const closePayModal = useCallback(() => {
+  // Accepts a force param to allow closing from parent (e.g. verification modal)
+  const closePayModal = useCallback((force = false) => {
     setShowPayModal(false);
     setPendingRollNo(null);
     setPayLoading(false);
     setCoupon('');
     setCouponError('');
+    // If force, also blur any focused element to prevent accidental input
+    if (force && typeof document !== 'undefined') {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    }
+    // Always clear the global flag
+    if (typeof window !== 'undefined') window.__jfintPayModalOpen = false;
   }, []);
 
   const LIMIT = 20;
@@ -224,11 +231,17 @@ export default function StudentRecords({
 
   // Prevent background scroll when payment modal is open.
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__jfintPayModalOpen = showPayModal;
+    }
     if (!showPayModal) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = previousOverflow;
+      if (typeof window !== 'undefined') {
+        window.__jfintPayModalOpen = false;
+      }
     };
   }, [showPayModal]);
 
@@ -891,6 +904,7 @@ export default function StudentRecords({
 
   const applyCoupon = async () => {
     if (!verifiedEmail) {
+      closePayModal(true);
       onRequireVerification?.();
       return;
     }
@@ -927,6 +941,7 @@ export default function StudentRecords({
   const initiatePayment = async () => {
     if (!pendingRollNo) return;
     if (!verifiedEmail) {
+      closePayModal(true);
       onRequireVerification?.();
       return;
     }
@@ -945,6 +960,7 @@ export default function StudentRecords({
       const order = await orderRes.json();
       if (!orderRes.ok && (order.code === 'EMAIL_VERIFICATION_REQUIRED' || order.code === 'SESSION_EXPIRED')) {
         setPayLoading(false);
+        closePayModal(true);
         onRequireVerification?.();
         return;
       }
@@ -977,6 +993,7 @@ export default function StudentRecords({
           const data = await verifyRes.json();
           if (!verifyRes.ok && (data.code === 'EMAIL_VERIFICATION_REQUIRED' || data.code === 'SESSION_EXPIRED')) {
             setPayLoading(false);
+            closePayModal(true);
             onRequireVerification?.();
             return;
           }
@@ -1397,12 +1414,12 @@ export default function StudentRecords({
       {showPayModal && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[200]">
           <div className="absolute inset-0 bg-black/50" onClick={closePayModal} />
-          <div className="relative z-10 flex min-h-full items-center justify-center p-3 sm:p-4">
-            <div className="bg-white rounded-2xl sm:rounded-3xl w-full max-w-sm max-h-[90vh] shadow-2xl shadow-black/20 border border-neutral-200 overflow-y-auto">
+          <div className="relative z-10 flex min-h-full items-end sm:items-center justify-center p-2 sm:p-4">
+            <div className="bg-white rounded-t-2xl sm:rounded-3xl w-full max-w-sm max-h-[92dvh] sm:max-h-[90vh] shadow-2xl shadow-black/20 border border-neutral-200 overflow-y-auto">
               {/* Orange top bar */}
               <div className="h-1.5 bg-gradient-to-r from-orange-400 via-orange-500 to-amber-400" />
 
-            <div className="relative p-7 text-center">
+            <div className="relative p-4 sm:p-7 text-center">
               <button
                 type="button"
                 onClick={closePayModal}
@@ -1455,7 +1472,7 @@ export default function StudentRecords({
                   'Mid-term, Sessional & Practical marks',
                   'Export marks to PDF',
                 ]).map((f: string) => (
-                  <li key={f} className="flex items-center gap-2 text-sm text-neutral-600 font-semibold">
+                  <li key={f} className="flex items-start gap-2 text-sm text-neutral-600 font-semibold">
                     <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
                     </svg>
@@ -1471,7 +1488,10 @@ export default function StudentRecords({
                 </div>
               ) : (
                 <button
-                  onClick={() => onRequireVerification?.()}
+                  onClick={() => {
+                    closePayModal(true);
+                    onRequireVerification?.();
+                  }}
                   className="mb-4 w-full rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-left hover:bg-orange-100 transition-colors"
                 >
                   <p className="text-[11px] font-black uppercase tracking-widest text-orange-500">Verification Required</p>
@@ -1514,7 +1534,7 @@ export default function StudentRecords({
               </div>
 
               {/* Coupon input */}
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="text"
                   value={coupon}
@@ -1526,7 +1546,7 @@ export default function StudentRecords({
                 <button
                   onClick={applyCoupon}
                   disabled={couponLoading || !coupon.trim()}
-                  className="bg-neutral-900 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-black px-4 py-2.5 rounded-xl transition-all duration-200 flex items-center gap-1.5"
+                  className="bg-neutral-900 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-black px-4 py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 sm:w-auto w-full"
                 >
                   {couponLoading ? (
                     <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -1552,10 +1572,10 @@ export default function StudentRecords({
 
       {/* ─── Detail Modal ─────────────────────────────── */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-2 sm:p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)} />
 
-          <div className={`relative bg-white rounded-2xl sm:rounded-3xl w-full ${activeDetailTab === 'profile' ? 'max-w-5xl' : 'max-w-2xl'} max-h-[92vh] sm:max-h-[90vh] overflow-hidden shadow-2xl shadow-black/20 border border-neutral-200`}>
+          <div className={`relative bg-white rounded-t-2xl sm:rounded-3xl w-full ${activeDetailTab === 'profile' ? 'max-w-5xl' : 'max-w-2xl'} max-h-[94dvh] sm:max-h-[90vh] overflow-hidden shadow-2xl shadow-black/20 border border-neutral-200`}>
 
             {/* Header */}
             <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100 bg-gradient-to-r from-orange-50 to-white">
@@ -1568,7 +1588,7 @@ export default function StudentRecords({
                   <h3 className="text-sm font-extrabold text-neutral-900 leading-none">Student Details</h3>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-end flex-wrap gap-2">
                 {detail && (
                   <>
                     <button
@@ -1635,7 +1655,7 @@ export default function StudentRecords({
               </div>
             )}
 
-            <div className="overflow-y-auto max-h-[calc(92vh-60px)] sm:max-h-[calc(90vh-65px)]">
+            <div className="overflow-y-auto max-h-[calc(94dvh-60px)] sm:max-h-[calc(90vh-65px)]">
               {detailLoading ? (
                 <div className="flex flex-col items-center py-16">
                   <div className="w-10 h-10 border-[3px] border-orange-200 border-t-orange-500 rounded-full animate-spin mb-4" />
@@ -1770,7 +1790,8 @@ export default function StudentRecords({
                           <h5 className="text-xs font-extrabold text-neutral-500 uppercase tracking-widest">Paper-wise Internal Marks</h5>
                           <span className="text-xs font-bold text-neutral-400">{detail.papers.length} papers</span>
                         </div>
-                        <table className="w-full text-sm">
+                        <div className="overflow-x-auto">
+                        <table className="w-full text-sm min-w-[560px]">
                           <thead>
                             <tr className="bg-neutral-50 border-b border-neutral-200">
                               <th className="px-3 py-2.5 text-left text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest w-7">#</th>
@@ -1811,6 +1832,7 @@ export default function StudentRecords({
                             })}
                           </tbody>
                         </table>
+                        </div>
                       </div>
                     </>
                   ) : (

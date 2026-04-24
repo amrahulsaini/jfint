@@ -5,12 +5,13 @@ import { useState, useEffect } from 'react';
 export default function DisclaimerModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState<{ hours: string, minutes: string, seconds: string } | null>(null);
+  const RESULT_COUNTDOWN_MS = 72 * 60 * 60 * 1000;
 
   useEffect(() => {
     setIsOpen(true);
     
-    // Target date: April 24, 2026, 00:00:00 Local time
-    const target = new Date('2026-04-24T00:00:00').getTime();
+    // Show a rolling 72-hour announcement countdown.
+    const target = Date.now() + RESULT_COUNTDOWN_MS;
     
     const updateTimer = () => {
       const now = Date.now();
@@ -40,8 +41,8 @@ export default function DisclaimerModal() {
   if (!isOpen || !timeLeft) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-md">
-      <div className="relative w-full max-w-2xl bg-white rounded-[24px] overflow-hidden shadow-2xl ring-1 ring-black/5 flex flex-col md:flex-row transition-all duration-300 scale-100 opacity-100">
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-2 sm:p-4 bg-neutral-900/60 backdrop-blur-md">
+      <div className="relative w-full max-w-2xl max-h-[94dvh] sm:max-h-[90vh] bg-white rounded-t-[24px] sm:rounded-[24px] overflow-y-auto shadow-2xl ring-1 ring-black/5 flex flex-col md:flex-row transition-all duration-300 scale-100 opacity-100">
         <div className="hidden md:flex flex-col justify-center items-center w-[40%] bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 p-8 text-white relative overflow-hidden">
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
           <svg className="w-24 h-24 mb-6 text-white/90 drop-shadow-2xl transform hover:scale-105 transition-transform duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -50,7 +51,7 @@ export default function DisclaimerModal() {
           <h2 className="text-3xl font-black tracking-tight text-center relative z-10 leading-none">Important<br/>Update</h2>
         </div>
         
-        <div className="flex-1 p-8 md:p-10 relative bg-white">
+        <div className="flex-1 p-5 sm:p-8 md:p-10 relative bg-white">
           <button 
             onClick={() => setIsOpen(false)}
             className="absolute top-5 right-5 w-10 h-10 flex items-center justify-center rounded-full bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900 transition-colors"
@@ -74,25 +75,25 @@ export default function DisclaimerModal() {
             Hey! The results of the <span className="font-black text-neutral-800 bg-neutral-100 px-1.5 py-0.5 rounded">1st</span> and <span className="font-black text-neutral-800 bg-neutral-100 px-1.5 py-0.5 rounded">3rd Semester</span> are likely to be announced on our website in:
           </p>
 
-          <div className="bg-gradient-to-br from-neutral-50 to-neutral-100 border border-neutral-200/80 rounded-[20px] p-6 mb-8 shadow-inner">
+          <div className="bg-gradient-to-br from-neutral-50 to-neutral-100 border border-neutral-200/80 rounded-[20px] p-4 sm:p-6 mb-8 shadow-inner">
             <div className="text-[11px] font-black text-neutral-400 uppercase tracking-[0.15em] text-center mb-5">Estimated Time Remaining</div>
-            <div className="flex justify-center gap-5">
+            <div className="flex justify-center gap-2 sm:gap-5">
               <div className="flex flex-col items-center group cursor-default">
-                <div className="w-[72px] h-[72px] bg-white border border-neutral-200 rounded-[18px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] group-hover:shadow-[0_8px_16px_rgba(249,115,22,0.15)] group-hover:border-orange-300 transition-all duration-300 flex items-center justify-center text-3xl font-black text-orange-600 tabular-nums">
+                <div className="w-[60px] h-[60px] sm:w-[72px] sm:h-[72px] bg-white border border-neutral-200 rounded-[18px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] group-hover:shadow-[0_8px_16px_rgba(249,115,22,0.15)] group-hover:border-orange-300 transition-all duration-300 flex items-center justify-center text-2xl sm:text-3xl font-black text-orange-600 tabular-nums">
                   {timeLeft.hours}
                 </div>
                 <div className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-3 group-hover:text-orange-500 transition-colors">Hours</div>
               </div>
-              <div className="text-3xl font-black text-neutral-300 self-start mt-4 animate-pulse">:</div>
+              <div className="text-2xl sm:text-3xl font-black text-neutral-300 self-start mt-4 animate-pulse">:</div>
               <div className="flex flex-col items-center group cursor-default">
-                <div className="w-[72px] h-[72px] bg-white border border-neutral-200 rounded-[18px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] group-hover:shadow-[0_8px_16px_rgba(249,115,22,0.15)] group-hover:border-orange-300 transition-all duration-300 flex items-center justify-center text-3xl font-black text-orange-600 tabular-nums">
+                <div className="w-[60px] h-[60px] sm:w-[72px] sm:h-[72px] bg-white border border-neutral-200 rounded-[18px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] group-hover:shadow-[0_8px_16px_rgba(249,115,22,0.15)] group-hover:border-orange-300 transition-all duration-300 flex items-center justify-center text-2xl sm:text-3xl font-black text-orange-600 tabular-nums">
                   {timeLeft.minutes}
                 </div>
                 <div className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-3 group-hover:text-orange-500 transition-colors">Minutes</div>
               </div>
-              <div className="text-3xl font-black text-neutral-300 self-start mt-4 animate-pulse">:</div>
+              <div className="text-2xl sm:text-3xl font-black text-neutral-300 self-start mt-4 animate-pulse">:</div>
               <div className="flex flex-col items-center group cursor-default">
-                <div className="w-[72px] h-[72px] bg-white border border-neutral-200 rounded-[18px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] group-hover:shadow-[0_8px_16px_rgba(249,115,22,0.15)] group-hover:border-orange-300 transition-all duration-300 flex items-center justify-center text-3xl font-black text-orange-600 tabular-nums">
+                <div className="w-[60px] h-[60px] sm:w-[72px] sm:h-[72px] bg-white border border-neutral-200 rounded-[18px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] group-hover:shadow-[0_8px_16px_rgba(249,115,22,0.15)] group-hover:border-orange-300 transition-all duration-300 flex items-center justify-center text-2xl sm:text-3xl font-black text-orange-600 tabular-nums">
                   {timeLeft.seconds}
                 </div>
                 <div className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-3 group-hover:text-orange-500 transition-colors">Seconds</div>

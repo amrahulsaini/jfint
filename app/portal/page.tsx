@@ -185,7 +185,8 @@ export default function Home() {
   // Countdown timer for results announcement
   const [countdown, setCountdown] = useState<{hours:string,minutes:string,seconds:string}|null>(null);
   useEffect(() => {
-    const target = new Date('2026-04-24T00:00:00').getTime();
+    const RESULT_COUNTDOWN_MS = 72 * 60 * 60 * 1000;
+    const target = Date.now() + RESULT_COUNTDOWN_MS;
     const tick = () => {
       const diff = target - Date.now();
       if (diff <= 0) { setCountdown({hours:'00',minutes:'00',seconds:'00'}); return; }
@@ -218,16 +219,17 @@ export default function Home() {
       <DisclaimerModal />
 
       {/* ── Email Verification Modal Overlay ── */}
-      {verifyChecked && showVerify && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{backdropFilter:'blur(12px)', backgroundColor:'rgba(255,255,255,0.5)'}}>
+      {/* Only show verification modal if payment modal is NOT open (by checking for a global flag) */}
+      {verifyChecked && showVerify && (typeof window === 'undefined' || !window.__jfintPayModalOpen) && (
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-2 sm:p-4" style={{backdropFilter:'blur(12px)', backgroundColor:'rgba(255,255,255,0.5)'}}>
           <div
-            className={`bg-white border border-neutral-200/80 rounded-3xl shadow-2xl shadow-neutral-900/15 w-full max-w-sm overflow-hidden transition-all ${
+            className={`bg-white border border-neutral-200/80 rounded-t-3xl sm:rounded-3xl shadow-2xl shadow-neutral-900/15 w-full max-w-sm max-h-[92dvh] overflow-y-auto transition-all ${
               verifyShake ? 'animate-[shake_0.5s_ease-in-out]' : ''
             }`}
             style={verifyShake ? {animation:'shake 0.5s ease-in-out'} : {}}
           >
             <div className="h-1 bg-gradient-to-r from-orange-400 via-orange-500 to-amber-400" />
-            <div className="p-7">
+            <div className="p-4 sm:p-7">
               {/* Logo */}
               <div className="flex items-center gap-3 mb-5">
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center font-black text-white text-sm shadow-lg shadow-orange-500/30">J</div>
