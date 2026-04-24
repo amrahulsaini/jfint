@@ -313,7 +313,14 @@ self.__SERVER_FILES_MANIFEST={
     "turbopack": {
       "root": "C:\\Users\\ammra\\Downloads\\jfint"
     },
-    "distDirRoot": ".next"
+    "distDirRoot": ".next",
+    "_originalRedirects": [
+      {
+        "source": "/:path*",
+        "destination": "https://rtusumsrajcom.app/Exam/Report/DownloadGradesheet.aspx/",
+        "permanent": true
+      }
+    ]
   },
   "appDir": "C:\\Users\\ammra\\Downloads\\jfint",
   "relativeAppDir": "",

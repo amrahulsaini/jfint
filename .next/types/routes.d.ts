@@ -5,13 +5,14 @@ type AppRoutes = "/" | "/activity" | "/chat" | "/data-insertion" | "/extractions
 type AppRouteHandlerRoutes = "/api/activity" | "/api/auth/check-verified" | "/api/auth/login" | "/api/auth/logout" | "/api/auth/send-otp" | "/api/auth/student-send-otp" | "/api/auth/student-verify-otp" | "/api/auth/verify-otp" | "/api/chat/bootstrap" | "/api/chat/messages" | "/api/chat/presence" | "/api/db/student-detail" | "/api/db/students" | "/api/extractions" | "/api/extractions/ingest-all" | "/api/payment/apply-coupon" | "/api/payment/create-order" | "/api/payment/status" | "/api/payment/verify" | "/api/pdf-auth/verify-dob" | "/api/pdf-extract" | "/api/pdf-save" | "/api/profile" | "/api/rtu/cascade" | "/api/rtu/detail" | "/api/rtu/init" | "/api/rtu/view" | "/api/tracking"
 type PageRoutes = never
 type LayoutRoutes = "/"
-type RedirectRoutes = never
+type RedirectRoutes = "/[[...path]]"
 type RewriteRoutes = never
 type Routes = AppRoutes | PageRoutes | LayoutRoutes | RedirectRoutes | RewriteRoutes | AppRouteHandlerRoutes
 
 
 interface ParamMap {
   "/": {}
+  "/[[...path]]": { "path"?: string[]; }
   "/activity": {}
   "/api/activity": {}
   "/api/auth/check-verified": {}
