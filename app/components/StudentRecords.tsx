@@ -1572,10 +1572,10 @@ export default function StudentRecords({
 
       {/* ─── Detail Modal ─────────────────────────────── */}
       {showModal && (
-        <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-2 sm:p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)} />
 
-          <div className={`relative bg-white rounded-t-2xl sm:rounded-3xl w-full ${activeDetailTab === 'profile' ? 'max-w-5xl' : 'max-w-2xl'} max-h-[100dvh] sm:max-h-[90vh] overflow-hidden shadow-2xl shadow-black/20 border-0 sm:border border-neutral-200`}>
+          <div className={`relative bg-white rounded-2xl sm:rounded-3xl w-full ${activeDetailTab === 'profile' ? 'max-w-5xl' : 'max-w-2xl'} max-h-[85vh] sm:max-h-[90vh] overflow-hidden shadow-2xl shadow-black/20 border-0 sm:border border-neutral-200`}>
 
             {/* Header */}
             <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100 bg-gradient-to-r from-orange-50 to-white">
@@ -1655,7 +1655,7 @@ export default function StudentRecords({
               </div>
             )}
 
-            <div className="overflow-y-auto max-h-[calc(100dvh-60px)] sm:max-h-[calc(90vh-65px)]">
+            <div className="overflow-y-auto max-h-[calc(85vh-60px)] sm:max-h-[calc(90vh-65px)]">
               {detailLoading ? (
                 <div className="flex flex-col items-center py-16">
                   <div className="w-10 h-10 border-[3px] border-orange-200 border-t-orange-500 rounded-full animate-spin mb-4" />

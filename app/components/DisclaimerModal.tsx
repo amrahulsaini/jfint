@@ -41,8 +41,8 @@ export default function DisclaimerModal() {
   if (!isOpen || !timeLeft) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-2 sm:p-4 bg-neutral-900/60 backdrop-blur-md">
-      <div className="relative w-full max-w-2xl max-h-[94dvh] sm:max-h-[90vh] bg-white rounded-t-[24px] sm:rounded-[24px] overflow-y-auto shadow-2xl ring-1 ring-black/5 flex flex-col md:flex-row transition-all duration-300 scale-100 opacity-100">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-neutral-900/60 backdrop-blur-md">
+      <div className="relative w-full max-w-2xl max-h-[85vh] sm:max-h-[90vh] bg-white rounded-[24px] overflow-y-auto shadow-2xl ring-1 ring-black/5 flex flex-col md:flex-row transition-all duration-300 scale-100 opacity-100">
         <div className="hidden md:flex flex-col justify-center items-center w-[40%] bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 p-8 text-white relative overflow-hidden">
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
           <svg className="w-24 h-24 mb-6 text-white/90 drop-shadow-2xl transform hover:scale-105 transition-transform duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

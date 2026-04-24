@@ -240,9 +240,9 @@ export default function Home() {
       {/* ── Email Verification Modal Overlay ── */}
       {/* Verification modal uses z-[100] so the payment modal (z-[200]) always stacks above it */}
       {verifyChecked && showVerify && !showPayModalGlobal && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-2 sm:p-4" style={{backdropFilter:'blur(12px)', backgroundColor:'rgba(255,255,255,0.5)'}}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4" style={{backdropFilter:'blur(12px)', backgroundColor:'rgba(255,255,255,0.5)'}}>
           <div
-            className={`bg-white border border-neutral-200/80 rounded-t-3xl sm:rounded-3xl shadow-2xl shadow-neutral-900/15 w-full max-w-sm max-h-[92dvh] overflow-y-auto transition-all ${
+            className={`bg-white border border-neutral-200/80 rounded-2xl sm:rounded-3xl shadow-2xl shadow-neutral-900/15 w-full max-w-sm max-h-[85vh] overflow-y-auto transition-all ${
               verifyShake ? 'animate-[shake_0.5s_ease-in-out]' : ''
             }`}
             style={verifyShake ? {animation:'shake 0.5s ease-in-out'} : {}}
