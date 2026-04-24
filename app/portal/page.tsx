@@ -46,8 +46,27 @@ export default function Home() {
   const [verifyCooldown, setVerifyCooldown] = useState(0);
   const [verifyShake, setVerifyShake] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
+  const [showPayModalGlobal, setShowPayModalGlobal] = useState(false);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Poll the global pay-modal flag so verify modal properly defers
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (typeof window !== 'undefined') {
+        setShowPayModalGlobal(!!window.__jfintPayModalOpen);
+      }
+    }, 200);
+    return () => clearInterval(id);
+  }, []);
+
+  // Lock body scroll when verification modal is visible
+  useEffect(() => {
+    if (!showVerify || showPayModalGlobal) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [showVerify, showPayModalGlobal]);
 
   // Check if already verified on mount
   useEffect(() => {
@@ -219,9 +238,9 @@ export default function Home() {
       <DisclaimerModal />
 
       {/* ── Email Verification Modal Overlay ── */}
-      {/* Only show verification modal if payment modal is NOT open (by checking for a global flag) */}
-      {verifyChecked && showVerify && (typeof window === 'undefined' || !window.__jfintPayModalOpen) && (
-        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-2 sm:p-4" style={{backdropFilter:'blur(12px)', backgroundColor:'rgba(255,255,255,0.5)'}}>
+      {/* Verification modal uses z-[100] so the payment modal (z-[200]) always stacks above it */}
+      {verifyChecked && showVerify && !showPayModalGlobal && (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-2 sm:p-4" style={{backdropFilter:'blur(12px)', backgroundColor:'rgba(255,255,255,0.5)'}}>
           <div
             className={`bg-white border border-neutral-200/80 rounded-t-3xl sm:rounded-3xl shadow-2xl shadow-neutral-900/15 w-full max-w-sm max-h-[92dvh] overflow-y-auto transition-all ${
               verifyShake ? 'animate-[shake_0.5s_ease-in-out]' : ''
@@ -463,7 +482,7 @@ export default function Home() {
       </nav>
 
       {/* ── View Selector / Records ── */}
-      <section id="portal" className="max-w-7xl mx-auto px-5 md:px-8 pb-16 ui-rise">
+      <section id="portal" className="max-w-7xl mx-auto px-3 sm:px-5 md:px-8 pb-12 sm:pb-16 ui-rise">
 
         {!view ? (
           /* ─── Two selection buttons ─── */
@@ -565,7 +584,7 @@ export default function Home() {
           /* ─── Records view with back breadcrumb ─── */
           <div>
             {/* Breadcrumb bar */}
-            <div className="flex items-center justify-between py-5 mb-2">
+            <div className="flex items-center justify-between py-3 sm:py-5 mb-2">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setView(null)}
@@ -576,8 +595,8 @@ export default function Home() {
                   </svg>
                 </button>
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-[0.15em] text-neutral-400">JECRC Foundation</div>
-                  <div className="text-sm font-black text-neutral-900">{VIEWS[view].sem} — {VIEWS[view].year} Internal Marks</div>
+                  <div className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.15em] text-neutral-400">JECRC Foundation</div>
+                  <div className="text-xs sm:text-sm font-black text-neutral-900">{VIEWS[view].sem} — {VIEWS[view].year} Internal Marks</div>
                 </div>
               </div>
               <div className="hidden sm:flex items-center gap-2">
@@ -597,7 +616,7 @@ export default function Home() {
               </div>
             </div>
             {/* Premium info banner */}
-            <div className="mb-4 rounded-2xl border border-cyan-200 bg-gradient-to-r from-cyan-50 to-sky-50/60 overflow-hidden">
+            <div className="mb-3 sm:mb-4 rounded-xl sm:rounded-2xl border border-cyan-200 bg-gradient-to-r from-cyan-50 to-sky-50/60 overflow-hidden">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 px-4 py-3">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div className="w-8 h-8 rounded-xl bg-cyan-100 border border-cyan-200 flex items-center justify-center flex-shrink-0">

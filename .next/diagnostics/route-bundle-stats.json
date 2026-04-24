@@ -18,12 +18,12 @@
   },
   {
     "route": "/portal",
-    "firstLoadUncompressedJsBytes": 644640,
+    "firstLoadUncompressedJsBytes": 646253,
     "firstLoadChunkPaths": [
       ".next\\static\\chunks\\00iw.o6p_2m~n.js",
       ".next\\static\\chunks\\0i.l9589uvx0j.js",
       ".next\\static\\chunks\\0q0ehv._jpj2g.js",
-      ".next\\static\\chunks\\0hc-ovfbkjvvr.js",
+      ".next\\static\\chunks\\0kcef~3icay--.js",
       ".next\\static\\chunks\\0-hrh_uw98wb_.js",
       ".next\\static\\chunks\\0q15c571zuapu.js",
       ".next\\static\\chunks\\02o~ssm5_k3~4.js",

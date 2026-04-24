@@ -1059,11 +1059,11 @@ export default function StudentRecords({
 
   /* ── Main ──────────────────────────────────────────────── */
   return (
-    <div className="max-w-7xl mx-auto px-5 md:px-8 py-6">
+    <div className="max-w-7xl mx-auto px-3 sm:px-5 md:px-8 py-4 sm:py-6">
 
       {/* ─── Stats ───────────────────────────────────────── */}
       {data?.stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 mb-6 sm:mb-8">
           {[
             { label: 'Total Records', val: data.stats.totalRecords, icon: (
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
@@ -1080,7 +1080,7 @@ export default function StudentRecords({
           ].map(s => (
             <div
               key={s.label}
-              className={`relative rounded-[20px] overflow-hidden p-5 flex items-center gap-4 ${
+              className={`relative rounded-2xl sm:rounded-[20px] overflow-hidden p-3 sm:p-5 flex items-center gap-3 sm:gap-4 ${
                 s.accent
                   ? 'bg-gradient-to-br from-orange-500 to-orange-600 border border-orange-400 text-white shadow-[0_8px_20px_-4px_rgba(249,115,22,0.4)] hover:-translate-y-1 hover:shadow-[0_12px_24px_-4px_rgba(249,115,22,0.5)] transition-all duration-300'
                   : 'bg-white/60 backdrop-blur-md border border-neutral-200/60 hover:bg-white hover:border-neutral-300 hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.05)] transition-all duration-300 hover:-translate-y-1'
@@ -1091,16 +1091,16 @@ export default function StudentRecords({
                   {s.icon}
                 </div>
               )}
-              <div className={`w-12 h-12 rounded-[14px] flex items-center justify-center flex-shrink-0 z-10 ${
+              <div className={`w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-[14px] flex items-center justify-center flex-shrink-0 z-10 ${
                 s.accent ? 'bg-white/20 text-white backdrop-blur-sm' : 'bg-gradient-to-br from-neutral-100 to-neutral-50 text-neutral-500 border border-neutral-200/50 shadow-sm'
               }`}>
                 {s.icon}
               </div>
               <div className="z-10">
-                <div className={`text-[28px] font-black leading-none tracking-tight ${s.accent ? 'text-white' : 'text-neutral-900'}`}>
+                <div className={`text-lg sm:text-[28px] font-black leading-none tracking-tight ${s.accent ? 'text-white' : 'text-neutral-900'}`}>
                   {s.val.toLocaleString()}
                 </div>
-                <div className={`text-[11px] font-bold uppercase tracking-wider mt-1.5 ${s.accent ? 'text-orange-100' : 'text-neutral-400'}`}>
+                <div className={`text-[9px] sm:text-[11px] font-bold uppercase tracking-wider mt-1 sm:mt-1.5 ${s.accent ? 'text-orange-100' : 'text-neutral-400'}`}>
                   {s.label}
                 </div>
               </div>
@@ -1111,26 +1111,26 @@ export default function StudentRecords({
 
       {/* ─── 1st Sem Highlight Banner ──────────────────────── */}
       {table === '1styearmaster' && (
-        <div className="relative overflow-hidden bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-[20px] p-5 mb-8 shadow-sm flex items-start sm:items-center gap-4 group">
+        <div className="relative overflow-hidden bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-2xl sm:rounded-[20px] p-3 sm:p-5 mb-6 sm:mb-8 shadow-sm flex items-start gap-3 sm:gap-4 group">
           <div className="absolute -right-10 -top-10 w-32 h-32 bg-orange-200/40 rounded-full blur-3xl group-hover:bg-orange-300/40 transition-colors duration-500"></div>
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-100 to-orange-200/50 border border-orange-200/50 flex items-center justify-center flex-shrink-0 z-10 shadow-sm">
-            <svg className="w-6 h-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-orange-100 to-orange-200/50 border border-orange-200/50 flex items-center justify-center flex-shrink-0 z-10 shadow-sm">
+            <svg className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
             </svg>
           </div>
-          <div className="z-10">
-            <h3 className="text-base font-black text-orange-900 mb-1">Unlock Complete Info for just ₹10</h3>
-            <p className="text-[13px] font-semibold text-orange-800/80 leading-relaxed max-w-4xl">
-              Get access to Internal Marks PLUS detailed student profile including <span className="font-black text-orange-900 bg-orange-200/30 px-1 py-0.5 rounded">Aadhar Number</span>, <span className="font-black text-orange-900 bg-orange-200/30 px-1 py-0.5 rounded">Parents&apos; Mobile Numbers</span>, <span className="font-black text-orange-900 bg-orange-200/30 px-1 py-0.5 rounded">Caste</span>, <span className="font-black text-orange-900 bg-orange-200/30 px-1 py-0.5 rounded">Home Address</span>, and <span className="font-black text-orange-900 bg-orange-200/30 px-1 py-0.5 rounded">10th & 12th Percentage</span>.
+          <div className="z-10 min-w-0">
+            <h3 className="text-sm sm:text-base font-black text-orange-900 mb-1">Unlock Complete Info for just ₹10</h3>
+            <p className="text-[11px] sm:text-[13px] font-semibold text-orange-800/80 leading-relaxed">
+              Get access to Internal Marks PLUS detailed student profile including <span className="font-black text-orange-900">Aadhar</span>, <span className="font-black text-orange-900">Parents&apos; Mobile</span>, <span className="font-black text-orange-900">Caste</span>, <span className="font-black text-orange-900">Address</span>, and <span className="font-black text-orange-900">10th &amp; 12th %</span>.
             </p>
           </div>
         </div>
       )}
 
       {/* ─── Search / Filter Bar ─────────────────────────── */}
-      <div className="bg-white/70 backdrop-blur-xl border border-neutral-200/80 rounded-[24px] p-5 mb-10 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <form onSubmit={handleSearch} className="flex-1 flex gap-3">
+      <div className="bg-white/70 backdrop-blur-xl border border-neutral-200/80 rounded-2xl sm:rounded-[24px] p-3 sm:p-5 mb-6 sm:mb-10 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
+        <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row">
+          <form onSubmit={handleSearch} className="flex-1 flex flex-col sm:flex-row gap-2 sm:gap-3">
             <div className="relative flex-1">
               <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -1143,16 +1143,16 @@ export default function StudentRecords({
                 className="w-full bg-white/50 backdrop-blur-sm border border-neutral-200/80 rounded-[14px] pl-11 pr-4 py-3 text-[13px] font-bold text-neutral-900 placeholder-neutral-400 focus:bg-white focus:outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-500/10 transition-all duration-300 shadow-sm"
               />
             </div>
-            <button type="submit" className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 active:from-orange-600 active:to-orange-700 text-white font-black px-7 py-3 rounded-[14px] text-sm transition-all duration-300 shadow-[0_8px_16px_-4px_rgba(249,115,22,0.4)] hover:shadow-[0_12px_20px_-4px_rgba(249,115,22,0.5)] hover:-translate-y-0.5">
+            <button type="submit" className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 active:from-orange-600 active:to-orange-700 text-white font-black px-5 sm:px-7 py-3 rounded-xl sm:rounded-[14px] text-sm transition-all duration-300 shadow-[0_8px_16px_-4px_rgba(249,115,22,0.4)] hover:shadow-[0_12px_20px_-4px_rgba(249,115,22,0.5)] hover:-translate-y-0.5 w-full sm:w-auto">
               Search
             </button>
           </form>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
             <div className="relative">
               <select
                 value={branch}
                 onChange={e => { setBranch(e.target.value); setPage(1); }}
-                className="appearance-none bg-white/50 backdrop-blur-sm border border-neutral-200/80 rounded-[14px] pl-4 pr-10 py-3 text-[13px] font-bold text-neutral-700 focus:bg-white focus:outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-500/10 transition-all duration-300 cursor-pointer w-full sm:min-w-[170px] shadow-sm"
+                className="appearance-none bg-white/50 backdrop-blur-sm border border-neutral-200/80 rounded-xl sm:rounded-[14px] pl-4 pr-10 py-3 text-[13px] font-bold text-neutral-700 focus:bg-white focus:outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-500/10 transition-all duration-300 cursor-pointer w-full sm:min-w-[170px] shadow-sm"
               >
                 <option value="" className="bg-white text-neutral-900">All Branches</option>
                 {data?.branches.map(b => <option key={b} value={b} className="bg-white text-neutral-900">{b}</option>)}
@@ -1167,7 +1167,7 @@ export default function StudentRecords({
                 <select
                   value={gender}
                   onChange={e => { setGender(e.target.value); setPage(1); }}
-                  className="appearance-none bg-white/50 backdrop-blur-sm border border-neutral-200/80 rounded-[14px] pl-4 pr-10 py-3 text-[13px] font-bold text-neutral-700 focus:bg-white focus:outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-500/10 transition-all duration-300 cursor-pointer w-full sm:min-w-[140px] shadow-sm"
+                  className="appearance-none bg-white/50 backdrop-blur-sm border border-neutral-200/80 rounded-xl sm:rounded-[14px] pl-4 pr-10 py-3 text-[13px] font-bold text-neutral-700 focus:bg-white focus:outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-500/10 transition-all duration-300 cursor-pointer w-full sm:min-w-[140px] shadow-sm"
                 >
                   <option value="" className="bg-white text-neutral-900">All Genders</option>
                   {(data?.genders || []).map(g => <option key={g} value={g} className="bg-white text-neutral-900">{g}</option>)}
@@ -1227,17 +1227,17 @@ export default function StudentRecords({
           <p className="text-neutral-400 font-semibold text-sm mt-1">Try a different search or filter</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
           {data?.rows.map((row) => (
             <div
               key={row.roll_no}
-              className="group relative bg-white hover:bg-orange-50/20 border border-neutral-200/80 hover:border-orange-300 rounded-[20px] p-5 transition-all duration-300 hover:shadow-[0_12px_24px_-8px_rgba(249,115,22,0.15)] hover:-translate-y-1.5 overflow-hidden flex flex-col"
+              className="group relative bg-white hover:bg-orange-50/20 border border-neutral-200/80 hover:border-orange-300 rounded-2xl sm:rounded-[20px] p-3 sm:p-5 transition-all duration-300 hover:shadow-[0_12px_24px_-8px_rgba(249,115,22,0.15)] hover:-translate-y-1.5 overflow-hidden flex flex-col"
             >
               {/* Top accent on hover */}
               <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-orange-400/0 to-transparent group-hover:via-orange-400 transition-all duration-500 rounded-t-2xl opacity-0 group-hover:opacity-100" />
               {/* Photo + Name */}
-              <div className="flex items-center gap-4 mb-5 relative">
-                <div className="w-[72px] h-[72px] rounded-[18px] overflow-hidden bg-gradient-to-br from-neutral-100 to-neutral-200 border-[3px] border-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] group-hover:border-orange-100 group-hover:shadow-[0_4px_16px_rgba(249,115,22,0.2)] transition-all duration-300 flex-shrink-0 relative z-10">
+              <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-5 relative">
+                <div className="w-14 h-14 sm:w-[72px] sm:h-[72px] rounded-2xl sm:rounded-[18px] overflow-hidden bg-gradient-to-br from-neutral-100 to-neutral-200 border-2 sm:border-[3px] border-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] group-hover:border-orange-100 group-hover:shadow-[0_4px_16px_rgba(249,115,22,0.2)] transition-all duration-300 flex-shrink-0 relative z-10">
                   <Image
                     src={`/${photoDir}/photo_${row.roll_no}.jpg`}
                     alt={row.student_name}
@@ -1259,10 +1259,10 @@ export default function StudentRecords({
                   <div className="absolute inset-0 ring-1 ring-inset ring-black/5 rounded-[15px]" />
                 </div>
                 <div className="min-w-0 flex-1 relative z-10">
-                  <h3 className="font-black text-neutral-900 text-[15px] leading-snug truncate group-hover:text-orange-600 transition-colors duration-300">
+                  <h3 className="font-black text-neutral-900 text-[13px] sm:text-[15px] leading-snug truncate group-hover:text-orange-600 transition-colors duration-300">
                     {row.student_name}
                   </h3>
-                  <p className="text-orange-500/80 font-mono text-[11px] font-black mt-1 bg-orange-50 inline-block px-2 py-0.5 rounded-md border border-orange-100/50">{row.roll_no}</p>
+                  <p className="text-orange-500/80 font-mono text-[10px] sm:text-[11px] font-black mt-1 bg-orange-50 inline-block px-1.5 sm:px-2 py-0.5 rounded-md border border-orange-100/50 truncate max-w-full">{row.roll_no}</p>
                 </div>
               </div>
 
@@ -1293,11 +1293,11 @@ export default function StudentRecords({
               </div>
 
               {/* Card action buttons */}
-              <div className="mt-5 pt-4 border-t border-neutral-100 flex flex-col gap-2.5">
+              <div className="mt-3 sm:mt-5 pt-3 sm:pt-4 border-t border-neutral-100 flex flex-col gap-2">
                 {/* Internal Marks button — always visible */}
                 <button
                   onClick={() => openDetail(row.roll_no, 'marks')}
-                  className={`w-full rounded-[14px] px-4 py-3 text-[13px] font-black transition-all duration-300 flex items-center justify-center gap-2 ${
+                  className={`w-full rounded-xl sm:rounded-[14px] px-3 sm:px-4 py-2.5 sm:py-3 text-[12px] sm:text-[13px] font-black transition-all duration-300 flex items-center justify-center gap-1.5 sm:gap-2 ${
                     isRollPaid(row.roll_no)
                       ? 'bg-gradient-to-br from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white shadow-[0_8px_16px_-4px_rgba(249,115,22,0.4)] hover:-translate-y-0.5'
                       : 'bg-neutral-900 hover:bg-neutral-800 text-white shadow-md hover:shadow-lg hover:-translate-y-0.5'
@@ -1320,7 +1320,7 @@ export default function StudentRecords({
                 {table === '1styearmaster' && (
                   <button
                     onClick={() => openDetail(row.roll_no, 'profile')}
-                    className={`w-full rounded-[14px] px-4 py-3 text-[13px] font-black transition-all duration-300 flex items-center justify-center gap-2 ${
+                    className={`w-full rounded-xl sm:rounded-[14px] px-3 sm:px-4 py-2.5 sm:py-3 text-[12px] sm:text-[13px] font-black transition-all duration-300 flex items-center justify-center gap-1.5 sm:gap-2 ${
                       isRollPaid(row.roll_no)
                         ? 'bg-gradient-to-br from-indigo-50 to-indigo-100/50 hover:from-indigo-100 hover:to-indigo-200/50 text-indigo-700 border border-indigo-200/80 shadow-sm hover:-translate-y-0.5'
                         : 'bg-gradient-to-br from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white shadow-[0_8px_16px_-4px_rgba(79,70,229,0.4)] hover:shadow-[0_12px_20px_-4px_rgba(79,70,229,0.5)] hover:-translate-y-0.5'
@@ -1348,11 +1348,11 @@ export default function StudentRecords({
 
       {/* ─── Pagination ──────────────────────────────────── */}
       {data && data.totalPages > 1 && (
-        <div className="mt-8 flex flex-col items-center gap-3">
-          <span className="text-sm text-neutral-400 font-bold">
+        <div className="mt-6 sm:mt-8 flex flex-col items-center gap-3">
+          <span className="text-xs sm:text-sm text-neutral-400 font-bold">
             Showing <span className="font-black text-neutral-700">{((page - 1) * data.limit) + 1}–{Math.min(page * data.limit, data.total)}</span> of <span className="font-black text-neutral-700">{data.total.toLocaleString()}</span>
           </span>
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+          <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto pb-1 max-w-full px-1">
             {/* First */}
             <button
               onClick={() => setPage(1)}
@@ -1572,10 +1572,10 @@ export default function StudentRecords({
 
       {/* ─── Detail Modal ─────────────────────────────── */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-2 sm:p-4">
+        <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)} />
 
-          <div className={`relative bg-white rounded-t-2xl sm:rounded-3xl w-full ${activeDetailTab === 'profile' ? 'max-w-5xl' : 'max-w-2xl'} max-h-[94dvh] sm:max-h-[90vh] overflow-hidden shadow-2xl shadow-black/20 border border-neutral-200`}>
+          <div className={`relative bg-white rounded-t-2xl sm:rounded-3xl w-full ${activeDetailTab === 'profile' ? 'max-w-5xl' : 'max-w-2xl'} max-h-[100dvh] sm:max-h-[90vh] overflow-hidden shadow-2xl shadow-black/20 border-0 sm:border border-neutral-200`}>
 
             {/* Header */}
             <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100 bg-gradient-to-r from-orange-50 to-white">
@@ -1655,7 +1655,7 @@ export default function StudentRecords({
               </div>
             )}
 
-            <div className="overflow-y-auto max-h-[calc(94dvh-60px)] sm:max-h-[calc(90vh-65px)]">
+            <div className="overflow-y-auto max-h-[calc(100dvh-60px)] sm:max-h-[calc(90vh-65px)]">
               {detailLoading ? (
                 <div className="flex flex-col items-center py-16">
                   <div className="w-10 h-10 border-[3px] border-orange-200 border-t-orange-500 rounded-full animate-spin mb-4" />
@@ -1664,12 +1664,12 @@ export default function StudentRecords({
               ) : !detail ? (
                 <div className="text-center py-16 text-neutral-400 font-semibold">Failed to load student details.</div>
               ) : (
-                <div className="p-5 space-y-4">
+                <div className="p-3 sm:p-5 space-y-3 sm:space-y-4">
 
                   {/* Profile card */}
-                  <div className="bg-gradient-to-br from-orange-50 to-amber-50/50 border border-orange-100 rounded-2xl p-4 sm:p-5">
-                    <div className="flex items-start gap-3 sm:gap-4">
-                      <div className="w-20 h-20 rounded-2xl overflow-hidden bg-orange-100 border-2 border-orange-200 flex-shrink-0 shadow-md">
+                  <div className="bg-gradient-to-br from-orange-50 to-amber-50/50 border border-orange-100 rounded-xl sm:rounded-2xl p-3 sm:p-5">
+                    <div className="flex items-start gap-3">
+                      <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl overflow-hidden bg-orange-100 border-2 border-orange-200 flex-shrink-0 shadow-md">
                         <Image
                           src={`/${photoDir}/photo_${detail.student.roll_no}.jpg`}
                           alt={detail.student.student_name}

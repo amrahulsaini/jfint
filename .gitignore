@@ -1,1 +1,9 @@
 .next/dev/
+.next/cache/
+.next/trace
+.next/trace-build
+node_modules/
+.env.local
+.env*.local
+.venv/
+tsconfig.tsbuildinfo
