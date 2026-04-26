@@ -17,6 +17,4 @@ export const CHAT_DISCLAIMER_ITEMS = [
 export const TICKER_MESSAGES = [
   'Main website now opens the live chat room.',
   `Marks and detailed info are temporarily hidden. Contact ${SITE_CONTACT_EMAIL} or drop a chat request.`,
-  'Student photos in chat use the same record-mapped image logic as the main portal.',
-  'Portal access is still available separately so the old setup can be restored later.',
 ] as const;

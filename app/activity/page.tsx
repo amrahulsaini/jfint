@@ -150,9 +150,6 @@ export default function ActivityPage() {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2.5">
-            <Link href="/portal" className="text-[10px] sm:text-xs font-black border border-neutral-200 bg-white/80 hover:bg-orange-50 hover:border-orange-300 rounded-lg sm:rounded-xl px-2.5 py-1.5 sm:px-4 sm:py-2 text-neutral-600 hover:text-orange-600 transition-colors shadow-sm">
-              Portal
-            </Link>
           </div>
         </div>
       </nav>

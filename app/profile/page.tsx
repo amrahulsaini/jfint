@@ -247,9 +247,6 @@ export default function ProfilePage() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            <Link href="/portal" className="text-xs font-black border border-neutral-200 bg-white/80 hover:bg-orange-50 hover:border-orange-300 rounded-xl px-4 py-2 text-neutral-600 hover:text-orange-600 transition-colors shadow-sm">
-              Portal
-            </Link>
             <Link href="/" className="text-xs font-black border border-neutral-200 bg-white/80 hover:bg-orange-50 hover:border-orange-300 rounded-xl px-4 py-2 text-neutral-600 hover:text-orange-600 transition-colors shadow-sm">
               Chat
             </Link>

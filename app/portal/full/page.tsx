@@ -1,5 +1,5 @@
-import LegacyPortalPage from '@/app/components/LegacyPortalPage';
+import { redirect } from 'next/navigation';
 
 export default function FullPortalPage() {
-  return <LegacyPortalPage />;
+  redirect('/');
 }

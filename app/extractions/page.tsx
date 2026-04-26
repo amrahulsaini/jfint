@@ -250,10 +250,10 @@ export default function ExtractionsPage() {
           </div>
           <div className="flex items-center gap-2">
             <Link
-              href="/portal"
+              href="/"
               className="h-10 px-4 rounded-xl border border-neutral-700 bg-neutral-900 hover:bg-neutral-800 text-xs font-black flex items-center"
             >
-              Back To Portal
+              Back To Chat
             </Link>
             <button
               onClick={loadExisting}

@@ -7,9 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import TopTicker from '@/app/components/TopTicker';
 import {
   CHAT_DISCLAIMER_ITEMS,
-  LEGACY_RESULTS_PORTAL_PATH,
   MAIN_CHAT_PATH,
-  PUBLIC_PORTAL_PATH,
   SITE_CONTACT_EMAIL,
 } from '@/lib/site-config';
 
@@ -563,12 +561,6 @@ export default function ChatHome() {
                   >
                     Enter Chat
                   </button>
-                  <Link
-                    href={PUBLIC_PORTAL_PATH}
-                    className="inline-flex h-12 flex-1 items-center justify-center rounded-2xl border border-neutral-200 bg-white text-sm font-black text-neutral-700 transition-colors hover:border-orange-300 hover:text-orange-600"
-                  >
-                    Open Portal Notice
-                  </Link>
                 </div>
               </div>
             </div>
@@ -596,18 +588,6 @@ export default function ChatHome() {
           </button>
 
           <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-            <Link
-              href={PUBLIC_PORTAL_PATH}
-              className="inline-flex h-10 items-center justify-center rounded-2xl border border-neutral-200 bg-white px-4 text-xs font-black text-neutral-700 transition-all hover:-translate-y-0.5 hover:border-orange-300 hover:text-orange-600"
-            >
-              Portal
-            </Link>
-            <Link
-              href={LEGACY_RESULTS_PORTAL_PATH}
-              className="inline-flex h-10 items-center justify-center rounded-2xl border border-neutral-200 bg-white px-4 text-xs font-black text-neutral-700 transition-all hover:-translate-y-0.5 hover:border-sky-300 hover:text-sky-600"
-            >
-              Full Results
-            </Link>
             <Link
               href="/profile"
               className="inline-flex h-10 items-center justify-center rounded-2xl border border-neutral-200 bg-white px-4 text-xs font-black text-neutral-700 transition-all hover:-translate-y-0.5 hover:border-neutral-300 hover:text-neutral-950"
@@ -696,24 +676,6 @@ export default function ChatHome() {
                 <p className="mt-3 text-sm font-semibold leading-6 text-neutral-600">
                   If anyone wants to see anything, kindly drop a mail to <span className="font-black text-neutral-900">{SITE_CONTACT_EMAIL}</span> or post a request in this chat room.
                 </p>
-              </div>
-
-              <div className="rounded-[28px] border border-sky-200 bg-sky-50/80 p-4 shadow-sm">
-                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-700">
-                  Where The Full Website Is
-                </div>
-                <p className="mt-2 text-sm font-semibold leading-6 text-sky-900">
-                  The old full results experience is preserved separately so you can switch back later whenever you want.
-                </p>
-                <Link
-                  href={LEGACY_RESULTS_PORTAL_PATH}
-                  className="mt-3 inline-flex items-center gap-2 rounded-2xl bg-sky-600 px-4 py-2.5 text-xs font-black text-white transition-colors hover:bg-sky-500"
-                >
-                  Open Full Results Portal
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                  </svg>
-                </Link>
               </div>
             </div>
           </div>
