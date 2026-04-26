@@ -98,6 +98,12 @@ export interface ChatMessage {
   id: number;
   text: string;
   createdAt: string;
+  hidden: boolean;
+  hiddenAt?: string | null;
+  hiddenByEmail?: string | null;
+  deleted: boolean;
+  deletedAt?: string | null;
+  deletedByEmail?: string | null;
   sender: {
     email: string;
     aliasName: string;
@@ -128,6 +134,10 @@ function extractFirstName(name: string, email: string): string {
 
 function normalizeRoll(value: string): string {
   return String(value || '').trim().replace(/\s+/g, '');
+}
+
+export function isChatAdminEmail(email: string): boolean {
+  return normalizeEmail(email) === normalizeEmail(CHAT_ADMIN_EMAIL);
 }
 
 function isMissingTableError(err: unknown): boolean {
@@ -188,11 +198,22 @@ function toChatMessage(row: {
   sender_is_admin: number;
   message_text: string;
   created_at: string | Date;
+  hidden_at?: string | Date | null;
+  hidden_by_email?: string | null;
+  deleted_at?: string | Date | null;
+  deleted_by_email?: string | null;
 }): ChatMessage {
+  const deleted = Boolean(row.deleted_at);
   return {
     id: Number(row.id),
-    text: String(row.message_text || ''),
+    text: deleted ? '' : String(row.message_text || ''),
     createdAt: parseIstDateTimeToIso(row.created_at),
+    hidden: Boolean(row.hidden_at) && !deleted,
+    hiddenAt: row.hidden_at ? parseIstDateTimeToIso(row.hidden_at) : null,
+    hiddenByEmail: row.hidden_by_email ? normalizeEmail(row.hidden_by_email) : null,
+    deleted,
+    deletedAt: row.deleted_at ? parseIstDateTimeToIso(row.deleted_at) : null,
+    deletedByEmail: row.deleted_by_email ? normalizeEmail(row.deleted_by_email) : null,
     sender: {
       email: normalizeEmail(row.sender_email),
       aliasName: String(row.sender_alias || ''),
@@ -245,6 +266,10 @@ export async function ensureChatTables(): Promise<void> {
           sender_photo_url VARCHAR(255) DEFAULT NULL,
           sender_is_admin TINYINT(1) NOT NULL DEFAULT 0,
           message_text TEXT NOT NULL,
+          hidden_at DATETIME DEFAULT NULL,
+          hidden_by_email VARCHAR(255) DEFAULT NULL,
+          deleted_at DATETIME DEFAULT NULL,
+          deleted_by_email VARCHAR(255) DEFAULT NULL,
           created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           KEY idx_chat_messages_created (created_at),
           KEY idx_chat_messages_sender (sender_email)
@@ -273,6 +298,19 @@ export async function ensureChatTables(): Promise<void> {
           KEY idx_chat_typing_last (last_typing_at)
         )`,
       );
+
+      await pool.query(
+        'ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS hidden_at DATETIME DEFAULT NULL',
+      );
+      await pool.query(
+        'ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS hidden_by_email VARCHAR(255) DEFAULT NULL',
+      );
+      await pool.query(
+        'ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS deleted_at DATETIME DEFAULT NULL',
+      );
+      await pool.query(
+        'ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS deleted_by_email VARCHAR(255) DEFAULT NULL',
+      );
     })();
   }
 
@@ -287,7 +325,7 @@ export async function resolveChatIdentity(email: string): Promise<ChatIdentity> 
     return cachedIdentity;
   }
 
-  const isAdmin = normalizedEmail === normalizeEmail(CHAT_ADMIN_EMAIL);
+  const isAdmin = isChatAdminEmail(normalizedEmail);
   let resolved: ChatIdentity;
 
   if (isAdmin) {
@@ -464,7 +502,11 @@ export async function listRecentMessages(limit = 80): Promise<ChatMessage[]> {
   const pool = getPool();
   const [rows] = await pool.query(
     `SELECT id, sender_email, sender_alias, sender_photo_url, sender_is_admin, message_text,
-            DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
+            DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
+            DATE_FORMAT(hidden_at, '%Y-%m-%d %H:%i:%s') AS hidden_at,
+            hidden_by_email,
+            DATE_FORMAT(deleted_at, '%Y-%m-%d %H:%i:%s') AS deleted_at,
+            deleted_by_email
      FROM chat_messages
      ORDER BY id DESC
      LIMIT ?`,
@@ -479,6 +521,10 @@ export async function listRecentMessages(limit = 80): Promise<ChatMessage[]> {
     sender_is_admin: number;
     message_text: string;
     created_at: string;
+    hidden_at: string | null;
+    hidden_by_email: string | null;
+    deleted_at: string | null;
+    deleted_by_email: string | null;
   }>).map(toChatMessage);
 
   mapped.reverse();
@@ -498,7 +544,11 @@ export async function listMessagesSince(sinceId: number, limit = 200): Promise<C
 
   const [rows] = await pool.query(
     `SELECT id, sender_email, sender_alias, sender_photo_url, sender_is_admin, message_text,
-            DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
+            DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
+            DATE_FORMAT(hidden_at, '%Y-%m-%d %H:%i:%s') AS hidden_at,
+            hidden_by_email,
+            DATE_FORMAT(deleted_at, '%Y-%m-%d %H:%i:%s') AS deleted_at,
+            deleted_by_email
      FROM chat_messages
      WHERE id > ?
      ORDER BY id ASC
@@ -514,6 +564,10 @@ export async function listMessagesSince(sinceId: number, limit = 200): Promise<C
     sender_is_admin: number;
     message_text: string;
     created_at: string;
+    hidden_at: string | null;
+    hidden_by_email: string | null;
+    deleted_at: string | null;
+    deleted_by_email: string | null;
   }>).map(toChatMessage);
 
   await cacheSetJson(cacheKey, mapped, CHAT_SINCE_CACHE_TTL_SECONDS);
@@ -610,4 +664,91 @@ export function publicIdentity(identity: ChatIdentity): ChatUserSummary {
     photoUrl: identity.photoUrl,
     isAdmin: identity.isAdmin,
   };
+}
+
+async function loadChatMessageById(messageId: number): Promise<ChatMessage | null> {
+  const pool = getPool();
+  const [rows] = await pool.query(
+    `SELECT id, sender_email, sender_alias, sender_photo_url, sender_is_admin, message_text,
+            DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
+            DATE_FORMAT(hidden_at, '%Y-%m-%d %H:%i:%s') AS hidden_at,
+            hidden_by_email,
+            DATE_FORMAT(deleted_at, '%Y-%m-%d %H:%i:%s') AS deleted_at,
+            deleted_by_email
+     FROM chat_messages
+     WHERE id = ?
+     LIMIT 1`,
+    [messageId],
+  ) as [unknown[], unknown];
+
+  const row = (rows as Array<{
+    id: number;
+    sender_email: string;
+    sender_alias: string;
+    sender_photo_url: string | null;
+    sender_is_admin: number;
+    message_text: string;
+    created_at: string;
+    hidden_at: string | null;
+    hidden_by_email: string | null;
+    deleted_at: string | null;
+    deleted_by_email: string | null;
+  }>)[0];
+
+  return row ? toChatMessage(row) : null;
+}
+
+export async function moderateChatMessage(
+  identity: ChatIdentity,
+  messageId: number,
+  action: 'hide' | 'unhide' | 'delete',
+): Promise<ChatMessage> {
+  if (!identity.isAdmin) {
+    throw new Error('CHAT_ADMIN_ONLY');
+  }
+
+  const safeMessageId = Number.isFinite(messageId) ? Math.floor(messageId) : 0;
+  if (safeMessageId <= 0) {
+    throw new Error('CHAT_MESSAGE_NOT_FOUND');
+  }
+
+  const pool = getPool();
+  const nowIst = nowIstDateTime();
+
+  if (action === 'hide') {
+    await pool.query(
+      `UPDATE chat_messages
+       SET hidden_at = ?, hidden_by_email = ?
+       WHERE id = ? AND deleted_at IS NULL`,
+      [nowIst, identity.email, safeMessageId],
+    );
+  } else if (action === 'unhide') {
+    await pool.query(
+      `UPDATE chat_messages
+       SET hidden_at = NULL, hidden_by_email = NULL
+       WHERE id = ? AND deleted_at IS NULL`,
+      [safeMessageId],
+    );
+  } else if (action === 'delete') {
+    await pool.query(
+      `UPDATE chat_messages
+       SET deleted_at = ?, deleted_by_email = ?, hidden_at = NULL, hidden_by_email = NULL
+       WHERE id = ?`,
+      [nowIst, identity.email, safeMessageId],
+    );
+  } else {
+    throw new Error('CHAT_INVALID_ACTION');
+  }
+
+  const updated = await loadChatMessageById(safeMessageId);
+  if (!updated) {
+    throw new Error('CHAT_MESSAGE_NOT_FOUND');
+  }
+
+  await Promise.all([
+    bumpCacheVersion(CHAT_MESSAGE_VERSION_KEY),
+    bumpCacheVersion(CHAT_ROOM_VERSION_KEY),
+  ]);
+
+  return updated;
 }

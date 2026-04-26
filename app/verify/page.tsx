@@ -7,7 +7,7 @@ import { Suspense } from 'react';
 function VerifyPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const from = searchParams.get('from') || '/portal';
+  const from = searchParams.get('from') || '/';
 
   const [step, setStep] = useState<'email' | 'otp'>('email');
   const [email, setEmail] = useState('');

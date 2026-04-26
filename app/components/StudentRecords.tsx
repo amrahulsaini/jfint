@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { createPortal } from 'react-dom';
+import { SITE_CONTACT_EMAIL, SITE_FEATURES } from '@/lib/site-config';
 
 /* ── Types ──────────────────────────────────────────────── */
 interface StudentRow {
@@ -831,13 +832,18 @@ export default function StudentRecords({
       }
       const json = await res.json();
       if (!json.error) {
-        setDetail({ ...json, profileLoaded: Boolean(json.profileLoaded) });
+        setDetail({
+          ...json,
+          profileLoaded: SITE_FEATURES.detailedProfileHidden ? true : Boolean(json.profileLoaded),
+          profile: SITE_FEATURES.detailedProfileHidden ? (json.profile ?? ({} as StudentProfile)) : json.profile,
+        });
       }
     } catch { /* noop */ }
     setDetailLoading(false);
   };
 
   useEffect(() => {
+    if (SITE_FEATURES.detailedProfileHidden) return;
     if (!showModal || table !== '1styearmaster' || activeDetailTab !== 'profile') return;
     if (!detail?.student?.roll_no || detail.profileLoaded) return;
 
@@ -1414,8 +1420,8 @@ export default function StudentRecords({
       {showPayModal && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[200]">
           <div className="absolute inset-0 bg-black/50" onClick={closePayModal} />
-          <div className="relative z-10 flex min-h-full items-end sm:items-center justify-center p-2 sm:p-4">
-            <div className="bg-white rounded-t-2xl sm:rounded-3xl w-full max-w-sm max-h-[92dvh] sm:max-h-[90vh] shadow-2xl shadow-black/20 border border-neutral-200 overflow-y-auto">
+          <div className="relative z-10 flex min-h-full items-center justify-center p-2 sm:p-4">
+            <div className="bg-white rounded-2xl sm:rounded-3xl w-full max-w-sm max-h-[92dvh] sm:max-h-[90vh] shadow-2xl shadow-black/20 border border-neutral-200 overflow-y-auto">
               {/* Orange top bar */}
               <div className="h-1.5 bg-gradient-to-r from-orange-400 via-orange-500 to-amber-400" />
 
@@ -1733,9 +1739,9 @@ export default function StudentRecords({
                         }`}
                       >
                         <div className={`text-[10px] font-black uppercase tracking-widest ${activeDetailTab === 'profile' ? 'text-neutral-300' : 'text-neutral-400'}`}>
-                          2528allinfo
+                          Private Record
                         </div>
-                        <div className="text-sm font-extrabold">Complete User Profile</div>
+                        <div className="text-sm font-extrabold">Temporarily Hidden</div>
                       </button>
                     )}
                   </div>
@@ -1853,130 +1859,48 @@ export default function StudentRecords({
                           <div className="bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 rounded-2xl p-4 text-white border border-neutral-700 shadow-xl shadow-neutral-900/20">
                             <div className="flex items-start justify-between gap-3">
                               <div>
-                                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-300">2528allinfo Profile</div>
-                                <h5 className="text-lg font-extrabold mt-1">{valueOrDash(detail.profile.applicant_name)}</h5>
-                                <p className="text-xs font-semibold text-neutral-300 mt-1">{valueOrDash(detail.profile.email)} · {valueOrDash(detail.profile.mobile_no)}</p>
+                                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-300">Private Record</div>
+                                <h5 className="mt-1 text-lg font-extrabold">Details Temporarily Hidden</h5>
+                                <p className="mt-1 text-xs font-semibold text-neutral-300">
+                                  Request this student record by mail or through the main website chat.
+                                </p>
                               </div>
-                              {detail.profileMatch && (
-                                <span className={`text-[10px] px-2.5 py-1 rounded-full font-black uppercase tracking-wider border ${
-                                  detail.profileMatch.confidence === 'high'
-                                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
-                                    : detail.profileMatch.confidence === 'medium'
-                                      ? 'bg-amber-500/20 text-amber-300 border-amber-400/40'
-                                      : 'bg-orange-500/20 text-orange-300 border-orange-400/40'
-                                }`}>
-                                  Match {detail.profileMatch.confidence}
-                                </span>
-                              )}
+                              <span className="rounded-full border border-amber-400/40 bg-amber-500/20 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-200">
+                                Hidden
+                              </span>
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {[
-                              { l: 'Applicant Name', v: detail.profile.applicant_name },
-                              { l: 'Father Name', v: detail.profile.father_name },
-                              { l: 'Mother Name', v: detail.profile.mother_name },
-                              { l: 'Gender', v: detail.profile.gender },
-                              { l: 'DOB', v: detail.profile.dob },
-                              { l: 'Student Status', v: detail.profile.student_status },
-                              { l: 'Caste', v: detail.profile.caste },
-                              { l: 'Category I/II', v: detail.profile.category_i_ii },
-                              { l: 'Category III', v: detail.profile.category_iii },
-                              { l: 'Specialization Branch', v: detail.profile.specialization_branch },
-                              { l: 'Admission Status', v: detail.profile.admission_status },
-                              { l: 'Earlier Enrollment No', v: detail.profile.earlier_enrollment_no },
-                              { l: 'Mobile No', v: detail.profile.mobile_no },
-                              { l: 'Parent Mobile No', v: detail.profile.parent_mobile_no },
-                              { l: 'Entrance Exam Roll No', v: detail.profile.entrance_exam_roll_no },
-                              { l: 'Entrance Exam Name', v: detail.profile.entrance_exam_name },
-                              { l: 'Merit Secured', v: detail.profile.merit_secured },
-                              { l: 'Email', v: detail.profile.email },
-                              { l: 'Has Aadhar Card', v: detail.profile.has_aadhar_card },
-                              { l: 'Aadhar No', v: detail.profile.aadhar_no },
-                              { l: 'Educational Qualification', v: detail.profile.educational_qualification },
-                              { l: 'College Shift', v: detail.profile.college_shift },
-                            ].map(item => (
-                              <div key={item.l} className="bg-white border border-neutral-200 rounded-xl p-3.5">
-                                <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">{item.l}</div>
-                                <div className="text-sm font-bold text-neutral-800 mt-1 break-words">{valueOrDash(item.v)}</div>
+                          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-700">Temporary Notice</div>
+                            <p className="mt-2 text-sm font-semibold leading-6 text-amber-900">
+                              Marks and detailed profile information for <span className="font-black">{detail.student.student_name}</span> are not publicly visible right now.
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div className="rounded-xl border border-neutral-200 bg-white p-4">
+                              <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Contact Email</div>
+                              <a
+                                href={`mailto:${SITE_CONTACT_EMAIL}`}
+                                className="mt-1 block text-sm font-extrabold text-neutral-900 underline underline-offset-2"
+                              >
+                                {SITE_CONTACT_EMAIL}
+                              </a>
+                            </div>
+                            <div className="rounded-xl border border-neutral-200 bg-white p-4">
+                              <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Chat Request</div>
+                              <div className="mt-1 text-sm font-semibold text-neutral-700">
+                                Open the homepage live chat and drop a request there for manual access.
                               </div>
-                            ))}
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div className="border border-orange-200 bg-orange-50 rounded-xl p-4">
-                              <div className="text-[10px] font-black uppercase tracking-widest text-orange-500">Permanent Address</div>
-                              <p className="text-sm font-semibold text-orange-900 mt-2 leading-relaxed break-words">{valueOrDash(detail.profile.permanent_address)}</p>
-                            </div>
-                            <div className="border border-sky-200 bg-sky-50 rounded-xl p-4">
-                              <div className="text-[10px] font-black uppercase tracking-widest text-sky-600">Correspondence Address</div>
-                              <p className="text-sm font-semibold text-sky-900 mt-2 leading-relaxed break-words">{valueOrDash(detail.profile.correspondence_address)}</p>
                             </div>
                           </div>
 
-                          <div className="border border-neutral-200 rounded-2xl overflow-hidden">
-                            <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between gap-2">
-                              <h5 className="text-xs font-extrabold uppercase tracking-widest text-neutral-500">Education Details</h5>
-                              <span className="text-xs font-bold text-neutral-400">{detail.profile.education_rows?.length || 0} rows</span>
-                            </div>
-                            {detail.profile.education_rows && detail.profile.education_rows.length > 0 ? (
-                              <div className="overflow-x-auto">
-                                <table className="w-full text-xs min-w-[700px]">
-                                  <thead>
-                                    <tr className="bg-neutral-50 border-b border-neutral-200">
-                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">Exam</th>
-                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">Roll</th>
-                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">Year</th>
-                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">Stream</th>
-                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">Board</th>
-                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">Obt.</th>
-                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">Max</th>
-                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">%</th>
-                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">CGPA</th>
-                                      <th className="px-3 py-2 text-left font-extrabold text-neutral-400 uppercase tracking-widest">Result</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {detail.profile.education_rows.map((row, idx) => (
-                                      <tr key={idx} className="border-b border-neutral-100 last:border-b-0">
-                                        <td className="px-3 py-2 font-semibold text-neutral-700">{valueOrDash(row.exam)}</td>
-                                        <td className="px-3 py-2 text-neutral-600">{valueOrDash(row.rollNo)}</td>
-                                        <td className="px-3 py-2 text-neutral-600">{valueOrDash(row.year)}</td>
-                                        <td className="px-3 py-2 text-neutral-600">{valueOrDash(row.stream)}</td>
-                                        <td className="px-3 py-2 text-neutral-600">{valueOrDash(row.board)}</td>
-                                        <td className="px-3 py-2 text-neutral-600">{valueOrDash(row.obtainedMarks)}</td>
-                                        <td className="px-3 py-2 text-neutral-600">{valueOrDash(row.maxMarks)}</td>
-                                        <td className="px-3 py-2 text-neutral-600">{valueOrDash(row.percentage)}</td>
-                                        <td className="px-3 py-2 text-neutral-600">{valueOrDash(row.cgpa)}</td>
-                                        <td className="px-3 py-2 text-neutral-600">{valueOrDash(row.result)}</td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            ) : (
-                              <div className="px-4 py-4 text-sm text-neutral-500 font-semibold">Education rows were not detected in this extracted form.</div>
-                            )}
-                          </div>
-
-                          <div className="border border-neutral-200 rounded-xl p-4 bg-neutral-50">
-                            <div className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2">Extraction Metadata</div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                              {[
-                                { l: 'Source File', v: detail.profile.source_file },
-                                { l: 'Page Number', v: detail.profile.page_number },
-                                { l: 'Form Type', v: detail.profile.form_type },
-                                { l: 'Session', v: detail.profile.session },
-                                { l: 'College', v: detail.profile.college },
-                                { l: 'Branch Name', v: detail.profile.branch_name },
-                                { l: 'Extracted At', v: detail.profile.extracted_at },
-                              ].map(item => (
-                                <div key={item.l} className="rounded-lg border border-neutral-200 bg-white p-2.5">
-                                  <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">{item.l}</div>
-                                  <div className="font-semibold text-neutral-700 mt-1 break-words">{valueOrDash(item.v)}</div>
-                                </div>
-                              ))}
-                            </div>
+                          <div className="rounded-xl border border-sky-200 bg-sky-50 p-4">
+                            <div className="text-[10px] font-black uppercase tracking-widest text-sky-700">Privacy Hold</div>
+                            <p className="mt-2 text-sm font-semibold leading-6 text-sky-900">
+                              Addresses, parent contacts, education details, marks, and other sensitive student fields are intentionally hidden from direct browsing for now.
+                            </p>
                           </div>
 
                         </div>

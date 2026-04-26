@@ -237,7 +237,7 @@ export default function ProfilePage() {
     <div className="min-h-screen ui-aurora text-neutral-900">
       <nav className="sticky top-0 z-40 bg-white/60 backdrop-blur-2xl border-b border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-5 md:px-8 h-[72px]">
-          <div className="flex items-center gap-3.5 group cursor-pointer" onClick={() => router.push('/portal')}>
+          <div className="flex items-center gap-3.5 group cursor-pointer" onClick={() => router.push('/')}>
             <div className="w-10 h-10 rounded-[14px] bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 flex items-center justify-center font-black text-lg text-white shadow-[0_8px_16px_-4px_rgba(249,115,22,0.4)] group-hover:scale-105 group-active:scale-95 transition-all duration-300">
               J
             </div>
@@ -250,7 +250,7 @@ export default function ProfilePage() {
             <Link href="/portal" className="text-xs font-black border border-neutral-200 bg-white/80 hover:bg-orange-50 hover:border-orange-300 rounded-xl px-4 py-2 text-neutral-600 hover:text-orange-600 transition-colors shadow-sm">
               Portal
             </Link>
-            <Link href="/chat" className="text-xs font-black border border-neutral-200 bg-white/80 hover:bg-orange-50 hover:border-orange-300 rounded-xl px-4 py-2 text-neutral-600 hover:text-orange-600 transition-colors shadow-sm">
+            <Link href="/" className="text-xs font-black border border-neutral-200 bg-white/80 hover:bg-orange-50 hover:border-orange-300 rounded-xl px-4 py-2 text-neutral-600 hover:text-orange-600 transition-colors shadow-sm">
               Chat
             </Link>
             <Link href="/tracking" className="text-xs font-black border border-neutral-200 bg-white/80 hover:bg-orange-50 hover:border-orange-300 rounded-xl px-4 py-2 text-neutral-600 hover:text-orange-600 transition-colors shadow-sm">
@@ -259,7 +259,7 @@ export default function ProfilePage() {
             <button
               onClick={async () => {
                 await fetch('/api/auth/logout', { method: 'POST' });
-                router.replace('/portal');
+                router.replace('/');
               }}
               className="text-xs font-black border border-neutral-200 bg-white/80 hover:bg-red-50 hover:border-red-300 rounded-xl px-4 py-2 text-neutral-600 hover:text-red-600 transition-colors shadow-sm"
             >

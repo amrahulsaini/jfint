@@ -96,6 +96,7 @@ self.__SERVER_FILES_MANIFEST={
     "compiler": {},
     "expireTime": 31536000,
     "staticPageGenerationTimeout": 60,
+    "output": "standalone",
     "modularizeImports": {
       "@mui/icons-material": {
         "transform": "@mui/icons-material/{{member}}"
@@ -307,20 +308,10 @@ self.__SERVER_FILES_MANIFEST={
       "pdf-parse",
       "pdfjs-dist"
     ],
-    "eslint": {
-      "ignoreDuringBuilds": true
-    },
     "turbopack": {
       "root": "C:\\Users\\ammra\\Downloads\\jfint"
     },
-    "distDirRoot": ".next",
-    "_originalRedirects": [
-      {
-        "source": "/:path*",
-        "destination": "https://rtusumsrajcom.app/Exam/Report/DownloadGradesheet.aspx/",
-        "permanent": true
-      }
-    ]
+    "distDirRoot": ".next"
   },
   "appDir": "C:\\Users\\ammra\\Downloads\\jfint",
   "relativeAppDir": "",

@@ -90,6 +90,10 @@ h6 {
   animation: ui-rise-in 480ms ease-out both;
 }
 
+.ticker-track {
+  animation: ticker-scroll 34s linear infinite;
+}
+
 @keyframes ui-rise-in {
   from {
     opacity: 0;
@@ -98,5 +102,14 @@ h6 {
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
   }
 }

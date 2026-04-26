@@ -1,0 +1,3 @@
+{
+  "/api/pdf-auth/verify-dob/route": "app/api/pdf-auth/verify-dob/route.js"
+}

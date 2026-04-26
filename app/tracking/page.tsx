@@ -104,13 +104,13 @@ export default function TrackingPage() {
           </div>
           <div className="flex items-center gap-3">
             <Link
-              href="/"
+              href="/portal"
               className="flex items-center gap-1.5 bg-neutral-100 hover:bg-orange-50 border border-neutral-200 hover:border-orange-300 text-neutral-500 hover:text-orange-600 text-xs font-black px-3 py-1.5 rounded-xl transition-all duration-200"
             >
               ← Portal
             </Link>
             <Link
-              href="/chat"
+              href="/"
               className="flex items-center gap-1.5 bg-neutral-100 hover:bg-orange-50 border border-neutral-200 hover:border-orange-300 text-neutral-500 hover:text-orange-600 text-xs font-black px-3 py-1.5 rounded-xl transition-all duration-200"
             >
               Chat
@@ -122,7 +122,7 @@ export default function TrackingPage() {
               Profile
             </Link>
             <button
-              onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); router.replace('/portal'); }}
+              onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); router.replace('/'); }}
               className="flex items-center gap-1.5 bg-neutral-100 hover:bg-red-50 border border-neutral-200 hover:border-red-300 text-neutral-500 hover:text-red-600 text-xs font-black px-3 py-1.5 rounded-xl transition-all duration-200"
             >
               Logout
@@ -319,7 +319,7 @@ export default function TrackingPage() {
                 <p className="text-sm font-bold text-neutral-500">No results unlocked yet</p>
                 <p className="text-xs text-neutral-400 mt-1">Purchase access to individual results or an all-access plan from the portal.</p>
                 <Link
-                  href="/"
+                  href="/portal"
                   className="inline-block mt-4 bg-orange-500 hover:bg-orange-600 text-white text-xs font-black px-4 py-2 rounded-xl transition-colors"
                 >
                   Go to Portal →

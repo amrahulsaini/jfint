@@ -1,0 +1,3 @@
+{
+  "/api/chat/presence/route": "app/api/chat/presence/route.js"
+}

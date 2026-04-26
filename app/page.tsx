@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import ChatHome from '@/app/components/ChatHome';
 
-export default function Home() {
-  redirect('/portal');
+export default function HomePage() {
+  return <ChatHome />;
 }

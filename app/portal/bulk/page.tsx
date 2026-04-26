@@ -441,7 +441,7 @@ export default function BulkPdfPage() {
             <span className="text-lg font-black tracking-tight">Bulk PDF Export</span>
           </div>
           <Link
-            href="/portal"
+            href="/portal/full"
             className="text-xs font-black px-3 py-1.5 rounded-xl border border-neutral-200 bg-neutral-100 hover:bg-orange-50 hover:text-orange-600 transition-all"
           >
             Back To Portal

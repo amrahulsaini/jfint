@@ -65,8 +65,9 @@ export async function POST(req: NextRequest) {
 
     const message = await createChatMessage(identity, text);
     await setTypingStatus(identity, false);
+    const room = await getRoomState();
 
-    return NextResponse.json({ message });
+    return NextResponse.json({ message, room });
   } catch (err) {
     const code = err instanceof Error ? err.message : '';
     if (code === 'EMPTY_MESSAGE') {

@@ -1,29 +1,29 @@
-import type { Metadata, Viewport } from "next";
-import { Manrope, Sora } from "next/font/google";
-import "./globals.css";
-import ChatFab from "./components/ChatFab";
+import type { Metadata, Viewport } from 'next';
+import { Manrope, Sora } from 'next/font/google';
+import './globals.css';
+import ChatFab from './components/ChatFab';
 
 const manrope = Manrope({
-  variable: "--font-manrope",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  display: "swap",
+  variable: '--font-manrope',
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  display: 'swap',
 });
 
 const sora = Sora({
-  variable: "--font-sora",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  display: "swap",
+  variable: '--font-sora',
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
-  title: "JECRC 1st Sem & 3rd Sem Results — Complete Info Portal",
-  description: "Check your B.Tech 1st & 3rd semester results, internal marks, and complete student info — JECRC Foundation.",
+  title: 'JECRC Live Chat and Results Portal',
+  description: 'Main website chat, request handling, and the separated JECRC results portal experience.',
 };
 
 export const viewport: Viewport = {
-  width: "device-width",
+  width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
 };
@@ -35,9 +35,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${manrope.variable} ${sora.variable} antialiased font-sans overflow-x-hidden`}
-      >
+      <body className={`${manrope.variable} ${sora.variable} overflow-x-hidden font-sans antialiased`}>
         {children}
         <ChatFab />
       </body>
