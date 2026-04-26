@@ -233,15 +233,6 @@ export default function ChatHome() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const seen = window.sessionStorage.getItem('jfint-chat-notice-seen');
-    if (!seen) {
-      setShowNoticeDialog(true);
-      window.sessionStorage.setItem('jfint-chat-notice-seen', '1');
-    }
-  }, []);
-
-  useEffect(() => {
     let cancelled = false;
 
     async function bootstrap() {
@@ -496,78 +487,6 @@ export default function ChatHome() {
         <div className="absolute left-1/3 top-40 h-40 w-40 rounded-full bg-amber-300/15 blur-3xl" />
       </div>
 
-      {showNoticeDialog && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-neutral-950/50 p-3 backdrop-blur-md">
-          <div className="relative w-full max-w-2xl overflow-hidden rounded-[30px] border border-white/60 bg-white shadow-[0_30px_90px_-30px_rgba(15,23,42,0.55)]">
-            <div className="grid gap-0 md:grid-cols-[0.92fr_1.08fr]">
-              <div className="relative overflow-hidden bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.28),transparent_30%),linear-gradient(160deg,#ea580c_0%,#f97316_55%,#fb923c_100%)] p-6 text-white md:p-8">
-                <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.12),transparent_42%,rgba(255,255,255,0.05)_60%,transparent_70%)]" />
-                <div className="relative">
-                  <div className="mb-4 inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-orange-50">
-                    Live Update
-                  </div>
-                  <h2 className="font-display text-3xl font-black leading-tight tracking-[-0.04em]">
-                    The main website is now the live chat room.
-                  </h2>
-                  <p className="mt-4 max-w-sm text-sm font-semibold text-orange-50/90">
-                    Use this room to request marks, student info, or support while the public portal keeps sensitive data hidden for now.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-6 md:p-8">
-                <button
-                  onClick={() => setShowNoticeDialog(false)}
-                  className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-500 transition-colors hover:border-neutral-300 hover:text-neutral-900"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
-                      Temporary Hold
-                    </div>
-                    <p className="mt-1 text-sm font-semibold text-amber-900">
-                      Marks and detailed student info are hidden for now.
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-4">
-                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-neutral-500">
-                      Need Access
-                    </div>
-                    <p className="mt-2 text-sm font-semibold text-neutral-700">
-                      Mail <span className="font-black text-neutral-900">{SITE_CONTACT_EMAIL}</span> or drop a request here in chat.
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4">
-                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-700">
-                      Community Notice
-                    </div>
-                    <p className="mt-2 text-sm font-semibold text-sky-900">
-                      Hidden messages can still be revealed by users if they choose, but deleted messages are removed from the conversation view.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                  <button
-                    onClick={() => setShowNoticeDialog(false)}
-                    className="inline-flex h-12 flex-1 items-center justify-center rounded-2xl bg-neutral-950 text-sm font-black text-white transition-colors hover:bg-neutral-800"
-                  >
-                    Enter Chat
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <nav className="sticky top-[34px] z-40 border-b border-white/60 bg-white/80 shadow-[0_16px_36px_-26px_rgba(15,23,42,0.5)] backdrop-blur-2xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <button
@@ -625,10 +544,10 @@ export default function ChatHome() {
               </div>
               <div className="space-y-3">
                 <h1 className="font-display text-3xl font-black tracking-[-0.05em] text-neutral-950 sm:text-4xl lg:text-[3.2rem]">
-                  Student requests, updates, and support now happen right here.
+                  JECRC Student Chat
                 </h1>
                 <p className="max-w-3xl text-sm font-semibold leading-7 text-neutral-600 sm:text-base">
-                  The main website now opens the live chat directly. Results stay separated under the portal, and detailed marks or student info are temporarily hidden until access is requested.
+                  Connect with other students and request support.
                 </p>
               </div>
 
@@ -647,35 +566,6 @@ export default function ChatHome() {
                   </div>
                   <p className="mt-1 text-xs font-semibold text-neutral-500">Conversation history in the room.</p>
                 </div>
-                <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-4 shadow-sm">
-                  <div className="text-[10px] font-black uppercase tracking-[0.18em] text-orange-500">Need Records</div>
-                  <div className="mt-2 text-sm font-black text-orange-900">
-                    Request in chat or by mail
-                  </div>
-                  <p className="mt-1 text-xs font-semibold text-orange-700">{SITE_CONTACT_EMAIL}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-3">
-              <div className="rounded-[28px] border border-neutral-200/80 bg-white/90 p-4 shadow-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-neutral-400">Always Running Notice</div>
-                    <h2 className="mt-1 font-display text-xl font-black tracking-[-0.04em] text-neutral-950">
-                      Marks and info are hidden for now.
-                    </h2>
-                  </div>
-                  <button
-                    onClick={() => setShowNoticeDialog(true)}
-                    className="inline-flex h-10 shrink-0 items-center justify-center rounded-2xl border border-neutral-200 bg-white px-4 text-xs font-black text-neutral-700 transition-colors hover:border-orange-300 hover:text-orange-600"
-                  >
-                    Read Notice
-                  </button>
-                </div>
-                <p className="mt-3 text-sm font-semibold leading-6 text-neutral-600">
-                  If anyone wants to see anything, kindly drop a mail to <span className="font-black text-neutral-900">{SITE_CONTACT_EMAIL}</span> or post a request in this chat room.
-                </p>
               </div>
             </div>
           </div>
