@@ -1,9 +1,16 @@
-.next/dev/
-.next/cache/
-.next/trace
-.next/trace-build
+# Build output — Vercel builds from source, these must not be committed
+.next/
+out/
+
 node_modules/
 .env.local
 .env*.local
 .venv/
 tsconfig.tsbuildinfo
+.vercel/
+
+# Large binary assets — served from Cloudflare R2, not the deployment.
+# Sync them with scripts/sync-assets-to-r2.sh
+public/1styearphotos/
+public/student_photos/
+public/forms-1styear/

@@ -1,4 +1,5 @@
 'use client';
+import { studentPhotoUrl } from '@/lib/assets';
 
 import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -147,7 +148,7 @@ async function appendStudentToPdf(
   y += 22;
 
   // Photo
-  const photoUrl = `/${photoDir}/photo_${detail.student.roll_no}.jpg`;
+  const photoUrl = studentPhotoUrl(photoDir, detail.student.roll_no);
   let photoLoaded = false;
   try {
     const photoRes = await fetch(photoUrl);

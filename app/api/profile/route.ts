@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { studentPhotoUrl } from '@/lib/assets';
 import { cacheGetJson, cacheSetJson } from '@/lib/cache';
 import { getPool } from '@/lib/db';
 
@@ -112,7 +113,7 @@ async function fetchMappedRecords(
         mobile: mobile || null,
         fatherName: fatherName || null,
         motherName: motherName || null,
-        photoUrl: photoRoll ? `/${photoDir}/photo_${photoRoll}.jpg` : null,
+        photoUrl: photoRoll ? studentPhotoUrl(photoDir, photoRoll) : null,
         updatedAt: toIso(row.updated_at ?? row.created_at ?? row.extracted_at),
       };
     });

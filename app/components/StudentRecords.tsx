@@ -1,4 +1,5 @@
 'use client';
+import { studentPhotoUrl } from '@/lib/assets';
 
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
@@ -304,7 +305,7 @@ export default function StudentRecords({
       y += 22;
 
       // ── Photo ───────────────────────────────────────────────
-      const photoUrl = `/${photoDir}/photo_${detail.student.roll_no}.jpg`;
+      const photoUrl = studentPhotoUrl(photoDir, detail.student.roll_no);
       let photoLoaded = false;
       try {
         const resp = await fetch(photoUrl);
@@ -580,7 +581,7 @@ export default function StudentRecords({
       let photoDataUrl: string | null = null;
       let photoFormat: 'JPEG' | 'PNG' = 'JPEG';
       try {
-        const photoUrl = `/${photoDir}/photo_${detail.student.roll_no}.jpg`;
+        const photoUrl = studentPhotoUrl(photoDir, detail.student.roll_no);
         const photoResp = await fetch(photoUrl);
         if (photoResp.ok) {
           const blob = await photoResp.blob();
@@ -1245,7 +1246,7 @@ export default function StudentRecords({
               <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-5 relative">
                 <div className="w-14 h-14 sm:w-[72px] sm:h-[72px] rounded-2xl sm:rounded-[18px] overflow-hidden bg-gradient-to-br from-neutral-100 to-neutral-200 border-2 sm:border-[3px] border-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] group-hover:border-orange-100 group-hover:shadow-[0_4px_16px_rgba(249,115,22,0.2)] transition-all duration-300 flex-shrink-0 relative z-10">
                   <Image
-                    src={`/${photoDir}/photo_${row.roll_no}.jpg`}
+                    src={studentPhotoUrl(photoDir, row.roll_no)}
                     alt={row.student_name}
                     width={72}
                     height={72}
@@ -1677,7 +1678,7 @@ export default function StudentRecords({
                     <div className="flex items-start gap-3">
                       <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl overflow-hidden bg-orange-100 border-2 border-orange-200 flex-shrink-0 shadow-md">
                         <Image
-                          src={`/${photoDir}/photo_${detail.student.roll_no}.jpg`}
+                          src={studentPhotoUrl(photoDir, detail.student.roll_no)}
                           alt={detail.student.student_name}
                           width={80}
                           height={80}

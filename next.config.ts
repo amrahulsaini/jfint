@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
+  // No 'output: standalone' — the VM runs `next start` off .next, and Vercel
+  // builds its own output. Emitting standalone only bloated the build.
   serverExternalPackages: ['pdf-parse', 'pdfjs-dist'],
   typescript: {
     ignoreBuildErrors: true,

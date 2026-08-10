@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
+import { putPublicObject } from '@/lib/storage';
 
 interface StudentPayload {
   rollNo: string;
@@ -17,9 +16,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No student data provided' }, { status: 400 });
     }
 
-    const photoDir = path.join(process.cwd(), 'public', '1styearphotos');
-    await mkdir(photoDir, { recursive: true });
-
     let photosSaved = 0;
 
     for (const s of students) {
@@ -27,8 +23,7 @@ export async function POST(req: NextRequest) {
       try {
         const base64Data = s.photoBase64.replace(/^data:image\/\w+;base64,/, '');
         const imgBuffer = Buffer.from(base64Data, 'base64');
-        const filePath = path.join(photoDir, `photo_${s.rollNo}.jpg`);
-        await writeFile(filePath, imgBuffer);
+        await putPublicObject(`1styearphotos/photo_${s.rollNo}.jpg`, imgBuffer, 'image/jpeg');
         photosSaved++;
       } catch {
         // skip failed photo
