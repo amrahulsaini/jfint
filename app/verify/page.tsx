@@ -57,6 +57,12 @@ function VerifyPageInner() {
         body: JSON.stringify({ email: trimmed }),
       });
       const data = await res.json();
+      if (data.success && data.otpDisabled) {
+        // Email pass delivery is off — the email step alone signs the user in.
+        setSuccess(true);
+        setTimeout(() => router.replace(from), 800);
+        return;
+      }
       if (data.success) {
         setStep('otp');
         startCooldown(60);

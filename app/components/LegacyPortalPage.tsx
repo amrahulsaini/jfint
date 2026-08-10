@@ -123,6 +123,12 @@ export default function Home() {
         body: JSON.stringify({ email }),
       });
       const data = await res.json();
+      if (data.success && data.otpDisabled) {
+        // Email pass delivery is off — the email step alone signs the user in.
+        setShowVerify(false);
+        setVerifiedEmail(email);
+        return;
+      }
       if (data.success) {
         setVerifyStep('otp');
         startCooldown(60);

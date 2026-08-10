@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyOtp } from '@/lib/otp';
+import { isOtpDisabled } from '@/lib/otp-mode';
 import { createSessionToken, saveSessionToDB, SESSION_COOKIE } from '@/lib/session';
 
 const OTP_COOKIE = 'jfint_student_otp';
@@ -16,25 +17,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid email.' }, { status: 400 });
     }
 
-    const cookieToken = req.cookies.get(OTP_COOKIE)?.value;
-    if (!cookieToken) {
-      return NextResponse.json({ error: 'OTP session expired. Please request a new code.' }, { status: 401 });
-    }
-
-    const result = verifyOtp(cookieToken, otp, email);
-
-    if (!result.ok) {
-      const failRes = NextResponse.json({ error: result.error }, { status: 401 });
-      if (result.updatedCookie) {
-        failRes.cookies.set(OTP_COOKIE, result.updatedCookie, {
-          httpOnly: true, sameSite: 'lax',
-          secure: process.env.NODE_ENV === 'production',
-          maxAge: 60 * 60, path: '/',
-        });
-      } else {
-        failRes.cookies.set(OTP_COOKIE, '', { maxAge: 0, path: '/' });
+    // While OTP is disabled the email step already granted the session, but stale
+    // clients may still post a code here — accept it rather than blocking sign-in.
+    if (!isOtpDisabled()) {
+      const cookieToken = req.cookies.get(OTP_COOKIE)?.value;
+      if (!cookieToken) {
+        return NextResponse.json({ error: 'OTP session expired. Please request a new code.' }, { status: 401 });
       }
-      return failRes;
+
+      const result = verifyOtp(cookieToken, otp, email);
+
+      if (!result.ok) {
+        const failRes = NextResponse.json({ error: result.error }, { status: 401 });
+        if (result.updatedCookie) {
+          failRes.cookies.set(OTP_COOKIE, result.updatedCookie, {
+            httpOnly: true, sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 60 * 60, path: '/',
+          });
+        } else {
+          failRes.cookies.set(OTP_COOKIE, '', { maxAge: 0, path: '/' });
+        }
+        return failRes;
+      }
     }
 
     const { sessionId, cookieValue } = createSessionToken();
