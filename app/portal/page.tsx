@@ -7,10 +7,12 @@ import {
   LEGACY_RESULTS_PORTAL_PATH,
   MAIN_CHAT_PATH,
   SITE_CONTACT_EMAIL,
+  SITE_FEATURES,
 } from '@/lib/site-config';
 
 export default function PortalPage() {
-  const [showDialog, setShowDialog] = useState(true);
+  // Only warn about hidden records while they actually are hidden.
+  const [showDialog, setShowDialog] = useState(SITE_FEATURES.publicResultsHidden);
 
   return (
     <div className="min-h-[100dvh] ui-aurora text-neutral-900">
@@ -61,7 +63,7 @@ export default function PortalPage() {
                 JECRC<span className="text-orange-500">.</span> Portal
               </div>
               <div className="text-[10px] font-black uppercase tracking-[0.22em] text-neutral-400">
-                Temporary Hold Page
+                {SITE_FEATURES.publicResultsHidden ? 'Temporary Hold Page' : 'Student Records'}
               </div>
             </div>
           </Link>
@@ -89,14 +91,18 @@ export default function PortalPage() {
             <div className="space-y-5">
               <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-orange-700">
                 <span className="inline-flex h-2 w-2 rounded-full bg-orange-500" />
-                Portal temporarily restricted
+                {SITE_FEATURES.publicResultsHidden ? 'Portal temporarily restricted' : 'Portal open'}
               </div>
               <div className="space-y-3">
                 <h1 className="font-display text-3xl font-black tracking-[-0.05em] text-neutral-950 sm:text-4xl lg:text-[3.1rem]">
-                  Results stay separated here, but public marks and info are paused for now.
+                  {SITE_FEATURES.publicResultsHidden
+                    ? 'Results stay separated here, but public marks and info are paused for now.'
+                    : 'Search any student, and open their marks and full record.'}
                 </h1>
                 <p className="max-w-3xl text-sm font-semibold leading-7 text-neutral-600 sm:text-base">
-                  The main website now focuses on the chat experience. This portal is acting as the controlled access point while sensitive student details stay hidden from open browsing.
+                  {SITE_FEATURES.publicResultsHidden
+                    ? 'The main website now focuses on the chat experience. This portal is acting as the controlled access point while sensitive student details stay hidden from open browsing.'
+                    : 'The main website focuses on the chat experience. This portal is the access point for marks and full student records.'}
                 </p>
               </div>
 
@@ -107,9 +113,13 @@ export default function PortalPage() {
                   <p className="mt-1 text-xs font-semibold text-neutral-500">Requests and support now open on the homepage.</p>
                 </div>
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 shadow-sm">
-                  <div className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">Temporary State</div>
-                  <div className="mt-2 text-lg font-black text-amber-900">Marks Hidden</div>
-                  <p className="mt-1 text-xs font-semibold text-amber-800">Sensitive data is not publicly listed right now.</p>
+                  <div className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">Current State</div>
+                  <div className="mt-2 text-lg font-black text-amber-900">{SITE_FEATURES.publicResultsHidden ? 'Marks Hidden' : 'Marks Visible'}</div>
+                  <p className="mt-1 text-xs font-semibold text-amber-800">
+                    {SITE_FEATURES.publicResultsHidden
+                      ? 'Sensitive data is not publicly listed right now.'
+                      : 'Marks and full student records are browsable again.'}
+                  </p>
                 </div>
                 <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4 shadow-sm">
                   <div className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-700">Full Route</div>
