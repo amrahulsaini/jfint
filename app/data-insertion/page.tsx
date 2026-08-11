@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import { api, withBasePath } from '@/lib/base-path';
 
 interface StudentRecord {
   pageNum: number;
@@ -66,7 +67,7 @@ export default function DataInsertionPage() {
       formData.append('pdf', file);
       setProgress(`Processing ${(file.size / 1024 / 1024).toFixed(1)} MB…`);
 
-      const res = await fetch('/api/pdf-extract', { method: 'POST', body: formData });
+      const res = await fetch(api('/api/pdf-extract'), { method: 'POST', body: formData });
 
       if (!res.ok || !res.body) {
         const text = await res.text();
@@ -187,7 +188,7 @@ export default function DataInsertionPage() {
     setSaving(true);
     setSaveMsg('');
     try {
-      const res = await fetch('/api/pdf-save', {
+      const res = await fetch(api('/api/pdf-save'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ students }),
@@ -211,7 +212,7 @@ export default function DataInsertionPage() {
     setSavingPhotoIdx(studentIdx);
     setSaveMsg('');
     try {
-      const res = await fetch('/api/pdf-save', {
+      const res = await fetch(api('/api/pdf-save'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ students: [student] }),
@@ -255,7 +256,7 @@ export default function DataInsertionPage() {
       {/* Navbar */}
       <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-neutral-200">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-5 md:px-8 h-16">
-          <a href="/" className="flex items-center gap-3">
+          <a href={withBasePath('/')} className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-orange-500 flex items-center justify-center font-extrabold text-sm text-white shadow-lg shadow-orange-500/25">
               J
             </div>

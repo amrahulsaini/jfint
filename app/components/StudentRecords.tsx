@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { createPortal } from 'react-dom';
 import { SITE_CONTACT_EMAIL, SITE_FEATURES } from '@/lib/site-config';
+import { api } from '@/lib/base-path';
 
 /* ── Types ──────────────────────────────────────────────── */
 interface StudentRow {
@@ -197,7 +198,7 @@ export default function StudentRecords({
       if (search) p.set('search', search);
       if (branch) p.set('branch', branch);
       if (gender && table === '1styearmaster') p.set('gender', gender);
-      const res = await fetch(`/api/db/students?${p}`);
+      const res = await fetch(api(`/api/db/students?${p}`));
       const json: ApiResponse = await res.json();
       if (json.error) { setError(json.error); setData(null); }
       else { setError(''); setData(json); }
@@ -215,7 +216,7 @@ export default function StudentRecords({
 
   // Check paid status + price on mount
   useEffect(() => {
-    fetch('/api/payment/status').then(r => r.json()).then(d => {
+    fetch(api('/api/payment/status')).then(r => r.json()).then(d => {
       if (d.allAccess) { setAllAccess(true); }
       if (d.paidRolls?.length) setPaidRolls(new Set(d.paidRolls));
     }).catch(() => {});
@@ -547,7 +548,7 @@ export default function StudentRecords({
     if (!detail || exportGenerating) return;
     setPdfExportError('');
     try {
-      const res = await fetch('/api/pdf-auth/verify-dob', {
+      const res = await fetch(api('/api/pdf-auth/verify-dob'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rollNo: detail.student.roll_no }),
@@ -820,7 +821,7 @@ export default function StudentRecords({
       if (table === '1styearmaster') {
         p.set('include_profile', '0');
       }
-      const res = await fetch(`/api/db/student-detail?${p.toString()}`);
+      const res = await fetch(api(`/api/db/student-detail?${p.toString()}`));
       if (res.status === 402) {
         // Cookie expired server-side — show payment modal, but don't remove from client state
         setShowModal(false);
@@ -859,7 +860,7 @@ export default function StudentRecords({
           table,
           include_profile: '1',
         });
-        const res = await fetch(`/api/db/student-detail?${p.toString()}`, {
+        const res = await fetch(api(`/api/db/student-detail?${p.toString()}`), {
           signal: controller.signal,
         });
 
@@ -919,7 +920,7 @@ export default function StudentRecords({
     setCouponLoading(true);
     setCouponError('');
     try {
-      const res = await fetch('/api/payment/apply-coupon', {
+      const res = await fetch(api('/api/payment/apply-coupon'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ coupon: coupon.trim() }),
@@ -959,7 +960,7 @@ export default function StudentRecords({
     }
     setPayLoading(true);
     try {
-      const orderRes = await fetch('/api/payment/create-order', {
+      const orderRes = await fetch(api('/api/payment/create-order'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan: 'single' }),
@@ -986,7 +987,7 @@ export default function StudentRecords({
         image: `${window.location.origin}/logo.png`,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         handler: async (response: any) => {
-          const verifyRes = await fetch('/api/payment/verify', {
+          const verifyRes = await fetch(api('/api/payment/verify'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

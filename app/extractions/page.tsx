@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { api } from '@/lib/base-path';
 
 type EducationRow = {
   exam: string;
@@ -168,7 +169,7 @@ export default function ExtractionsPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`/api/extractions?file=${encodeURIComponent(SOURCE_FILE)}`);
+      const res = await fetch(api(`/api/extractions?file=${encodeURIComponent(SOURCE_FILE)}`));
       const json = (await res.json()) as ExtractionPayload;
       if (!res.ok || json.error) {
         setError(json.error || 'Failed to load extraction data.');
@@ -193,7 +194,7 @@ export default function ExtractionsPage() {
     setExtracting(true);
     setError('');
     try {
-      const res = await fetch('/api/extractions', {
+      const res = await fetch(api('/api/extractions'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ file: SOURCE_FILE }),
@@ -216,7 +217,7 @@ export default function ExtractionsPage() {
     setIngestingAll(true);
     setIngestError('');
     try {
-      const res = await fetch('/api/extractions/ingest-all', { method: 'POST' });
+      const res = await fetch(api('/api/extractions/ingest-all'), { method: 'POST' });
       const json = (await res.json()) as BatchIngestResponse;
       if (!res.ok || json.error) {
         setIngestError(json.error || 'Batch ingest failed.');

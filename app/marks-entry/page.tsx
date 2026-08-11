@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { api } from '@/lib/base-path';
 
 // ─── Static data extracted from real RTU HTML source ─────────────────────────
 
@@ -168,7 +169,7 @@ export default function MarksEntryPage() {
     setCascadingField(fieldKey);
     setSessionExpired(false);
     try {
-      const res  = await fetch('/api/rtu/cascade', {
+      const res  = await fetch(api('/api/rtu/cascade'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -303,7 +304,7 @@ export default function MarksEntryPage() {
     setHasViewed(false);
     setSessionExpired(false);
     try {
-      const res  = await fetch('/api/rtu/view', {
+      const res  = await fetch(api('/api/rtu/view'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -464,7 +465,7 @@ export default function MarksEntryPage() {
       const eventTarget = `ctl00$ContentPlaceHolder1$gvcollegemarksdtl$ctl${rowCtl}$lblformfilled`;
 
       try {
-        const res = await fetch('/api/rtu/detail', {
+        const res = await fetch(api('/api/rtu/detail'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -548,7 +549,7 @@ export default function MarksEntryPage() {
       const eventTarget = `ctl00$ContentPlaceHolder1$gvcollegemarksdtl$ctl${rowCtl}$lblformfilled`;
 
       try {
-        const res = await fetch('/api/rtu/detail', {
+        const res = await fetch(api('/api/rtu/detail'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -671,7 +672,7 @@ export default function MarksEntryPage() {
       const eventTarget = `ctl00$ContentPlaceHolder1$gvcollegemarksdtl$ctl${rowCtl}$lblformfilled`;
 
       try {
-        const res = await fetch('/api/rtu/detail', {
+        const res = await fetch(api('/api/rtu/detail'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -760,7 +761,7 @@ export default function MarksEntryPage() {
     const rowCtl      = String(rowIdx + 2).padStart(2, '0');
     const eventTarget = `ctl00$ContentPlaceHolder1$gvcollegemarksdtl$ctl${rowCtl}$lblformfilled`;
     try {
-      const res = await fetch('/api/rtu/detail', {
+      const res = await fetch(api('/api/rtu/detail'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { api } from '@/lib/base-path';
 
 interface Payment {
   plan: string;
@@ -59,7 +60,7 @@ export default function TrackingPage() {
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
-    fetch('/api/tracking')
+    fetch(api('/api/tracking'))
       .then(r => {
         if (r.status === 401) {
           setNeedsVerify(true);
@@ -116,7 +117,7 @@ export default function TrackingPage() {
               Profile
             </Link>
             <button
-              onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); router.replace('/'); }}
+              onClick={async () => { await fetch(api('/api/auth/logout'), { method: 'POST' }); router.replace('/'); }}
               className="flex items-center gap-1.5 bg-neutral-100 hover:bg-red-50 border border-neutral-200 hover:border-red-300 text-neutral-500 hover:text-red-600 text-xs font-black px-3 py-1.5 rounded-xl transition-all duration-200"
             >
               Logout

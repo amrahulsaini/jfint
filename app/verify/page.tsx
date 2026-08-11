@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import { api } from '@/lib/base-path';
 
 function VerifyPageInner() {
   const router = useRouter();
@@ -51,7 +52,7 @@ function VerifyPageInner() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/auth/student-send-otp', {
+      const res = await fetch(api('/api/auth/student-send-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmed }),
@@ -121,7 +122,7 @@ function VerifyPageInner() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/auth/student-verify-otp', {
+      const res = await fetch(api('/api/auth/student-verify-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim().toLowerCase(), otp: finalOtp }),

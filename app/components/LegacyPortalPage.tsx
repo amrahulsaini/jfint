@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import StudentRecords from "./StudentRecords";
 import DisclaimerModal from "./DisclaimerModal";
+import { api, withBasePath } from '@/lib/base-path';
 
 
 type View = '1styear' | '2ndyear' | null;
@@ -70,7 +71,7 @@ export default function Home() {
 
   // Check if already verified on mount
   useEffect(() => {
-    fetch('/api/auth/check-verified')
+    fetch(api('/api/auth/check-verified'))
       .then(r => r.json())
       .then(d => {
         setVerifyChecked(true);
@@ -118,7 +119,7 @@ export default function Home() {
     setVerifyLoading(true);
     setVerifyError('');
     try {
-      const res = await fetch('/api/auth/student-send-otp', {
+      const res = await fetch(api('/api/auth/student-send-otp'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
@@ -171,7 +172,7 @@ export default function Home() {
     if (finalOtp.length !== 6) return;
     setVerifyLoading(true); setVerifyError('');
     try {
-      const res = await fetch('/api/auth/student-verify-otp', {
+      const res = await fetch(api('/api/auth/student-verify-otp'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: verifyEmail.trim().toLowerCase(), otp: finalOtp }),
       });
@@ -196,7 +197,7 @@ export default function Home() {
   const handleLogout = async () => {
     setLogoutLoading(true);
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch(api('/api/auth/logout'), { method: 'POST' });
       setVerifiedEmail(null);
       setShowVerify(false);
       setVerifyStep('email');
@@ -428,9 +429,9 @@ export default function Home() {
           <div className="hidden md:flex items-center gap-8 text-sm font-bold text-neutral-500 bg-white/40 px-6 py-2 rounded-full border border-white/60 shadow-sm">
             <a href="#portal" className="hover:text-orange-600 transition-colors duration-200">Portal</a>
             <a href="#about" className="hover:text-orange-600 transition-colors duration-200">About</a>
-            <a href="/" className="hover:text-orange-600 transition-colors duration-200">Chat</a>
-            <a href="/profile" className="hover:text-orange-600 transition-colors duration-200">Profile</a>
-            <a href="/tracking" className="hover:text-orange-600 transition-colors duration-200">Tracking</a>
+            <a href={withBasePath('/')} className="hover:text-orange-600 transition-colors duration-200">Chat</a>
+            <a href={withBasePath('/profile')} className="hover:text-orange-600 transition-colors duration-200">Profile</a>
+            <a href={withBasePath('/tracking')} className="hover:text-orange-600 transition-colors duration-200">Tracking</a>
           </div>
           {/* Session timer + logout */}
           <div className="flex items-center gap-2">
@@ -479,9 +480,9 @@ export default function Home() {
             <div className="max-w-7xl mx-auto px-5 py-3 flex flex-col gap-2 text-sm font-bold text-neutral-600">
               <a href="#portal" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Portal</a>
               <a href="#about" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">About</a>
-              <a href="/" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Chat</a>
-              <a href="/profile" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Profile</a>
-              <a href="/tracking" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Tracking</a>
+              <a href={withBasePath('/')} onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Chat</a>
+              <a href={withBasePath('/profile')} onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Profile</a>
+              <a href={withBasePath('/tracking')} onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200">Tracking</a>
             </div>
           </div>
         )}

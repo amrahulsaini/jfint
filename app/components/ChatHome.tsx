@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import TopTicker from '@/app/components/TopTicker';
+import { api } from '@/lib/base-path';
 import {
   CHAT_DISCLAIMER_ITEMS,
   MAIN_CHAT_PATH,
@@ -159,7 +160,7 @@ export default function ChatHome() {
     typingEnabledRef.current = false;
     typingSentAtRef.current = Date.now();
     try {
-      await fetch('/api/chat/presence', {
+      await fetch(api('/api/chat/presence'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ typing: false }),
@@ -183,7 +184,7 @@ export default function ChatHome() {
     }
 
     try {
-      const response = await fetch('/api/chat/presence', {
+      const response = await fetch(api('/api/chat/presence'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ typing }),
@@ -203,7 +204,7 @@ export default function ChatHome() {
     pollInFlightRef.current = true;
 
     try {
-      const response = await fetch('/api/chat/messages', { cache: 'no-store' });
+      const response = await fetch(api('/api/chat/messages'), { cache: 'no-store' });
       if (response.status === 401) {
         setNeedsVerify(true);
         return;
@@ -238,7 +239,7 @@ export default function ChatHome() {
     async function bootstrap() {
       try {
         setLoading(true);
-        const response = await fetch('/api/chat/bootstrap', { cache: 'no-store' });
+        const response = await fetch(api('/api/chat/bootstrap'), { cache: 'no-store' });
         if (response.status === 401) {
           if (!cancelled) {
             setNeedsVerify(true);
@@ -291,7 +292,7 @@ export default function ChatHome() {
       if (heartbeatInFlightRef.current) return;
       heartbeatInFlightRef.current = true;
       try {
-        const response = await fetch('/api/chat/presence', {
+        const response = await fetch(api('/api/chat/presence'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
@@ -390,7 +391,7 @@ export default function ChatHome() {
     }
 
     try {
-      const response = await fetch('/api/chat/messages', {
+      const response = await fetch(api('/api/chat/messages'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: payload }),
@@ -435,7 +436,7 @@ export default function ChatHome() {
     setError(null);
 
     try {
-      const response = await fetch(`/api/chat/messages/${messageId}`, {
+      const response = await fetch(api(`/api/chat/messages/${messageId}`), {
         method: action === 'delete' ? 'DELETE' : 'PATCH',
         headers: action === 'delete' ? undefined : { 'Content-Type': 'application/json' },
         body: action === 'delete' ? undefined : JSON.stringify({ action }),
@@ -522,7 +523,7 @@ export default function ChatHome() {
             {me && (
               <button
                 onClick={async () => {
-                  await fetch('/api/auth/logout', { method: 'POST' });
+                  await fetch(api('/api/auth/logout'), { method: 'POST' });
                   router.replace(MAIN_CHAT_PATH);
                 }}
                 className="inline-flex h-10 items-center justify-center rounded-2xl border border-red-200 bg-red-50 px-4 text-xs font-black text-red-600 transition-all hover:-translate-y-0.5 hover:bg-red-100"

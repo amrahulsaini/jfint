@@ -3,6 +3,7 @@ import { studentPhotoUrl } from '@/lib/assets';
 
 import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { api } from '@/lib/base-path';
 
 type ViewKey = '1styear' | '2ndyear';
 
@@ -388,8 +389,7 @@ export default function BulkPdfPage() {
         setCurrentRoll(rollNo);
 
         try {
-          const res = await fetch(
-            `/api/db/student-detail?roll_no=${encodeURIComponent(rollNo)}&table=${encodeURIComponent(VIEWS[view].table)}`,
+          const res = await fetch(api(`/api/db/student-detail?roll_no=${encodeURIComponent(rollNo)}&table=${encodeURIComponent(VIEWS[view].table)}`),
           );
 
           if (!res.ok) {

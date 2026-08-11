@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { api } from '@/lib/base-path';
 
 interface SessionLog {
   sessionId: string;
@@ -189,7 +190,7 @@ export default function ProfilePage() {
 
     async function load() {
       try {
-        const res = await fetch('/api/profile');
+        const res = await fetch(api('/api/profile'));
         if (res.status === 401) {
           if (!mounted) return;
           setNeedsVerify(true);
@@ -255,7 +256,7 @@ export default function ProfilePage() {
             </Link>
             <button
               onClick={async () => {
-                await fetch('/api/auth/logout', { method: 'POST' });
+                await fetch(api('/api/auth/logout'), { method: 'POST' });
                 router.replace('/');
               }}
               className="text-xs font-black border border-neutral-200 bg-white/80 hover:bg-red-50 hover:border-red-300 rounded-xl px-4 py-2 text-neutral-600 hover:text-red-600 transition-colors shadow-sm"

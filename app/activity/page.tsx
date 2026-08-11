@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { api } from '@/lib/base-path';
 
 type ActivityApiRow = Partial<{
   id: string | number;
@@ -96,7 +97,7 @@ export default function ActivityPage() {
 
     async function load() {
       try {
-        const res = await fetch('/api/activity');
+        const res = await fetch(api('/api/activity'));
         const json = await res.json();
         
         if (!res.ok || !json.success) {
